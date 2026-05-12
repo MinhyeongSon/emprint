@@ -1,0 +1,252 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Default theme: dark */
+:root {
+  /* Theme tokens */
+  --base: 15 17 21; /* #0f1115 */
+  --panel: 17 19 23; /* ~#111317 */
+  --panel2: 24 27 33; /* ~#181b21 */
+  --surface: 20 23 28; /* ~#14171c */
+  --border: 34 37 43; /* #22252b */
+  --accent: 205 123 0; /* #cd7b00 */
+  --ink: 243 244 246; /* #f3f4f6 */
+  --muted: 156 163 175; /* #9ca3af */
+  --danger: 239 68 68; /* #ef4444 (base red) */
+  --dangerBg: 45 15 15; /* deep red background */
+  --dangerInk: 253 186 186; /* soft red text */
+  /* Typography */
+  --font-ui: 'Pretendard Variable', 'Pretendard', 'Inter', 'SF Pro Text', 'Segoe UI', system-ui,
+    sans-serif;
+  --font-editor: 'Inter', 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  color: rgb(var(--ink));
+  background: rgb(var(--base));
+  color-scheme: dark;
+  font-family: var(--font-ui);
+}
+
+/* Light theme overrides */
+html[data-theme='light'] {
+  --base: 243 244 246; /* #f3f4f6 */
+  --panel: 255 255 255; /* #ffffff */
+  /* Slightly darker than pure white for separation */
+  --panel2: 243 244 246; /* #f3f4f6 */
+  --surface: 255 255 255; /* #ffffff */
+  /* Stronger border for small UI controls */
+  --border: 209 213 219; /* #d1d5db */
+  --accent: 205 123 0; /* keep brand accent */
+  --ink: 15 17 21; /* #0f1115 */
+  /* Darker muted for readability at small sizes */
+  --muted: 55 65 81; /* #374151 */
+  --danger: 220 38 38; /* #dc2626 */
+  --dangerBg: 254 242 242; /* #fef2f2 */
+  --dangerInk: 153 27 27; /* #991b1b */
+  color-scheme: light;
+}
+
+/* Warm / brown-tone theme (original Emprint feel) */
+html[data-theme='warm'] {
+  --base: 26 22 18; /* #1a1612 */
+  --panel: 35 31 26; /* #231f1a */
+  --panel2: 42 37 32; /* #2a2520 */
+  --surface: 30 26 22; /* #1e1a16 */
+  --border: 61 53 44; /* #3d352c */
+  --accent: 205 123 0; /* #cd7b00 */
+  --ink: 245 235 224; /* #f5ebe0 */
+  --muted: 184 169 154; /* #b8a99a */
+  --danger: 239 68 68;
+  --dangerBg: 55 28 24;
+  --dangerInk: 253 186 186;
+  color-scheme: dark;
+}
+
+/* Theme-aware modal scrim (fixes light-mode legibility) */
+.emprint-scrim {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+html[data-theme='light'] .emprint-scrim {
+  background: rgba(0, 0, 0, 0.22);
+}
+
+/* Command palette: stronger scrim in light mode (less “see-through”) */
+html[data-theme='light'] .emprint-scrim-command {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+/* Command palette: force primary copy to pure black in light mode */
+html[data-theme='light'] .emprint-command-palette {
+  --ink: 0 0 0;
+  --muted: 0 0 0;
+  /* Solid frosted surface (reads more opaque than flat white on scrim) */
+  background-color: rgba(255, 255, 255, 0.97) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow:
+    0 0 0 1px rgba(15, 17, 21, 0.06),
+    0 16px 48px rgba(0, 0, 0, 0.14) !important;
+}
+
+html[data-theme='light'] .emprint-command-palette > div.border-b {
+  background-color: transparent !important;
+}
+
+html[data-theme='light'] .emprint-command-palette input {
+  background-color: transparent !important;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  min-height: 100vh;
+  background: rgb(var(--base));
+  color: rgb(var(--ink));
+  letter-spacing: -0.01em;
+  overflow: hidden;
+}
+
+/* Exclusions: keep editor & code blocks on their own fonts */
+.tiptap,
+.prose-emprint {
+  font-family: var(--font-editor);
+}
+
+pre,
+code,
+kbd,
+samp {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
+}
+
+.titlebar-drag {
+  -webkit-app-region: drag;
+}
+
+.titlebar-nodrag {
+  -webkit-app-region: no-drag;
+}
+
+/* Accent scrollbars (Chromium/Electron) */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(205, 123, 0, 0.55);
+  border-radius: 999px;
+  border: 2px solid rgba(15, 17, 21, 0.9);
+}
+
+html[data-theme='warm'] *::-webkit-scrollbar-thumb {
+  border-color: rgba(26, 22, 18, 0.92);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(205, 123, 0, 0.72);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(205, 123, 0, 0.28);
+}
+
+.prose-emprint {
+  color: rgb(var(--ink));
+  line-height: 1.75;
+  font-size: 0.96rem;
+}
+
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: rgba(156, 163, 175, 0.65);
+  pointer-events: none;
+  height: 0;
+}
+
+.tiptap {
+  padding-bottom: 6rem;
+}
+
+.prose-emprint h1,
+.prose-emprint h2,
+.prose-emprint h3 {
+  font-family: 'IBM Plex Sans', 'Inter', 'SF Pro Text', 'Segoe UI', sans-serif;
+  line-height: 1.18;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.9rem;
+}
+
+.prose-emprint h1 {
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+.prose-emprint h2 {
+  font-size: 1.4rem;
+  margin-top: 2rem;
+}
+
+.prose-emprint p,
+.prose-emprint ul,
+.prose-emprint ol,
+.prose-emprint pre {
+  margin: 0 0 0.95rem;
+}
+
+.prose-emprint ul,
+.prose-emprint ol {
+  padding-left: 1.25rem;
+}
+
+.prose-emprint code {
+  border-radius: 0.25rem;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.15rem 0.35rem;
+  font-family: 'JetBrains Mono', 'SFMono-Regular', 'Monaco', 'Consolas', monospace;
+  font-size: 0.92em;
+}
+
+.prose-emprint pre {
+  overflow: auto;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #15110e;
+  padding: 1rem;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.prose-emprint blockquote {
+  margin: 1.25rem 0;
+  border-left: 2px solid rgba(196, 113, 63, 0.6);
+  padding-left: 1rem;
+  color: rgba(230, 221, 210, 0.78);
+}
+
+.prose-emprint hr {
+  margin: 1.5rem 0;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}

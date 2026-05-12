@@ -1,0 +1,99 @@
+# electron-builder configuration.
+#
+# Run with `npm run dist` (current platform) or `npm run dist:mac|win|linux`.
+# Icons are auto-generated into `build/` by `scripts/prepare-build-icons.mjs`,
+# which is wired in as a `pre*` step on every dist script.
+#
+# Cross-compile notes:
+#   - macOS DMG: must be built ON macOS (uses hdiutil).
+#   - Windows NSIS: cross-builds from macOS/Linux via wine if installed,
+#     otherwise build on Windows.
+#   - Linux AppImage/deb: cross-builds cleanly from any host.
+# CI should use a per-OS matrix to avoid these constraints.
+
+appId: com.emprint.app
+productName: Emprint
+copyright: © 2026 Emprint
+asar: true
+
+directories:
+  buildResources: build
+  output: release/${version}
+
+# What ships inside the asar. The renderer/main/preload bundles already
+# come out of `electron-vite build` under apps/desktop/out, and the only
+# package.json electron-builder NEEDS is the root one (where `main` is
+# defined). Everything else is filtered to keep the installer lean.
+files:
+  - apps/desktop/out/**/*
+  - apps/desktop/package.json
+  - package.json
+  - "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme,changelog.md}"
+  - "!**/node_modules/**/{test,tests,__tests__,powered-test,example,examples,docs,doc}/**"
+  - "!**/node_modules/**/*.{md,markdown,map,ts,tsx,d.ts}"
+  - "!**/node_modules/**/.bin"
+  - "!**/{.DS_Store,.git,.svn,.hg,.idea,.vscode,.editorconfig,.eslintrc*,.prettierrc*}"
+  - "!**/{tsconfig.json,tslint.json,jsconfig.json}"
+
+extraMetadata:
+  main: apps/desktop/out/main/index.cjs
+
+# ---------------- macOS ----------------
+mac:
+  category: public.app-category.productivity
+  icon: build/icon.icns
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  # Unsigned local builds. To produce a signed/notarized DMG, set CSC_LINK +
+  # CSC_KEY_PASSWORD env vars (or replace `null` with your Developer ID).
+  identity: null
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+    - target: zip
+      arch:
+        - x64
+        - arm64
+
+dmg:
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  writeUpdateInfo: false
+
+# ---------------- Windows ----------------
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  artifactName: ${productName}-Setup-${version}-${arch}.${ext}
+  shortcutName: Emprint
+
+# ---------------- Linux ----------------
+linux:
+  icon: build/icon.png
+  category: Utility
+  synopsis: Local-first, Git-native workspace runtime for creators.
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+
+appImage:
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+deb:
+  artifactName: ${productName}_${version}_${arch}.${ext}
+
+# Disable auto-publish; use GitHub Releases via CI when ready.
+publish: null

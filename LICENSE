@@ -1,0 +1,101 @@
+emprint Source-Available License
+Copyright (c) 2025 emprint
+
+Purpose
+-------
+emprint is built to help individuals create, own, and manage their personal workspaces, writings, showcases, and creative workflows with a local-first philosophy.
+
+This license is designed to:
+- allow personal and non-commercial usage,
+- allow learning, modification, and contribution,
+- protect the original project's ownership and long-term sustainability,
+- prohibit unauthorized commercial exploitation.
+
+Definitions
+-----------
+"Software" refers to the emprint source code, binaries, assets, documentation, architecture, branding, and related materials.
+
+"Commercial Use" includes, but is not limited to:
+- selling the Software,
+- offering hosted or managed services based on the Software,
+- SaaS usage,
+- charging money for access to the Software,
+- bundling the Software into paid products,
+- using the Software as part of a commercial platform,
+- monetizing modified versions of the Software,
+- internal enterprise usage for commercial business operations,
+- white-labeling,
+- reselling,
+- sublicensing.
+
+Grant of Rights
+---------------
+You are permitted to:
+
+1. Use the Software for personal and non-commercial purposes.
+
+2. Modify the Software for personal and non-commercial purposes.
+
+3. Fork the repository for personal experimentation, learning, or contribution.
+
+4. Self-host the Software for personal and non-commercial usage.
+
+5. Contribute improvements, bug fixes, documentation, or extensions back to the project.
+
+Restrictions
+------------
+Without explicit prior written permission from the copyright holder, you may NOT:
+
+1. Use the Software for any commercial purpose.
+
+2. Sell, sublicense, lease, distribute, or monetize the Software or any modified version.
+
+3. Offer the Software as a hosted service, SaaS platform, cloud platform, or managed service.
+
+4. Create competing commercial products or services derived from the Software.
+
+5. Use the Software within a company, organization, startup, or business entity for commercial operations.
+
+6. Remove, alter, or obscure copyright notices, license notices, branding, or attribution.
+
+7. Use the emprint name, branding, logo, visual identity, or trademarks without permission.
+
+8. Train proprietary AI models using the Software, its source code, architecture, UI, workflows, or documentation without explicit permission.
+
+9. Redistribute modified versions under different licensing terms.
+
+10. Circumvent the intent of this license through indirect commercial usage, proxy organizations, shell entities, or third-party monetization.
+
+Contribution Terms
+------------------
+By contributing to this project, you agree that:
+- your contributions may be used, modified, relicensed, and distributed by the original copyright holder,
+- the project owner retains the right to offer separate commercial licenses,
+- contributions remain subject to this license unless otherwise stated.
+
+Ownership
+---------
+This license does NOT grant ownership of the Software.
+
+All rights, title, branding, architectural concepts, product identity, and associated intellectual property remain the property of the original author unless explicitly transferred in writing.
+
+Termination
+-----------
+Any violation of this license automatically terminates all granted rights immediately.
+
+Upon termination:
+- all usage rights cease,
+- all copies must be removed,
+- all hosted or distributed instances must be shut down.
+
+Disclaimer
+----------
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+The authors are not liable for any claim, damages, or liability arising from the use of the Software.
+
+Contact
+-------
+For commercial licensing inquiries or partnership discussions:
+
+<Contact doping0927@gmail.com>
