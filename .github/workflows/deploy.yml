@@ -1,0 +1,183 @@
+name: Release Emprint
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to create or update (example: v0.1.0)'
+        required: true
+        type: string
+      draft:
+        description: 'Create the GitHub Release as a draft'
+        required: false
+        default: true
+        type: boolean
+      prerelease:
+        description: 'Mark the GitHub Release as a prerelease'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  meta:
+    name: Resolve release metadata
+    runs-on: ubuntu-latest
+    outputs:
+      app_version: ${{ steps.meta.outputs.app_version }}
+      release_tag: ${{ steps.meta.outputs.release_tag }}
+      release_title: ${{ steps.meta.outputs.release_title }}
+      is_draft: ${{ steps.meta.outputs.is_draft }}
+      is_prerelease: ${{ steps.meta.outputs.is_prerelease }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Resolve metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          app_version="$(node -p "require('./package.json').version")"
+
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            release_tag="${{ inputs.tag }}"
+            is_draft="${{ inputs.draft }}"
+            is_prerelease="${{ inputs.prerelease }}"
+          else
+            release_tag="${GITHUB_REF_NAME}"
+            is_draft="false"
+            is_prerelease="false"
+          fi
+
+          if [[ ! "${release_tag}" =~ ^v ]]; then
+            echo "Release tag must start with 'v'. Received: ${release_tag}"
+            exit 1
+          fi
+
+          echo "app_version=${app_version}" >> "${GITHUB_OUTPUT}"
+          echo "release_tag=${release_tag}" >> "${GITHUB_OUTPUT}"
+          echo "release_title=Emprint ${app_version}" >> "${GITHUB_OUTPUT}"
+          echo "is_draft=${is_draft}" >> "${GITHUB_OUTPUT}"
+          echo "is_prerelease=${is_prerelease}" >> "${GITHUB_OUTPUT}"
+
+  build:
+    name: Build ${{ matrix.label }} installers
+    needs: meta
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: macOS
+            os: macos-latest
+            package_command: npx electron-builder --mac --publish never
+            artifact_name: emprint-macos-release
+            asset_paths: |
+              release/**/*.dmg
+              release/**/*.zip
+              release/**/*.blockmap
+          - label: Windows
+            os: windows-latest
+            package_command: npx electron-builder --win --publish never
+            artifact_name: emprint-windows-release
+            asset_paths: |
+              release/**/*.exe
+              release/**/*.blockmap
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build icons
+        run: npm run build:icons
+
+      - name: Build Electron bundles
+        run: npx electron-vite build --config apps/desktop/electron.vite.config.ts
+        env:
+          ELECTRON_RUN_AS_NODE: ''
+
+      - name: Package installers
+        run: ${{ matrix.package_command }}
+        env:
+          ELECTRON_RUN_AS_NODE: ''
+
+      - name: Upload packaged artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          if-no-files-found: error
+          path: ${{ matrix.asset_paths }}
+
+  release:
+    name: Publish GitHub Release
+    needs:
+      - meta
+      - build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download packaged artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: emprint-*-release
+          merge-multiple: true
+          path: release-assets
+
+      - name: Create or update release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.meta.outputs.release_tag }}
+          RELEASE_TITLE: ${{ needs.meta.outputs.release_title }}
+          IS_DRAFT: ${{ needs.meta.outputs.is_draft }}
+          IS_PRERELEASE: ${{ needs.meta.outputs.is_prerelease }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          assets=(release-assets/*)
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo "No release assets were downloaded."
+            exit 1
+          fi
+
+          draft_flag=()
+          prerelease_flag=()
+
+          if [ "${IS_DRAFT}" = "true" ]; then
+            draft_flag+=(--draft)
+          fi
+
+          if [ "${IS_PRERELEASE}" = "true" ]; then
+            prerelease_flag+=(--prerelease)
+          fi
+
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            echo "Release ${RELEASE_TAG} already exists. Uploading refreshed assets."
+            gh release upload "${RELEASE_TAG}" "${assets[@]}" --clobber
+          else
+            gh release create "${RELEASE_TAG}" "${assets[@]}" \
+              --title "${RELEASE_TITLE}" \
+              --generate-notes \
+              --target "${GITHUB_SHA}" \
+              "${draft_flag[@]}" \
+              "${prerelease_flag[@]}"
+          fi
