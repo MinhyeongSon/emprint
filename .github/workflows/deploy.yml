@@ -158,9 +158,12 @@ jobs:
           IS_PRERELEASE: ${{ needs.meta.outputs.is_prerelease }}
         run: |
           set -euo pipefail
-          shopt -s nullglob
 
-          assets=(release-assets/*)
+          # Collect only regular files (not directories) from the downloaded
+          # artifacts tree. Artifacts are stored with their relative path
+          # preserved (e.g. release-assets/0.1.0/Emprint-0.1.0-arm64.dmg),
+          # so a flat glob like release-assets/* would pick up directories.
+          mapfile -t assets < <(find release-assets -type f)
           if [ "${#assets[@]}" -eq 0 ]; then
             echo "No release assets were downloaded."
             exit 1
