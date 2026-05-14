@@ -111,7 +111,11 @@ jobs:
         run: npm run build:icons
 
       - name: Build Electron bundles
-        run: npx electron-vite build --config apps/desktop/electron.vite.config.ts
+        # Run from apps/desktop so electron-vite uses that directory as the
+        # project root, ensuring output lands in apps/desktop/out/ where
+        # electron-builder expects it (via the files glob in electron-builder.yml).
+        working-directory: apps/desktop
+        run: npx electron-vite build
         env:
           ELECTRON_RUN_AS_NODE: ''
 
