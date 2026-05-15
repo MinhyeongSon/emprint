@@ -18,6 +18,7 @@ import { Textarea } from '@renderer/components/ui/textarea'
 import { useAppStore } from '@renderer/state/app-store'
 import {
   parseGithubRepoFromRemoteUrl,
+  resolveGithubPagesUrl,
   type SiteProjectKind,
   type WorkspaceCatalogEntry,
   type WorkspaceConfig
@@ -99,7 +100,7 @@ export function WorkspaceHub() {
 
   const [createOpen, setCreateOpen] = useState(false)
   const [creating, setCreating] = useState(false)
-  const [createTitle, setCreateTitle] = useState(locale === 'ko' ? '새 워크스페이스' : 'New workspace')
+  const [createTitle, setCreateTitle] = useState(locale === 'ko' ? '새 앤솔로지' : 'New anthology')
   const [createDescription, setCreateDescription] = useState('')
   const [createRemoteUrl, setCreateRemoteUrl] = useState('')
   const [createOnGithub, setCreateOnGithub] = useState(true)
@@ -129,7 +130,7 @@ export function WorkspaceHub() {
       })
       .catch((caught) => {
         if (!alive) return
-        setError(caught instanceof Error ? caught.message : 'Failed to load workspaces.')
+        setError(caught instanceof Error ? caught.message : locale === 'ko' ? '앤솔로지 목록을 불러오지 못했습니다.' : 'Failed to load anthologies.')
       })
       .finally(() => {
         if (!alive) return
@@ -204,7 +205,7 @@ export function WorkspaceHub() {
         }
       )
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Failed to open workspace.')
+      setError(caught instanceof Error ? caught.message : locale === 'ko' ? '앤솔로지를 열지 못했습니다.' : 'Failed to open anthology.')
     }
   }
 
@@ -314,11 +315,11 @@ export function WorkspaceHub() {
       } else if (message.includes('Select an empty directory') || message.includes('비어 있는 디렉터리')) {
         setError(
           locale === 'ko'
-            ? `워크스페이스는 비어 있는 폴더에만 만들 수 있습니다. "${localDirectory}"에 이미 파일이 있습니다. 그 폴더를 삭제하거나 비운 뒤 다시 시도하거나, 제목을 바꿔 다른 폴더 이름을 쓰세요.`
-            : `New workspaces need an empty folder. "${localDirectory}" already has files. Delete or empty that folder and try again, or change the workspace title to use a different folder name.`
+            ? `앤솔로지는 비어 있는 폴더에만 만들 수 있습니다. "${localDirectory}"에 이미 파일이 있습니다. 그 폴더를 삭제하거나 비운 뒤 다시 시도하거나, 제목을 바꿔 다른 폴더 이름을 쓰세요.`
+            : `New anthologies need an empty folder. "${localDirectory}" already has files. Delete or empty that folder and try again, or change the anthology title to use a different folder name.`
         )
       } else {
-        setError(message || (locale === 'ko' ? '워크스페이스 생성에 실패했습니다.' : 'Failed to create workspace.'))
+        setError(message || (locale === 'ko' ? '앤솔로지 생성에 실패했습니다.' : 'Failed to create anthology.'))
       }
     } finally {
       setCreating(false)
@@ -345,8 +346,8 @@ export function WorkspaceHub() {
         caught instanceof Error
           ? caught.message
           : locale === 'ko'
-            ? '워크스페이스를 제거하지 못했습니다.'
-            : 'Could not remove the workspace.'
+            ? '앤솔로지를 제거하지 못했습니다.'
+            : 'Could not remove the anthology.'
       )
     } finally {
       setRemoveConfirmBusy(false)
@@ -371,8 +372,8 @@ export function WorkspaceHub() {
             <Button
               type="button"
               className="w-full justify-center gap-2 px-2"
-              aria-label="Create new workspace"
-              title="Create new workspace"
+              aria-label={locale === 'ko' ? '새 앤솔로지 만들기' : 'Create new anthology'}
+              title={locale === 'ko' ? '새 앤솔로지 만들기' : 'Create new anthology'}
               onClick={() => {
                 setCreateOpen((v) => !v)
                 setError(null)
@@ -388,7 +389,7 @@ export function WorkspaceHub() {
             <div>
               <div className="text-[11px] uppercase tracking-[0.16em] text-muted">{locale === 'ko' ? '목록' : 'List'}</div>
               <div className="mt-2 text-[22px] font-semibold tracking-[-0.03em] text-ink">
-                {locale === 'ko' ? '워크스페이스' : 'Workspaces'}
+                {locale === 'ko' ? '앤솔로지' : 'Anthologies'}
               </div>
             </div>
           </div>
@@ -427,7 +428,7 @@ export function WorkspaceHub() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <div className="text-[11px] uppercase tracking-[0.16em] text-muted">
-                    {locale === 'ko' ? '새 워크스페이스' : 'New workspace'}
+                    {locale === 'ko' ? '새 앤솔로지' : 'New anthology'}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -559,7 +560,7 @@ export function WorkspaceHub() {
                 <Textarea
                   value={createDescription}
                   onChange={(e) => setCreateDescription(e.target.value)}
-                  placeholder={locale === 'ko' ? '한 줄로 이 워크스페이스를 설명해 주세요.' : 'Describe this workspace in one line.'}
+                  placeholder={locale === 'ko' ? '한 줄로 이 앤솔로지를 설명해 주세요.' : 'Describe this anthology in one line.'}
                 />
               </div>
 
@@ -569,15 +570,15 @@ export function WorkspaceHub() {
                     <div className="text-[11px] uppercase tracking-[0.16em] text-muted">{locale === 'ko' ? 'GitHub 주소' : 'GitHub URL'}</div>
                     <div className="text-[11px] text-muted">
                       {locale === 'ko'
-                        ? 'GitHub에 워크스페이스를 자동으로 만들거나(추천), 이미 만든 GitHub URL을 붙여넣을 수 있습니다.'
-                        : 'You can auto-create a workspace on GitHub (recommended) or paste an existing GitHub URL.'}
+                        ? 'GitHub에 앤솔로지를 자동으로 만들거나(추천), 이미 만든 GitHub URL을 붙여넣을 수 있습니다.'
+                        : 'You can auto-create an anthology on GitHub (recommended) or paste an existing GitHub URL.'}
                     </div>
                   </div>
                   <Button
                     variant="outline"
                     type="button"
                     className="h-8 w-8 shrink-0 p-0"
-                    aria-label={locale === 'ko' ? 'GitHub에서 새 워크스페이스 만들기' : 'Create workspace on GitHub (web)'}
+                    aria-label={locale === 'ko' ? 'GitHub에서 새 앤솔로지 만들기' : 'Create anthology on GitHub (web)'}
                     title={locale === 'ko' ? 'GitHub에서 만들기' : 'Create on GitHub'}
                     onClick={() => {
                       window.open('https://github.com/new', '_blank')
@@ -624,11 +625,11 @@ export function WorkspaceHub() {
                   <div className="text-[11px] text-muted">
                     {createOnGithub
                       ? locale === 'ko'
-                        ? 'GitHub에 생성하고 자동으로 연결합니다. 초기 푸시는 posts/, src/ 등 전체 워크스페이스를 첫 커밋 후 push합니다.'
+                        ? 'GitHub에 생성하고 자동으로 연결합니다. 초기 푸시는 posts/, src/ 등 전체 앤솔로지를 첫 커밋 후 push합니다.'
                         : 'Auto-create on GitHub and wire origin. Initial push commits everything (posts/, src/, etc.) then pushes.'
                       : locale === 'ko'
-                        ? 'GitHub에서 직접 만든 워크스페이스의 URL을 붙여넣습니다.'
-                        : 'Paste the URL of an existing GitHub workspace.'}
+                        ? 'GitHub에서 직접 만든 앤솔로지의 URL을 붙여넣습니다.'
+                        : 'Paste the URL of an existing GitHub anthology.'}
                   </div>
                   {createOnGithub ? (
                     <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-2.5 py-2 text-[11px] leading-snug text-muted">
@@ -656,7 +657,7 @@ export function WorkspaceHub() {
                   type="button"
                   disabled={creating}
                   className="h-8 w-8 shrink-0 p-0"
-                  aria-label={locale === 'ko' ? '워크스페이스 생성' : 'Create workspace'}
+                  aria-label={locale === 'ko' ? '앤솔로지 생성' : 'Create anthology'}
                   title={locale === 'ko' ? '생성' : 'Create'}
                   onClick={() => void createNewWorkspace()}
                 >
@@ -674,11 +675,13 @@ export function WorkspaceHub() {
             <Card className="px-4 py-6 text-sm text-muted">{locale === 'ko' ? '불러오는 중…' : 'Loading…'}</Card>
           ) : sorted.length === 0 ? (
             <Card className="px-4 py-10 text-center text-sm text-muted">
-              {locale === 'ko' ? '아직 등록된 워크스페이스가 없습니다.' : 'No workspaces registered yet.'}
+              {locale === 'ko' ? '아직 등록된 앤솔로지가 없습니다.' : 'No anthologies registered yet.'}
             </Card>
           ) : (
             <div className="grid gap-3">
-              {sorted.map((workspace) => (
+              {sorted.map((workspace) => {
+                const pagesUrl = resolveGithubPagesUrl(workspace, githubLogin)
+                return (
                 <Card key={workspace.id} className="space-y-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -689,21 +692,39 @@ export function WorkspaceHub() {
                   </div>
 
                   <div className="flex items-center justify-between gap-3">
-                    <Button
-                      variant="outline"
-                      type="button"
-                      className="h-8 w-8 shrink-0 p-0"
-                      aria-label={locale === 'ko' ? '워크스페이스 열기' : 'Open workspace'}
-                      title={locale === 'ko' ? '열기' : 'Open'}
-                      onClick={() => void openWorkspace(workspace.localDirectory, workspace.id)}
-                    >
-                      <FolderOpen className="h-4 w-4" strokeWidth={2} />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        type="button"
+                        className="h-8 w-8 shrink-0 p-0"
+                        aria-label={locale === 'ko' ? '앤솔로지 열기' : 'Open anthology'}
+                        title={locale === 'ko' ? '열기' : 'Open'}
+                        onClick={() => void openWorkspace(workspace.localDirectory, workspace.id)}
+                      >
+                        <FolderOpen className="h-4 w-4" strokeWidth={2} />
+                      </Button>
+                      {pagesUrl ? (
+                        <Button
+                          variant="outline"
+                          type="button"
+                          className="h-8 w-8 shrink-0 p-0"
+                          aria-label={locale === 'ko' ? '배포된 사이트 열기' : 'Open deployed site'}
+                          title={
+                            locale === 'ko'
+                              ? `배포된 사이트: ${pagesUrl}`
+                              : `Deployed site: ${pagesUrl}`
+                          }
+                          onClick={() => window.open(pagesUrl, '_blank')}
+                        >
+                          <ExternalLink className="h-4 w-4" strokeWidth={2} />
+                        </Button>
+                      ) : null}
+                    </div>
                     <Button
                       variant="ghost"
                       type="button"
                       className="h-8 w-8 shrink-0 p-0"
-                      aria-label={locale === 'ko' ? '워크스페이스 제거' : 'Remove workspace'}
+                      aria-label={locale === 'ko' ? '앤솔로지 제거' : 'Remove anthology'}
                       title={locale === 'ko' ? '제거' : 'Remove'}
                       onClick={() => {
                         setRemoveConfirmWorkspace(workspace)
@@ -714,7 +735,8 @@ export function WorkspaceHub() {
                     </Button>
                   </div>
                 </Card>
-              ))}
+                )
+              })}
             </div>
           )}
         </main>
@@ -736,7 +758,7 @@ export function WorkspaceHub() {
           <div className="w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <Card className="space-y-4 p-4">
               <div className="text-sm font-semibold text-ink" id="remove-workspace-title">
-                {locale === 'ko' ? '워크스페이스 제거' : 'Remove workspace'}
+                {locale === 'ko' ? '앤솔로지 제거' : 'Remove anthology'}
               </div>
               <p className="text-sm text-muted">
                 {locale === 'ko'

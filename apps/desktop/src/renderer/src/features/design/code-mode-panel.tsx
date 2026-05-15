@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import Editor, { type EditorProps } from '@monaco-editor/react'
+import Editor, { loader, type EditorProps } from '@monaco-editor/react'
 import {
   ChevronDown,
   ChevronRight,
@@ -12,6 +12,12 @@ import {
   Trash2
 } from 'lucide-react'
 import type { AppLocale, WorkspaceSrcTreeNode } from '@emprint/shared'
+import { normalizeWorkspaceSrcPath } from './design-workspace-paths'
+import {
+  configureMonacoForWorkspace,
+  resetMonacoWorkspaceConfig,
+  workspaceFileToMonacoUri
+} from './design-monaco-typescript'
 import { Button } from '@renderer/components/ui/button'
 import { ContextMenu, type ContextMenuItem } from '@renderer/components/ui/context-menu'
 
@@ -273,8 +279,8 @@ function InlineNameInput({
 }
 
 function joinSrcPath(parent: string, name: string): string {
-  if (!parent || parent === '.') return name
-  return `${parent.replace(/\/+$/, '')}/${name}`
+  const base = !parent || parent === '.' ? 'src' : parent.replace(/\/+$/, '')
+  return normalizeWorkspaceSrcPath(`${base}/${name}`)
 }
 
 function findNodeByPath(root: WorkspaceSrcTreeNode | null, target: string): WorkspaceSrcTreeNode | null {
@@ -318,7 +324,7 @@ function replacePathPrefix(value: string, from: string, to: string): string {
   return value
 }
 
-export function ImplementSurface({ locale }: { locale: AppLocale }) {
+export function CodeModePanel({ locale }: { locale: AppLocale }) {
   const api = window.emprint?.workspaceSrc
   const [tree, setTree] = useState<WorkspaceSrcTreeNode | null>(null)
   const [treeLoading, setTreeLoading] = useState(true)
@@ -336,8 +342,37 @@ export function ImplementSurface({ locale }: { locale: AppLocale }) {
   const [menu, setMenu] = useState<{ x: number; y: number; node: WorkspaceSrcTreeNode } | null>(null)
   const [pendingCreate, setPendingCreate] = useState<PendingCreate | null>(null)
   const [pendingRename, setPendingRename] = useState<PendingRename | null>(null)
+  const [monacoTsHint, setMonacoTsHint] = useState<string | null>(null)
+  const [monacoWorkspaceRoot, setMonacoWorkspaceRoot] = useState<string | null>(null)
 
   const dirty = content !== committed
+
+  useEffect(() => {
+    let cancelled = false
+    resetMonacoWorkspaceConfig()
+    void loader.init().then((monaco) => {
+      if (cancelled) return
+      return configureMonacoForWorkspace(monaco).then((payload) => {
+        if (cancelled || !payload) return
+        setMonacoWorkspaceRoot(payload.workspaceRoot)
+        if (payload.nodeModulesMissing) {
+          setMonacoTsHint(
+            t(
+              locale,
+              'Run npm install in this anthology for full TypeScript checks (Astro types).',
+              'Astro 타입 검사를 위해 이 앤솔로지에서 npm install을 실행하세요.'
+            )
+          )
+        } else {
+          setMonacoTsHint(null)
+        }
+      })
+    })
+    return () => {
+      cancelled = true
+      resetMonacoWorkspaceConfig()
+    }
+  }, [locale])
 
   const loadTree = useCallback(async () => {
     if (!api?.listTree) {
@@ -393,12 +428,13 @@ export function ImplementSurface({ locale }: { locale: AppLocale }) {
         )
         if (!ok) return
       }
-      setSelectedPath(path)
+      const safePath = normalizeWorkspaceSrcPath(path)
+      setSelectedPath(safePath)
       setFileLoading(true)
       setFileError(null)
       setSaveError(null)
       try {
-        const res = await api.read({ path })
+        const res = await api.read({ path: safePath })
         setContent(res.content)
         setCommitted(res.content)
       } catch (caught) {
@@ -415,7 +451,7 @@ export function ImplementSurface({ locale }: { locale: AppLocale }) {
     setSaveBusy(true)
     setSaveError(null)
     try {
-      await api.save({ path: selectedPath, content })
+      await api.save({ path: normalizeWorkspaceSrcPath(selectedPath), content })
       setCommitted(content)
     } catch (caught) {
       setSaveError(caught instanceof Error ? caught.message : 'Save failed.')
@@ -466,7 +502,7 @@ export function ImplementSurface({ locale }: { locale: AppLocale }) {
       }
       const targetPath = joinSrcPath(pendingCreate.parentPath, name)
       const { kind } = pendingCreate
-      const res = await api.create({ path: targetPath, kind })
+      const res = await api.create({ path: normalizeWorkspaceSrcPath(targetPath), kind })
       setPendingCreate(null)
       const refreshed = await loadTree()
       if (kind === 'directory') {
@@ -492,7 +528,7 @@ export function ImplementSurface({ locale }: { locale: AppLocale }) {
         return
       }
       const target = pendingRename
-      const res = await api.rename({ path: target.path, newName })
+      const res = await api.rename({ path: normalizeWorkspaceSrcPath(target.path), newName })
       setPendingRename(null)
 
       // Keep the editor in sync if the renamed entry was (or contained) the selected file.
@@ -526,7 +562,7 @@ export function ImplementSurface({ locale }: { locale: AppLocale }) {
       if (!window.confirm(message)) return
 
       try {
-        await api.delete({ path: node.path })
+        await api.delete({ path: normalizeWorkspaceSrcPath(node.path) })
       } catch (caught) {
         setTreeError(caught instanceof Error ? caught.message : 'Delete failed.')
         return
@@ -615,10 +651,22 @@ export function ImplementSurface({ locale }: { locale: AppLocale }) {
 
   const editorLanguage = useMemo(() => (selectedPath ? languageForPath(selectedPath) : 'plaintext'), [selectedPath])
 
+  const editorModelPath = useMemo(() => {
+    if (!selectedPath) return undefined
+    if (monacoWorkspaceRoot) {
+      return workspaceFileToMonacoUri(monacoWorkspaceRoot, selectedPath)
+    }
+    return selectedPath
+  }, [monacoWorkspaceRoot, selectedPath])
+
   const handleEditorMount = useCallback<NonNullable<EditorProps['onMount']>>(
     (editor, monaco) => {
       editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
         void handleSave()
+      })
+      void configureMonacoForWorkspace(monaco).then((payload) => {
+        if (!payload) return
+        setMonacoWorkspaceRoot(payload.workspaceRoot)
       })
     },
     [handleSave]
@@ -631,7 +679,7 @@ export function ImplementSurface({ locale }: { locale: AppLocale }) {
           <div className="min-w-0">
             <div className="text-[11px] uppercase tracking-[0.16em] text-muted">src/</div>
             <div className="truncate text-sm font-semibold text-ink">
-              {t(locale, 'Implement', '구현')}
+              {t(locale, 'Code', '코드')}
             </div>
           </div>
           <Button
@@ -706,17 +754,20 @@ export function ImplementSurface({ locale }: { locale: AppLocale }) {
         </div>
         {fileError ? <div className="border-b border-danger/40 bg-dangerBg px-3 py-1.5 text-xs text-dangerInk">{fileError}</div> : null}
         {saveError ? <div className="border-b border-danger/40 bg-dangerBg px-3 py-1.5 text-xs text-dangerInk">{saveError}</div> : null}
+        {monacoTsHint ? (
+          <div className="border-b border-amber-500/30 bg-amber-500/5 px-3 py-1.5 text-xs text-muted">{monacoTsHint}</div>
+        ) : null}
         <div className="relative min-h-0 flex-1">
           {fileLoading ? (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-base/70">
               <Loader2 className="h-8 w-8 animate-spin text-muted" strokeWidth={2} aria-hidden />
             </div>
           ) : null}
-          {selectedPath ? (
+          {selectedPath && editorModelPath ? (
             <Editor
               height="100%"
               theme={monacoTheme()}
-              path={selectedPath}
+              path={editorModelPath}
               language={editorLanguage}
               value={content}
               onChange={(v) => setContent(v ?? '')}

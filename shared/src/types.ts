@@ -1,4 +1,17 @@
 export type AppLocale = 'ko' | 'en'
+
+export type SiteDevServerStatus = 'stopped' | 'starting' | 'running' | 'error'
+
+export type SiteDevServerPhase = 'idle' | 'installing' | 'starting-dev' | 'opening-browser'
+
+export interface SiteDevServerState {
+  status: SiteDevServerStatus
+  url: string
+  message?: string
+  phase?: SiteDevServerPhase
+  /** 0–100 when estimable; omit for indeterminate progress. */
+  progress?: number
+}
 export type WorkspaceType = 'creator' | 'developer' | 'ai'
 /** Astro site scaffold: GitHub-oriented blog vs portfolio. */
 export type SiteProjectKind = 'column' | 'showcase'
@@ -177,6 +190,37 @@ export interface WorkspaceCatalogEntry {
   remoteUrl?: string
   createdAt: string
   updatedAt: string
+}
+
+export interface MonacoExtraLib {
+  /** Virtual path used by Monaco’s TypeScript worker (e.g. `file:///node_modules/astro/client.d.ts`). */
+  filePath: string
+  content: string
+}
+
+export interface WorkspaceMonacoCompilerOptions {
+  target?: string
+  module?: string
+  moduleResolution?: string
+  jsx?: string
+  lib?: string[]
+  baseUrl?: string
+  paths?: Record<string, string[]>
+  strict?: boolean
+  allowJs?: boolean
+  esModuleInterop?: boolean
+  skipLibCheck?: boolean
+  resolveJsonModule?: boolean
+  allowImportingTsExtensions?: boolean
+  isolatedModules?: boolean
+}
+
+export interface WorkspaceMonacoTypescriptPayload {
+  workspaceRoot: string
+  compilerOptions: WorkspaceMonacoCompilerOptions
+  extraLibs: MonacoExtraLib[]
+  /** True when `node_modules` is missing — run `npm install` in the anthology for full IntelliSense. */
+  nodeModulesMissing?: boolean
 }
 
 export interface GitHubDeviceCode {

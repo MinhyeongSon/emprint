@@ -1,5 +1,7 @@
 # Architecture Notes
 
+Product purpose and tone (anthologies, commit-as-trace metaphor, brand constraints) are documented in [`latest/emprint-philosophy.md`](latest/emprint-philosophy.md) and [`latest/emprint-brand-system.md`](latest/emprint-brand-system.md). This file stays limited to **codebase boundaries and technical evolution**.
+
 ## Runtime first
 
 The desktop shell is intentionally thin. Core behavior lives behind the workspace runtime, command registry, provider abstractions, and template adapters so the app can expand into creator, developer, and AI-native workspaces without rewriting the foundation.

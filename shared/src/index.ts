@@ -1,4 +1,5 @@
 export * from './github-remote'
+export * from './path-safety'
 export * from './ipc'
 export * from './types'
 export * from './validation'

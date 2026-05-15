@@ -8,7 +8,7 @@ import type {
   WorkspaceCatalogEntry
 } from '@emprint/shared'
 
-export type SidebarSection = 'posts' | 'drafts' | 'assets' | 'implement' | 'imprint' | 'settings'
+export type SidebarSection = 'posts' | 'drafts' | 'assets' | 'design' | 'imprint' | 'settings'
 
 export type WorkspaceSurface = 'list' | 'viewer' | 'editor'
 

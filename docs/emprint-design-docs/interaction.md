@@ -3,12 +3,12 @@
 ## Core UX Direction
 
 The application should feel:
-- fast
+- responsive where it matters (editing, saves, navigation)
 - calm
 - intentional
-- frictionless
+- clear (low mystery, filesystem-transparent)
 
-Every interaction should reinforce focus.
+Every interaction should reinforce focus. Favor **deliberate** pacing over dopamine-driven “instant everything”; see `docs/latest/emprint-philosophy.md`.
 
 ---
 

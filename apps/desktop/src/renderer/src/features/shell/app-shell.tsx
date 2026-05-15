@@ -9,11 +9,11 @@ import { PublishButton } from './publish-button'
 import { PublishDialog } from './publish-dialog'
 import { useAppStore, type SidebarSection } from '@renderer/state/app-store'
 import { PostsSurface } from '@renderer/features/posts/posts-surface'
-import { ImplementSurface } from '@renderer/features/implement/implement-surface'
+import { DesignSurface } from '@renderer/features/design/design-surface'
 import { AssetsSurface } from '@renderer/features/assets/assets-surface'
 import { ImprintSurface } from '@renderer/features/imprint/imprint-surface'
 
-const sectionOrder: SidebarSection[] = ['posts', 'drafts', 'assets', 'implement', 'imprint', 'settings']
+const sectionOrder: SidebarSection[] = ['posts', 'drafts', 'assets', 'design', 'imprint', 'settings']
 
 export function AppShell() {
   const locale = useAppStore((state) => state.locale)
@@ -93,8 +93,8 @@ export function AppShell() {
           <PostsSurface locale={locale} section="drafts" />
         ) : activeSection === 'assets' ? (
           <AssetsSurface locale={locale} />
-        ) : activeSection === 'implement' ? (
-          <ImplementSurface locale={locale} />
+        ) : activeSection === 'design' ? (
+          <DesignSurface locale={locale} />
         ) : activeSection === 'imprint' ? (
           <ImprintSurface locale={locale} refreshToken={gitRefreshToken} />
         ) : (

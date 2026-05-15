@@ -1,6 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { ipcChannels, type EmprintDesktopApi } from '@emprint/shared'
 
+const siteDevApi = {
+  stop: () => ipcRenderer.invoke(ipcChannels.siteDevStop),
+  status: () => ipcRenderer.invoke(ipcChannels.siteDevStatus),
+  openPreview: () => ipcRenderer.invoke(ipcChannels.siteDevOpenPreview)
+}
+
 const api: EmprintDesktopApi = {
   env: { platform: process.platform },
   system: {
@@ -45,7 +51,10 @@ const api: EmprintDesktopApi = {
     save: (input) => ipcRenderer.invoke(ipcChannels.workspaceSrcSave, input),
     create: (input) => ipcRenderer.invoke(ipcChannels.workspaceSrcCreate, input),
     rename: (input) => ipcRenderer.invoke(ipcChannels.workspaceSrcRename, input),
-    delete: (input) => ipcRenderer.invoke(ipcChannels.workspaceSrcDelete, input)
+    delete: (input) => ipcRenderer.invoke(ipcChannels.workspaceSrcDelete, input),
+    openSitePreview: siteDevApi.openPreview,
+    stopSitePreview: siteDevApi.stop,
+    getMonacoTypescript: () => ipcRenderer.invoke(ipcChannels.workspaceMonacoTypescript)
   },
   assets: {
     saveImage: (input) => ipcRenderer.invoke(ipcChannels.assetsSaveImage, input),
@@ -57,7 +66,9 @@ const api: EmprintDesktopApi = {
     toggleMaximize: () => ipcRenderer.invoke(ipcChannels.windowToggleMaximize),
     close: () => ipcRenderer.invoke(ipcChannels.windowClose),
     isMaximized: () => ipcRenderer.invoke(ipcChannels.windowIsMaximized)
-  }
+  },
+  siteDev: siteDevApi
 }
 
 contextBridge.exposeInMainWorld('emprint', api)
+contextBridge.exposeInMainWorld('emprintSiteDev', siteDevApi)

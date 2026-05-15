@@ -111,18 +111,13 @@ jobs:
         run: npm run build:icons
 
       - name: Build Electron bundles
-        # Run from apps/desktop so electron-vite uses that directory as the
-        # project root, ensuring output lands in apps/desktop/out/ where
-        # electron-builder expects it (via the files glob in electron-builder.yml).
-        working-directory: apps/desktop
-        run: npx electron-vite build
-        env:
-          ELECTRON_RUN_AS_NODE: ''
+        # Root `npm run build` runs scripts/run-electron-vite.mjs so the child
+        # process never sees ELECTRON_RUN_AS_NODE (empty string still enables
+        # Node mode in Electron and breaks protocol registration).
+        run: npm run build
 
       - name: Package installers
         run: ${{ matrix.package_command }}
-        env:
-          ELECTRON_RUN_AS_NODE: ''
 
       - name: Upload packaged artifacts
         uses: actions/upload-artifact@v4

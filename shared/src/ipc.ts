@@ -17,7 +17,9 @@ import type {
   PostSummary,
   RuntimeDiagnostics,
   WorkspaceCatalogEntry,
+  SiteDevServerState,
   WorkspaceConfig,
+  WorkspaceMonacoTypescriptPayload,
   WorkspaceSrcTreeNode
 } from './types'
 
@@ -58,7 +60,11 @@ export const ipcChannels = {
   windowMinimize: 'window:minimize',
   windowToggleMaximize: 'window:toggle-maximize',
   windowClose: 'window:close',
-  windowIsMaximized: 'window:is-maximized'
+  windowIsMaximized: 'window:is-maximized',
+  siteDevStop: 'site:dev:stop',
+  siteDevStatus: 'site:dev:status',
+  siteDevOpenPreview: 'site:dev:open-preview',
+  workspaceMonacoTypescript: 'workspace:monaco:typescript'
 } as const
 
 export interface EmprintDesktopApi {
@@ -134,6 +140,12 @@ export interface EmprintDesktopApi {
     rename(input: { path: string; newName: string }): Promise<{ path: string }>
     /** Delete a file or directory under `src/`. Refuses to delete the `src/` root itself. */
     delete(input: { path: string }): Promise<void>
+    /** Alias for `siteDev.openPreview` (same IPC). */
+    openSitePreview(): Promise<SiteDevServerState>
+    /** Alias for `siteDev.stop` (same IPC). */
+    stopSitePreview(): Promise<SiteDevServerState>
+    /** Resolved `tsconfig.json` + Astro typings for Monaco in Design → Code. */
+    getMonacoTypescript(): Promise<WorkspaceMonacoTypescriptPayload | null>
   }
   assets: {
     /**
@@ -152,5 +164,10 @@ export interface EmprintDesktopApi {
     toggleMaximize(): Promise<boolean>
     close(): Promise<void>
     isMaximized(): Promise<boolean>
+  }
+  siteDev: {
+    stop(): Promise<SiteDevServerState>
+    status(): Promise<SiteDevServerState>
+    openPreview(): Promise<SiteDevServerState>
   }
 }

@@ -11,7 +11,7 @@ import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { Card, CardDescription, CardTitle } from '@renderer/components/ui/card'
 import { GithubDeviceLoginForm } from '@renderer/features/github/github-device-login-form'
-import { getLocaleMessages } from '@renderer/lib/i18n'
+import { Sidebar } from '@renderer/features/shell/sidebar'
 import { useAppStore } from '@renderer/state/app-store'
 
 type WizardStep = 'git' | 'github' | 'root'
@@ -26,7 +26,6 @@ export function WorkspaceWizard() {
   const setGithubSession = useAppStore((state) => state.setGithubSession)
   const runtimeInfo = useAppStore((state) => state.runtimeInfo)
   const workspaceRootDir = useAppStore((state) => state.workspaceRootDir)
-  const m = getLocaleMessages(locale)
 
   const [stepIndex, setStepIndex] = useState(0)
   const [gitReady, setGitReady] = useState(false)
@@ -122,24 +121,15 @@ export function WorkspaceWizard() {
 
   return (
     <div className="h-full bg-base text-ink">
-      <div className="mx-auto grid h-full max-w-[1680px] grid-cols-1 bg-border/80 lg:grid-cols-[280px_minmax(0,1fr)]">
-        <aside className="min-h-0 border-b border-border bg-panel px-6 py-6 lg:border-b-0 lg:border-r">
-          <div className="space-y-4 border-b border-border pb-5">
-            <div className="flex items-center gap-3">
-              <div className="grid h-9 w-9 grid-cols-2 gap-[3px] rounded-md border border-border bg-panel2 p-[3px]">
-                <span className="rounded-[2px] bg-accent/85" />
-                <span className="rounded-[2px] bg-[#2b2520]" />
-                <span className="rounded-[2px] bg-[#2b2520]" />
-                <span className="rounded-[2px] bg-[#51463c]" />
-              </div>
-              <div>
-                <div className="text-sm font-semibold tracking-[0.08em] text-ink">EMPRINT</div>
-                <div className="text-[11px] uppercase tracking-[0.18em] text-muted">{m.wizard.productWordmarkSub}</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-5 space-y-2">
+      <div className="grid h-full grid-cols-1 bg-base lg:grid-cols-[232px_minmax(0,1fr)]">
+        <Sidebar
+          mode="hub"
+          locale={locale}
+          {...(rootDir.trim() ? { workspaceRootDir: rootDir.trim() } : {})}
+          {...(typeof githubConnected === 'boolean' ? { githubConnected } : {})}
+          {...(githubLogin ? { githubLogin } : {})}
+        >
+          <div className="space-y-2">
             {steps.map((id, idx) => (
               <div
                 key={id}
@@ -154,15 +144,33 @@ export function WorkspaceWizard() {
                       {locale === 'ko' ? `단계 ${idx + 1}` : `Step ${idx + 1}`}
                     </div>
                     <div className="mt-1 text-sm font-medium text-ink">
-                      {id === 'git' ? (locale === 'ko' ? 'Git 준비' : 'Git') : id === 'github' ? (locale === 'ko' ? 'GitHub 로그인' : 'GitHub') : locale === 'ko' ? '루트 폴더 선택' : 'Root folder'}
+                      {id === 'git'
+                        ? locale === 'ko'
+                          ? 'Git 준비'
+                          : 'Git'
+                        : id === 'github'
+                          ? locale === 'ko'
+                            ? 'GitHub 로그인'
+                            : 'GitHub'
+                          : locale === 'ko'
+                            ? '루트 폴더 선택'
+                            : 'Root folder'}
                     </div>
                   </div>
-                  <div className={idx === stepIndex ? 'h-2 w-2 rounded-full bg-accent' : idx < stepIndex ? 'h-2 w-2 rounded-full bg-muted' : 'h-2 w-2 rounded-full bg-border'} />
+                  <div
+                    className={
+                      idx === stepIndex
+                        ? 'h-2 w-2 rounded-full bg-accent'
+                        : idx < stepIndex
+                          ? 'h-2 w-2 rounded-full bg-muted'
+                          : 'h-2 w-2 rounded-full bg-border'
+                    }
+                  />
                 </div>
               </div>
             ))}
           </div>
-        </aside>
+        </Sidebar>
 
         <div className="grid min-h-0 grid-rows-[52px_minmax(0,1fr)] bg-base">
           <header className="flex items-center justify-between border-b border-border px-6">

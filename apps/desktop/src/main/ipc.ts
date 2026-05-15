@@ -8,6 +8,7 @@ import { WorkspaceBootstrapper } from './workspace/bootstrapper'
 import {
   ipcChannels,
   MAX_ASSET_IMAGE_BYTES,
+  hasPathTraversalSegment,
   parseGithubRepoFromRemoteUrl,
   parseWorkspaceConfig,
   type AssetImageInfo,
@@ -33,6 +34,12 @@ import { NodeFileSystemGateway } from './infrastructure/node-file-system-gateway
 import { setGitBinaryPath, SimpleGitProviderFactory } from './infrastructure/simple-git-provider'
 import simpleGit from 'simple-git'
 import { MANIFEST_RELATIVE_PATH, WORKSPACE_DIR } from './workspace-paths'
+import {
+  getSiteDevServerState,
+  openSiteDevPreview,
+  stopSiteDevServer
+} from './site-dev-server'
+import { resolveWorkspaceMonacoTypescript } from './workspace-monaco-ts'
 
 let mountedWorkspaceRoot: string | null = null
 let resolvedGitBinaryPath: string | null = null
@@ -56,6 +63,20 @@ export function setupIpcHandlers(): void {
     chrome: process.versions.chrome,
     node: process.versions.node
   }))
+
+  ipcMain.handle(ipcChannels.siteDevStop, async () => stopSiteDevServer())
+
+  ipcMain.handle(ipcChannels.siteDevStatus, async () => getSiteDevServerState())
+
+  ipcMain.handle(ipcChannels.siteDevOpenPreview, async () => {
+    const root = ensureWorkspaceMounted()
+    return openSiteDevPreview(root)
+  })
+
+  ipcMain.handle(ipcChannels.workspaceMonacoTypescript, async () => {
+    const root = ensureWorkspaceMounted()
+    return resolveWorkspaceMonacoTypescript(root)
+  })
 
   ipcMain.handle(ipcChannels.systemSelectDirectory, async () => {
     const result = await dialog.showOpenDialog({
@@ -135,6 +156,7 @@ export function setupIpcHandlers(): void {
 
     if (mountedWorkspaceRoot && path.resolve(mountedWorkspaceRoot) === dir) {
       mountedWorkspaceRoot = null
+      await stopSiteDevServer()
     }
 
     const next = catalog.filter((e) => e.id !== input.id)
@@ -154,6 +176,7 @@ export function setupIpcHandlers(): void {
     // those stop showing up in the publish dialog from the very first commit.
     await untrackEmprintIgnoredPaths(initializedWorkspace.workspaceRoot)
 
+    await stopSiteDevServer()
     mountedWorkspaceRoot = initializedWorkspace.workspaceRoot
 
     return initializedWorkspace
@@ -161,6 +184,9 @@ export function setupIpcHandlers(): void {
 
   ipcMain.handle(ipcChannels.workspaceOpen, async (_event, input: { localDirectory: string }) => {
     const workspaceRoot = path.resolve(input.localDirectory)
+    if (mountedWorkspaceRoot && path.resolve(mountedWorkspaceRoot) !== workspaceRoot) {
+      await stopSiteDevServer()
+    }
     const manifestPath = path.join(workspaceRoot, MANIFEST_RELATIVE_PATH)
     const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as WorkspaceManifest
 
@@ -1391,7 +1417,7 @@ function isValidSrcEntryName(name: string): boolean {
 
 function resolveSafePostsOrDraftsPath(workspaceRoot: string, inputPath: string): string {
   const normalized = inputPath.replace(/\\/g, '/').replace(/^\/+/, '')
-  if (!normalized || normalized.includes('..')) {
+  if (!normalized || hasPathTraversalSegment(normalized)) {
     throw new Error('Invalid path.')
   }
   if (!normalized.startsWith('posts/') && !normalized.startsWith('drafts/')) {
@@ -1410,7 +1436,7 @@ function resolveSafePostsOrDraftsPath(workspaceRoot: string, inputPath: string):
 
 function resolveSafeSrcFilePath(workspaceRoot: string, inputPath: string): string {
   const normalized = inputPath.replace(/\\/g, '/').replace(/^\/+/, '')
-  if (!normalized || normalized.includes('..')) {
+  if (!normalized || hasPathTraversalSegment(normalized)) {
     throw new Error('Invalid path.')
   }
   if (normalized !== 'src' && !normalized.startsWith('src/')) {
@@ -1577,7 +1603,7 @@ async function saveAssetImage(
 
 function resolveSafeAssetPath(workspaceRoot: string, inputPath: string): string {
   const normalized = inputPath.replace(/\\/g, '/').replace(/^\/+/, '')
-  if (!normalized || normalized.includes('..')) {
+  if (!normalized || hasPathTraversalSegment(normalized)) {
     throw new Error('Invalid asset path.')
   }
   if (!normalized.startsWith(`${WORKSPACE_DIR.assets}/`)) {

@@ -29,3 +29,39 @@ export function parseGithubRepoFromRemoteUrl(remoteUrl: string): { owner: string
     return null
   }
 }
+
+/** GitHub Pages project site URL (`https://owner.github.io/repo`). */
+export function buildGithubPagesProjectUrl(owner: string, repo: string): string {
+  const o = owner.trim()
+  const r = repo.trim()
+  if (!o || !r) return ''
+  return `https://${o}.github.io/${r}`
+}
+
+function repoNameFromLocalDirectory(localDirectory: string): string {
+  const normalized = localDirectory.replace(/\\/g, '/')
+  const parts = normalized.split('/').filter(Boolean)
+  return parts[parts.length - 1] ?? ''
+}
+
+/**
+ * Resolve the deployed GitHub Pages URL for an anthology catalog entry.
+ * Prefers owner/repo from `remoteUrl`; falls back to signed-in `githubLogin` + local folder name.
+ */
+export function resolveGithubPagesUrl(
+  workspace: { remoteUrl?: string; localDirectory: string },
+  githubLogin?: string
+): string | null {
+  const fromRemote = workspace.remoteUrl?.trim()
+    ? parseGithubRepoFromRemoteUrl(workspace.remoteUrl)
+    : null
+  if (fromRemote) {
+    const url = buildGithubPagesProjectUrl(fromRemote.owner, fromRemote.repo)
+    return url || null
+  }
+  const owner = githubLogin?.trim()
+  const repo = repoNameFromLocalDirectory(workspace.localDirectory)
+  if (!owner || !repo) return null
+  const url = buildGithubPagesProjectUrl(owner, repo)
+  return url || null
+}

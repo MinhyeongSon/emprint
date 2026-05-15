@@ -1,6 +1,7 @@
 import { net, protocol } from 'electron'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { hasPathTraversalSegment } from '@emprint/shared'
 import { getMountedWorkspaceRoot } from './ipc'
 import { WORKSPACE_DIR } from './workspace-paths'
 
@@ -56,7 +57,7 @@ export function registerAssetProtocolHandler(): void {
       .replace(/\/+/g, '/')
       .replace(/^\/+/, '')
 
-    if (!normalized || normalized.includes('..')) {
+    if (!normalized || hasPathTraversalSegment(normalized)) {
       return new Response('Forbidden', { status: 403 })
     }
 

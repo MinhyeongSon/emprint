@@ -33,7 +33,7 @@ const sections: Array<{ id: SidebarSection; shortcut: string }> = [
   { id: 'posts', shortcut: '1' },
   { id: 'drafts', shortcut: '2' },
   { id: 'assets', shortcut: '3' },
-  { id: 'implement', shortcut: '4' },
+  { id: 'design', shortcut: '4' },
   { id: 'imprint', shortcut: '5' },
   { id: 'settings', shortcut: '6' }
 ]

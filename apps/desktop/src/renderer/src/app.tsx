@@ -169,14 +169,14 @@ export function App() {
       items.unshift({
         id: 'nav:hub',
         label: 'Go to Hub',
-        hint: 'Back to workspace hub',
+        hint: locale === 'ko' ? '앤솔로지 허브로 돌아가기' : 'Back to anthology hub',
         meta: 'Nav',
         onSelect: () => enterHub()
       })
     }
 
     return items
-  }, [enterHub, mode])
+  }, [enterHub, locale, mode])
 
   const right = (
     <>

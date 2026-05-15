@@ -2,6 +2,15 @@ Project Name: Emprint
 
 Emprint is a Local-First, Git-Native workspace platform designed to preserve and evolve a user's thoughts, code, writing, and creative footprints through portable, file-based workflows.
 
+## Canonical product narrative
+
+Human-facing philosophy (anthologies, commit metaphor, emotional direction) and the brand system (voice, visual direction, landing guidance) are maintained in:
+
+- [`docs/latest/emprint-philosophy.md`](latest/emprint-philosophy.md)
+- [`docs/latest/emprint-brand-system.md`](latest/emprint-brand-system.md)
+
+This document is the **engineering and architecture contract**: stack, security, MVP mechanics, and runtime shape. Where Git, markdown, and history appear here, they should stay aligned with the philosophy docs (for example treating publishing as traces and revisions, not only polished outputs).
+
 # Project Vision
 
 Build a Local-First, Git-Native desktop workspace platform using Electron.
@@ -15,6 +24,8 @@ The long-term direction is:
 - Creator Workspace
 - Developer Workspace
 - AI Native Workspace
+
+Anthology-shaped content (Memoir, Column, Dictionary, Fragments, Blank) describes how traces are *organized and felt* over time; the MVP blog template is the first concrete slice of that model, not the whole product definition.
 
 This application should evolve into something between:
 - Obsidian
@@ -371,20 +382,17 @@ Each workspace type may later customize:
 
 # UI Direction
 
-The UI should feel like a hybrid of:
-- Obsidian
-- VSCode
-- Cursor
-- Notion
+The **runtime** should support focused, transparent work (compare Obsidian, VSCode, Cursor, Notion, GitHub Desktop): keyboard-first flows, filesystem visibility, and professional density.
+
+**Tone and pacing** must follow [`docs/latest/emprint-philosophy.md`](latest/emprint-philosophy.md) and [`docs/latest/emprint-brand-system.md`](latest/emprint-brand-system.md): calm, archival, deliberate—not feed-like, gamified, or dopamine-driven.
 
 Priority:
-- speed
-- responsiveness
-- keyboard-friendly UX
+- reliable, responsive editing and navigation
+- keyboard-friendly UX (command palette, shortcuts)
 - filesystem transparency
-- power-user workflows
+- power-user workflows that still feel quiet and owned
 
-Avoid overly heavy animations.
+Avoid overly heavy animations and addictive-scroll patterns.
 
 ---
 
@@ -394,8 +402,8 @@ Avoid overly heavy animations.
 - Posts
 - Drafts
 - Assets
-- Search
-- Settings
+- Implement (workspace `src/` site code)
+- Settings (including command palette entry; dedicated search surface is future work)
 
 ---
 

@@ -18,7 +18,7 @@ const messages = {
       posts: '포스트',
       drafts: '드래프트',
       assets: '에셋',
-      implement: '구현',
+      design: '디자인',
       imprint: '발행 기록',
       settings: '설정'
     },
@@ -26,7 +26,7 @@ const messages = {
       posts: '발행된 글',
       drafts: '작업 중인 초안',
       assets: '이미지와 미디어',
-      implement: 'src 사이트 코드',
+      design: '템플릿 · 코드',
       imprint: '커밋 그래프와 발행 이력',
       settings: '워크스페이스 구성'
     },
@@ -76,10 +76,10 @@ const messages = {
         title: '에셋은 눈에 보이고 이동 가능한 상태를 유지합니다.',
         description: '이미지와 미디어는 저장소 안에 두고, 추가 메타데이터는 그 위가 아니라 옆에 쌓입니다.'
       },
-      implement: {
-        eyebrow: '사이트 소스',
-        title: 'Astro `src/`는 저장소 안에서 직접 다룹니다.',
-        description: '페이지·레이아웃·데이터 파일을 트리로 보고 Monaco로 편집합니다. 빌드는 터미널·CI에서 그대로 재현할 수 있습니다.'
+      design: {
+        eyebrow: '사이트 디자인',
+        title: '템플릿과 코드로 사이트를 꾸밉니다.',
+        description: '템플릿으로 색감을 고르거나, `src/` 파일을 Monaco로 직접 편집할 수 있습니다.'
       },
       settings: {
         eyebrow: '워크스페이스 계약',
@@ -245,7 +245,7 @@ const messages = {
       posts: 'Posts',
       drafts: 'Drafts',
       assets: 'Assets',
-      implement: 'Implement',
+      design: 'Design',
       imprint: 'Imprint',
       settings: 'Settings'
     },
@@ -253,7 +253,7 @@ const messages = {
       posts: 'Published writing',
       drafts: 'Works in progress',
       assets: 'Images and media',
-      implement: 'Site code under src/',
+      design: 'Template or code',
       imprint: 'Commit history and publish log',
       settings: 'Workspace configuration'
     },
@@ -303,10 +303,10 @@ const messages = {
         title: 'Assets stay visible and movable.',
         description: 'Images and media live in the repository, while additional metadata accumulates beside them instead of on top of them.'
       },
-      implement: {
-        eyebrow: 'Site source',
-        title: 'Edit Astro `src/` as plain repository files.',
-        description: 'Browse pages, layouts, and data files in a tree and edit with Monaco. Builds remain reproducible from the terminal or CI.'
+      design: {
+        eyebrow: 'Site design',
+        title: 'Shape the site with template or code.',
+        description: 'Pick a color template or edit `src/` files directly with Monaco.'
       },
       settings: {
         eyebrow: 'Workspace contract',
