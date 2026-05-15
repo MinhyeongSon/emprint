@@ -96,9 +96,12 @@ export function setupIpcHandlers(): void {
     return await githubOAuthClientGet()
   })
 
-  ipcMain.handle(ipcChannels.githubOAuthClientSet, async (_event, input: { clientId: string }) => {
-    return await githubOAuthClientSet(input)
-  })
+  ipcMain.handle(
+    ipcChannels.githubOAuthClientSet,
+    async (_event, input: { clientId: string; clientSecret?: string }) => {
+      return await githubOAuthClientSet(input)
+    }
+  )
 
   ipcMain.handle(ipcChannels.githubAuthStatus, async () => {
     return await githubAuthStatus()
@@ -420,6 +423,7 @@ export function setupIpcHandlers(): void {
   ipcMain.handle(ipcChannels.windowClose, (event) => {
     BrowserWindow.fromWebContents(event.sender)?.close()
   })
+
 }
 
 type WorkspaceCatalog = WorkspaceCatalogEntry[]
@@ -478,6 +482,7 @@ type StoredGitHubSession = {
 
 type StoredGitHubOAuthClient = {
   clientId: string
+  clientSecret?: string
   updatedAt: string
 }
 
@@ -485,13 +490,27 @@ function githubOAuthClientPath(): string {
   return path.join(app.getPath('userData'), 'github-oauth-client.json')
 }
 
+function resolveEnvClientSecret(): string | undefined {
+  const secret = process.env.EMPRINT_GITHUB_CLIENT_SECRET || process.env.GITHUB_CLIENT_SECRET
+  return secret?.trim() || undefined
+}
+
+function oauthClientHasSecret(stored: StoredGitHubOAuthClient | null): boolean {
+  return Boolean(stored?.clientSecret?.trim() || resolveEnvClientSecret())
+}
+
 async function readGithubOAuthClient(): Promise<StoredGitHubOAuthClient | null> {
   try {
     const raw = await readFile(githubOAuthClientPath(), 'utf8')
     const parsed = JSON.parse(raw) as Partial<StoredGitHubOAuthClient>
     if (!parsed.clientId) return null
+    const clientSecret =
+      typeof parsed.clientSecret === 'string' && parsed.clientSecret.trim()
+        ? parsed.clientSecret.trim()
+        : undefined
     return {
       clientId: String(parsed.clientId),
+      ...(clientSecret ? { clientSecret } : {}),
       updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : new Date().toISOString()
     }
   } catch {
@@ -499,28 +518,48 @@ async function readGithubOAuthClient(): Promise<StoredGitHubOAuthClient | null> 
   }
 }
 
-async function writeGithubOAuthClient(clientId: string): Promise<void> {
+async function writeGithubOAuthClient(input: { clientId: string; clientSecret?: string }): Promise<void> {
+  const clientSecret = input.clientSecret?.trim() || undefined
   const next: StoredGitHubOAuthClient = {
-    clientId,
-    updatedAt: new Date().toISOString()
+    clientId: input.clientId,
+    updatedAt: new Date().toISOString(),
+    ...(clientSecret ? { clientSecret } : {})
   }
   await writeFile(githubOAuthClientPath(), JSON.stringify(next, null, 2), 'utf8')
 }
 
-async function githubOAuthClientGet(): Promise<{ clientId?: string }> {
+async function resolveGithubOAuthCredentials(): Promise<{ clientId: string; clientSecret?: string } | null> {
+  await refreshCachedGithubClientId()
+  const stored = await readGithubOAuthClient()
+  const clientId =
+    stored?.clientId || process.env.EMPRINT_GITHUB_CLIENT_ID || process.env.GITHUB_CLIENT_ID || undefined
+  if (!clientId) return null
+  const clientSecret = stored?.clientSecret || resolveEnvClientSecret()
+  return { clientId, ...(clientSecret ? { clientSecret } : {}) }
+}
+
+async function githubOAuthClientGet(): Promise<{ clientId?: string; hasClientSecret?: boolean }> {
   const stored = await readGithubOAuthClient()
   const env = process.env.EMPRINT_GITHUB_CLIENT_ID || process.env.GITHUB_CLIENT_ID
   const clientId = stored?.clientId || env || undefined
-  return clientId ? { clientId } : {}
+  const hasClientSecret = oauthClientHasSecret(stored)
+  return clientId ? { clientId, hasClientSecret } : { hasClientSecret }
 }
 
-async function githubOAuthClientSet(input: { clientId: string }): Promise<{ clientId?: string }> {
+async function githubOAuthClientSet(input: {
+  clientId: string
+  clientSecret?: string
+}): Promise<{ clientId?: string; hasClientSecret?: boolean }> {
   const clientId = input.clientId.trim()
   if (!clientId) {
     throw new Error('Client ID is required.')
   }
-  await writeGithubOAuthClient(clientId)
-  return { clientId }
+  const existing = await readGithubOAuthClient()
+  const clientSecret =
+    input.clientSecret !== undefined ? input.clientSecret.trim() || undefined : existing?.clientSecret
+  await writeGithubOAuthClient({ clientId, ...(clientSecret ? { clientSecret } : {}) })
+  await refreshCachedGithubClientId()
+  return { clientId, hasClientSecret: oauthClientHasSecret(await readGithubOAuthClient()) }
 }
 
 function githubSessionPath(): string {
@@ -697,8 +736,204 @@ async function githubAuthPoll(input: { deviceCode: string }): Promise<GitHubAuth
   return { connected: true, login }
 }
 
+async function revokeGithubAccessToken(accessToken: string): Promise<void> {
+  const creds = await resolveGithubOAuthCredentials()
+  if (!creds?.clientId) {
+    console.warn('[emprint] Skipping GitHub token revoke: OAuth Client ID is not configured.')
+    return
+  }
+
+  const { clientId, clientSecret } = creds
+  if (!clientSecret) {
+    console.warn(
+      '[emprint] Skipping GitHub token revoke: Client Secret is not set. Add it in Settings (or EMPRINT_GITHUB_CLIENT_SECRET) so logout invalidates the token on GitHub.'
+    )
+    return
+  }
+
+  const revokeBody = new URLSearchParams()
+  revokeBody.set('client_id', clientId)
+  revokeBody.set('client_secret', clientSecret)
+  revokeBody.set('token', accessToken)
+
+  const revokeRes = await fetch('https://github.com/login/oauth/revoke', {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: revokeBody
+  })
+
+  if (revokeRes.ok) return
+
+  const basic = Buffer.from(`${clientId}:${clientSecret}`, 'utf8').toString('base64')
+  const deleteRes = await fetch(`https://api.github.com/applications/${encodeURIComponent(clientId)}/token`, {
+    method: 'DELETE',
+    headers: {
+      Accept: 'application/vnd.github+json',
+      Authorization: `Basic ${basic}`,
+      'Content-Type': 'application/json',
+      'X-GitHub-Api-Version': '2022-11-28'
+    },
+    body: JSON.stringify({ access_token: accessToken })
+  })
+
+  if (deleteRes.ok || deleteRes.status === 404) return
+
+  const message = await safeReadText(deleteRes)
+  console.warn(`[emprint] GitHub token revoke failed (${deleteRes.status}): ${message}`)
+}
+
 async function githubLogout(): Promise<void> {
+  const session = await readGithubSession()
+  if (session?.accessToken) {
+    try {
+      await revokeGithubAccessToken(session.accessToken)
+    } catch (caught) {
+      console.warn('[emprint] GitHub token revoke error:', caught)
+    }
+  }
   await deleteGithubSession()
+}
+
+let githubLogoutPromise: Promise<void> | null = null
+
+/** Revoke remote token (when possible) and clear local GitHub session. Idempotent. */
+export async function performGithubLogout(): Promise<void> {
+  if (!githubLogoutPromise) {
+    githubLogoutPromise = githubLogout().finally(() => {
+      githubLogoutPromise = null
+    })
+  }
+  return githubLogoutPromise
+}
+
+let appCloseGuardRegistered = false
+let skipAppCloseGuard = false
+let closeGuardInProgress = false
+let closeGuardMainWindow: BrowserWindow | null = null
+
+function notifyRendererGithubSessionCleared(win: BrowserWindow | null): void {
+  if (!win || win.isDestroyed()) return
+  win.webContents.send(ipcChannels.githubSessionCleared)
+}
+
+/** Native dialog so quit/close works in dev (renderer may tear down before React can paint). */
+async function runCloseGuardDialog(kind: 'window' | 'app', login?: string): Promise<'logout' | 'continue' | 'cancel'> {
+  const win = closeGuardMainWindow
+  const parent = win && !win.isDestroyed() ? win : BrowserWindow.getFocusedWindow() ?? undefined
+
+  const isKo = app.getLocale().toLowerCase().startsWith('ko')
+  const title =
+    kind === 'app'
+      ? isKo
+        ? 'Emprint 종료'
+        : 'Quit Emprint'
+      : isKo
+        ? '창 닫기'
+        : 'Close window'
+
+  const message =
+    kind === 'app'
+      ? isKo
+        ? 'Emprint를 종료할까요?'
+        : 'Quit Emprint?'
+      : isKo
+        ? '창을 닫을까요?'
+        : 'Close this window?'
+
+  const detail = login
+    ? isKo
+      ? `GitHub(${login})에 로그인된 상태입니다. 공용 PC라면 로그아웃하는 것이 좋습니다.`
+      : `You are signed in to GitHub as ${login}. On a shared computer, log out before leaving.`
+    : isKo
+      ? 'GitHub에 로그인된 상태입니다. 공용 PC라면 로그아웃하는 것이 좋습니다.'
+      : 'You are signed in to GitHub. On a shared computer, log out before leaving.'
+
+  const buttons = isKo
+    ? ['로그아웃', kind === 'app' ? '로그아웃 없이 종료' : '로그아웃 없이 닫기', '취소']
+    : ['Log out', kind === 'app' ? 'Quit without logging out' : 'Close without logging out', 'Cancel']
+
+  const options = {
+    type: 'warning' as const,
+    title,
+    message,
+    detail,
+    buttons,
+    defaultId: 0,
+    cancelId: 2,
+    noLink: true
+  }
+  const { response } = parent
+    ? await dialog.showMessageBox(parent, options)
+    : await dialog.showMessageBox(options)
+
+  if (response === 0) return 'logout'
+  if (response === 1) return 'continue'
+  return 'cancel'
+}
+
+async function handleCloseAttempt(kind: 'window' | 'app'): Promise<void> {
+  if (skipAppCloseGuard) {
+    if (kind === 'app') app.exit(0)
+    else closeGuardMainWindow?.close()
+    return
+  }
+
+  if (closeGuardInProgress) return
+  closeGuardInProgress = true
+
+  try {
+    const status = await githubAuthStatus()
+    if (!status.connected) {
+      skipAppCloseGuard = true
+      if (kind === 'app') app.exit(0)
+      else closeGuardMainWindow?.close()
+      return
+    }
+
+    const action = await runCloseGuardDialog(kind, status.login)
+    if (action === 'cancel') return
+
+    if (action === 'logout') {
+      await performGithubLogout()
+      notifyRendererGithubSessionCleared(closeGuardMainWindow)
+    }
+
+    skipAppCloseGuard = true
+    if (kind === 'app') {
+      app.exit(0)
+    } else {
+      closeGuardMainWindow?.close()
+    }
+  } finally {
+    closeGuardInProgress = false
+  }
+}
+
+/** Prompt to log out on shared PCs when closing the window or quitting the app. */
+export function registerAppCloseGuard(mainWindow: BrowserWindow): void {
+  closeGuardMainWindow = mainWindow
+
+  mainWindow.on('close', (event) => {
+    if (skipAppCloseGuard) return
+    event.preventDefault()
+    void handleCloseAttempt('window')
+  })
+
+  if (appCloseGuardRegistered) return
+  appCloseGuardRegistered = true
+
+  app.on('before-quit', (event) => {
+    if (skipAppCloseGuard) return
+    if (closeGuardInProgress) {
+      event.preventDefault()
+      return
+    }
+    event.preventDefault()
+    void handleCloseAttempt('app')
+  })
 }
 
 async function githubRepoCreate(input: GitHubRepoCreateInput): Promise<GitHubRepoCreateResult> {

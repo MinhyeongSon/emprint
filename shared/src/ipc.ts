@@ -20,7 +20,7 @@ import type {
   SiteDevServerState,
   WorkspaceConfig,
   WorkspaceMonacoTypescriptPayload,
-  WorkspaceSrcTreeNode
+  WorkspaceSrcTreeNode,
 } from './types'
 
 export const ipcChannels = {
@@ -64,7 +64,9 @@ export const ipcChannels = {
   siteDevStop: 'site:dev:stop',
   siteDevStatus: 'site:dev:status',
   siteDevOpenPreview: 'site:dev:open-preview',
-  workspaceMonacoTypescript: 'workspace:monaco:typescript'
+  workspaceMonacoTypescript: 'workspace:monaco:typescript',
+  /** Main cleared GitHub session (e.g. logout from native close dialog). */
+  githubSessionCleared: 'github:session-cleared'
 } as const
 
 export interface EmprintDesktopApi {
@@ -78,7 +80,7 @@ export interface EmprintDesktopApi {
   }
   github: {
     oauthClientGet(): Promise<GitHubOAuthClientConfig>
-    oauthClientSet(input: { clientId: string }): Promise<GitHubOAuthClientConfig>
+    oauthClientSet(input: { clientId: string; clientSecret?: string }): Promise<GitHubOAuthClientConfig>
     authStatus(): Promise<GitHubAuthStatus>
     authStart(input: { scopes: string[] }): Promise<GitHubDeviceCode>
     authPoll(input: { deviceCode: string }): Promise<GitHubAuthStatus>
@@ -169,5 +171,8 @@ export interface EmprintDesktopApi {
     stop(): Promise<SiteDevServerState>
     status(): Promise<SiteDevServerState>
     openPreview(): Promise<SiteDevServerState>
+  }
+  app: {
+    onGithubSessionCleared(handler: () => void): () => void
   }
 }

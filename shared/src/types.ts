@@ -238,7 +238,18 @@ export interface GitHubAuthStatus {
 
 export interface GitHubOAuthClientConfig {
   clientId?: string
+  /** True when a client secret is stored (or set via env) — required for API token revoke on logout. */
+  hasClientSecret?: boolean
 }
+
+export type AppCloseGuardKind = 'window' | 'app'
+
+export interface AppCloseGuardRequest {
+  kind: AppCloseGuardKind
+  login?: string
+}
+
+export type AppCloseGuardAction = 'logout' | 'continue' | 'cancel'
 
 export type GitHubRepoVisibility = 'public' | 'private'
 

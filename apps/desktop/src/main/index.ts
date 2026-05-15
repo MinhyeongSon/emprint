@@ -1,6 +1,6 @@
 import { app, BrowserWindow } from 'electron'
 import { createMainWindow } from './window'
-import { setupIpcHandlers } from './ipc'
+import { registerAppCloseGuard, setupIpcHandlers } from './ipc'
 import { registerAssetProtocolHandler, registerAssetProtocolPrivilege } from './asset-protocol'
 
 let mainWindow: BrowserWindow | null = null
@@ -12,10 +12,12 @@ app.whenReady().then(async () => {
   setupIpcHandlers()
   registerAssetProtocolHandler()
   mainWindow = createMainWindow()
+  registerAppCloseGuard(mainWindow)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       mainWindow = createMainWindow()
+      registerAppCloseGuard(mainWindow)
     }
   })
 })

@@ -47,6 +47,7 @@ interface AppState {
   setGithubSession(input: { connected: boolean; login?: string | undefined }): void
   setWorkspaceRootDir(dir?: string | undefined): void
   completeWizard(input: { workspaceRootDir: string; githubConnected: boolean }): void
+  returnToWizard(): void
   enterHub(): void
   enterWorkspace(input: {
     workspaceId: string
@@ -88,6 +89,20 @@ export const useAppStore = create<AppState>()(
           mode: 'hub',
           workspaceRootDir,
           githubConnected
+        }),
+      returnToWizard: () =>
+        set({
+          mode: 'wizard',
+          githubConnected: false,
+          githubLogin: undefined,
+          activeWorkspaceId: undefined,
+          workspaceConfig: undefined,
+          workspaceResult: undefined,
+          activeSection: 'posts',
+          surface: 'list',
+          activeDocumentPath: undefined,
+          activeDocumentTitle: undefined,
+          activeDocumentDirty: false
         }),
       enterHub: () =>
         set({

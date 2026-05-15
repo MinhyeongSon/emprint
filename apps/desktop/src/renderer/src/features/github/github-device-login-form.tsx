@@ -10,6 +10,10 @@ export interface GithubDeviceLoginFormProps {
   /** Controlled Client ID (e.g. Settings shares with Save row). Omit for internal state (wizard). */
   clientId?: string
   onClientIdChange?: (value: string) => void
+  /** When set, persisted with Client ID on sign-in (wizard requires this). */
+  clientSecret?: string
+  /** Hide Client ID field when parent collects OAuth credentials. */
+  hideClientIdField?: boolean
   /** “Create OAuth App” + “Save Client ID” (Emprint Settings). */
   showPersistToolbar?: boolean
   persistSaveBusy?: boolean
@@ -20,6 +24,8 @@ export function GithubDeviceLoginForm({
   onFlowActiveChange,
   clientId: clientIdProp,
   onClientIdChange,
+  clientSecret: clientSecretProp,
+  hideClientIdField,
   showPersistToolbar,
   persistSaveBusy,
   onPersistSave
@@ -87,7 +93,18 @@ export function GithubDeviceLoginForm({
         throw new Error(locale === 'ko' ? '먼저 GitHub Client ID를 입력해 주세요.' : 'Please enter a GitHub Client ID first.')
       }
 
-      await api.oauthClientSet({ clientId: trimmedClientId })
+      const trimmedSecret = clientSecretProp?.trim() ?? ''
+      const stored = await api.oauthClientGet()
+      if (!trimmedSecret && !stored.hasClientSecret) {
+        throw new Error(
+          locale === 'ko' ? 'Client Secret을 입력·저장한 뒤 로그인해 주세요.' : 'Enter and save the Client Secret before signing in.'
+        )
+      }
+
+      await api.oauthClientSet({
+        clientId: trimmedClientId,
+        ...(trimmedSecret ? { clientSecret: trimmedSecret } : {})
+      })
       setClientIdSaved(true)
       const code = await api.authStart({ scopes: ['repo', 'workflow', 'delete_repo'] })
       setDeviceCode(code)
@@ -224,6 +241,7 @@ export function GithubDeviceLoginForm({
         ) : null}
       </div>
 
+      {hideClientIdField ? null : (
       <div className="space-y-2 rounded-md border border-border bg-panel px-3 py-2.5">
         <div className="flex items-center justify-between gap-3">
           <div className="text-[11px] uppercase tracking-[0.16em] text-muted">OAuth Client ID</div>
@@ -281,6 +299,7 @@ export function GithubDeviceLoginForm({
           </div>
         ) : null}
       </div>
+      )}
 
       {authError ? (
         <div className="rounded-md border border-danger/55 bg-dangerBg px-3 py-2.5 text-sm text-dangerInk">{authError}</div>

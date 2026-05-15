@@ -21,8 +21,6 @@ import {
 } from 'lucide-react'
 import { getSectionLabel } from '@renderer/lib/i18n'
 import { CommandPalette, type CommandPaletteItem } from '@renderer/features/shell/command-palette'
-import { GithubDeviceLoginForm } from '@renderer/features/github/github-device-login-form'
-
 export function App() {
   const locale = useAppStore((state) => state.locale)
   const setLocale = useAppStore((state) => state.setLocale)
@@ -31,6 +29,7 @@ export function App() {
   const mode = useAppStore((state) => state.mode)
   const setRuntimeInfo = useAppStore((state) => state.setRuntimeInfo)
   const enterHub = useAppStore((state) => state.enterHub)
+  const returnToWizard = useAppStore((state) => state.returnToWizard)
   const activeSection = useAppStore((state) => state.activeSection)
   const workspaceResult = useAppStore((state) => state.workspaceResult)
   const workspaceConfig = useAppStore((state) => state.workspaceConfig)
@@ -42,8 +41,6 @@ export function App() {
 
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [oauthClientId, setOauthClientId] = useState('')
-  const [oauthSaving, setOauthSaving] = useState(false)
   const [githubLogoutBusy, setGithubLogoutBusy] = useState(false)
 
   useEffect(() => {
@@ -106,33 +103,29 @@ export function App() {
   useEffect(() => {
     if (!settingsOpen) return
     const api = window.emprint?.github
-    if (!api) return
+    if (!api?.authStatus) return
     let alive = true
 
-    if (api.oauthClientGet) {
-      void api
-        .oauthClientGet()
-        .then((cfg) => {
-          if (!alive) return
-          setOauthClientId(cfg.clientId ?? '')
-        })
-        .catch(() => {})
-    }
-
-    if (api.authStatus) {
-      void api
-        .authStatus()
-        .then((status) => {
-          if (!alive) return
-          setGithubSession({ connected: status.connected, login: status.login })
-        })
-        .catch(() => {})
-    }
+    void api
+      .authStatus()
+      .then((status) => {
+        if (!alive) return
+        setGithubSession({ connected: status.connected, login: status.login })
+      })
+      .catch(() => {})
 
     return () => {
       alive = false
     }
   }, [settingsOpen, setGithubSession])
+
+  useEffect(() => {
+    const unsubscribe = window.emprint?.app?.onGithubSessionCleared?.(() => {
+      setGithubSession({ connected: false, login: undefined })
+      returnToWizard()
+    })
+    return () => unsubscribe?.()
+  }, [returnToWizard, setGithubSession])
 
   const center =
     mode === 'workspace' ? (
@@ -338,6 +331,8 @@ export function App() {
                         try {
                           await window.emprint.github.logout()
                           setGithubSession({ connected: false, login: undefined })
+                          setSettingsOpen(false)
+                          returnToWizard()
                         } finally {
                           setGithubLogoutBusy(false)
                         }
@@ -353,23 +348,11 @@ export function App() {
                   ) : null}
                 </div>
                 {!githubConnected ? (
-                  <div className="rounded-md border border-border bg-panel2/40 p-3">
-                    <GithubDeviceLoginForm
-                      clientId={oauthClientId}
-                      onClientIdChange={setOauthClientId}
-                      showPersistToolbar
-                      persistSaveBusy={oauthSaving}
-                      onPersistSave={async () => {
-                        if (!oauthClientId.trim()) return
-                        setOauthSaving(true)
-                        try {
-                          await window.emprint.github.oauthClientSet({ clientId: oauthClientId.trim() })
-                        } finally {
-                          setOauthSaving(false)
-                        }
-                      }}
-                    />
-                  </div>
+                  <p className="text-xs leading-relaxed text-muted">
+                    {locale === 'ko'
+                      ? 'GitHub 연결은 설정 마법사(Wizard)에서 진행합니다.'
+                      : 'Connect GitHub from the setup wizard.'}
+                  </p>
                 ) : null}
               </div>
               </div>
@@ -377,6 +360,7 @@ export function App() {
           </div>
         </div>
       ) : null}
+
     </>
   )
 }

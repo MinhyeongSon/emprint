@@ -9,6 +9,10 @@ Human-facing philosophy (anthologies, commit metaphor, emotional direction) and 
 - [`docs/latest/emprint-philosophy.md`](latest/emprint-philosophy.md)
 - [`docs/latest/emprint-brand-system.md`](latest/emprint-brand-system.md)
 
+**Planned extensions** after the MVP blog/Pages slice (template/theme architecture, Book and other formats, anthology publication identity, documentation automation) are maintained in:
+
+- [`docs/latest/emprint-added-plan.md`](latest/emprint-added-plan.md)
+
 This document is the **engineering and architecture contract**: stack, security, MVP mechanics, and runtime shape. Where Git, markdown, and history appear here, they should stay aligned with the philosophy docs (for example treating publishing as traces and revisions, not only polished outputs).
 
 # Project Vision
@@ -380,6 +384,34 @@ Each workspace type may later customize:
 
 ---
 
+# Planned publication formats & anthology model
+
+*Not fully specified in this file; see [`latest/emprint-added-plan.md`](latest/emprint-added-plan.md). Implementation tracking: [`ROADMAP_MVP_GITHUB_PAGES.md`](ROADMAP_MVP_GITHUB_PAGES.md#extended-product-plan-emprint-added-plan).*
+
+## Internal formats (semantic)
+
+Formats control layout rules, metadata schema, editing experience, and semantic Astro components:
+
+- **Column** — editorial / blog (MVP: `SiteProjectKind: column`)
+- **Memoir**, **Dictionary**, **Fragments** — anthology-shaped archives (planned)
+- **Book** — web-native independent publication: chapters, immersive reading, footnotes; static artifact on GitHub Pages, not a feed or marketplace (planned)
+
+## Publication identity (creator-defined)
+
+Separate from format: creators choose **publication slugs** and domains (e.g. `observatory.minhyeong.dev` for a Column publication named Observatory). Do **not** bind public URLs to format names (`column.domain.com`).
+
+Anthology should behave as a **publishing namespace** (connected publications, optional shared navigation and branding), not merely a folder or repo list—while each repository stays portable and locally owned.
+
+## Template / theme system (planned)
+
+- Separate **content** from **presentation** (`content/` vs `theme/` target layout).
+- Themes are replaceable publishing identities (layouts, typography, motion), not thin CSS skins.
+- Safe swap flow: install theme → replace presentation regions → preserve content → preview → publish.
+
+Current MVP: Design surface applies CSS presets and edits `src/` directly; full theme packages are future work.
+
+---
+
 # UI Direction
 
 The **runtime** should support focused, transparent work (compare Obsidian, VSCode, Cursor, Notion, GitHub Desktop): keyboard-first flows, filesystem visibility, and professional density.
@@ -402,8 +434,9 @@ Avoid overly heavy animations and addictive-scroll patterns.
 - Posts
 - Drafts
 - Assets
-- Implement (workspace `src/` site code)
-- Settings (including command palette entry; dedicated search surface is future work)
+- Design (site template presets + workspace `src/` code in Monaco; local Astro preview)
+- Imprint (commit / publish history from `git:log`)
+- Settings (keyboard hints in-shell; GitHub/theme/root in global Settings overlay; command palette via Ctrl/Cmd+K)
 
 ---
 
@@ -590,26 +623,17 @@ Do NOT hardcode everything into the core application.
 
 # Recommended Project Structure
 
+Target layout (not fully realized in the repo yet—see `docs/architecture.md`):
+
 ```txt
-/apps
-/packages
+apps/desktop     Electron main, preload, renderer (current home of MVP runtime)
+shared           IPC contracts and shared types (exists today)
 
-/core
-  /runtime
-  /editor
-  /filesystem
-  /git
-  /workspace
-  /commands
-  /indexing
-
-/features
-  /blog
-  /developer
-  /ai
-
-/shared
+/core            Planned: runtime, editor adapters, filesystem queue, git contracts
+/features        Planned: blog, developer, ai workspace modules
 ```
+
+Current monorepo: `apps/desktop`, `shared`, `docs`, `scripts`, `build`. No top-level `core/` or `features/` packages yet.
 
 ---
 

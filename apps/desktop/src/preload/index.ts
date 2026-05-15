@@ -67,7 +67,14 @@ const api: EmprintDesktopApi = {
     close: () => ipcRenderer.invoke(ipcChannels.windowClose),
     isMaximized: () => ipcRenderer.invoke(ipcChannels.windowIsMaximized)
   },
-  siteDev: siteDevApi
+  siteDev: siteDevApi,
+  app: {
+    onGithubSessionCleared: (handler) => {
+      const listener = () => handler()
+      ipcRenderer.on(ipcChannels.githubSessionCleared, listener)
+      return () => ipcRenderer.removeListener(ipcChannels.githubSessionCleared, listener)
+    }
+  }
 }
 
 contextBridge.exposeInMainWorld('emprint', api)
