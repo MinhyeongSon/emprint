@@ -1,6 +1,6 @@
 # Emprint MVP Roadmap — GitHub Pages end‑to‑end
 
-Product-level goals (quiet personal archive, not a growth or feed product) are in [`latest/emprint-philosophy.md`](latest/emprint-philosophy.md). **Post-MVP product extensions** (template system, Book format, anthology identity, doc automation) are specified in [`latest/emprint-added-plan.md`](latest/emprint-added-plan.md) and tracked in [Extended product plan](#extended-product-plan-emprint-added-plan) below.
+Product narrative, brand, **Draft vs Imprint**, and post-MVP plans: [`PRODUCT.md`](PRODUCT.md). This file is **delivery engineering** only (status tables, test guide, rationale).
 
 This roadmap is **delivery engineering** toward Git + GitHub Pages.
 
@@ -20,6 +20,7 @@ It complements `docs/AGENT_BRIEF.md` (current state) and is written so any agent
 | Token revoke on logout / quit | ✅ **Done** | Wizard **Client Secret** required; explicit Settings **Log out** → Wizard; window close / quit → shared-PC dialog (logout optional) |
 | Scope review (tighten scopes) | ⏳ **Optional** | Revoke shipped; narrowing `repo` / `workflow` / `delete_repo` still open |
 | Poll Actions / Pages in app | 📋 **Will implement** | Rationale: [Why poll Actions / Pages?](#why-poll-actions--pages-status--logs) |
+| Imprint = rollback UI | 📋 **Will implement** | Linear publish timeline; no branches/merges in UX ([spec](PRODUCT.md#part-3--state--time-model)) |
 
 ---
 
@@ -35,7 +36,8 @@ It complements `docs/AGENT_BRIEF.md` (current state) and is written so any agent
 | Posts lifecycle | ✅ | Move between `posts/` / `drafts/`, delete; IPC validation |
 | Design (sidebar 4) | ✅ | **Template**: warm/dark/light → `src/styles/global.css`. **Code**: `src/` tree + Monaco + create/rename/delete; workspace TS config. **Preview**: `site:dev:*` → Astro on `http://localhost:4321/`. **AI prompt**: copy-only for external tools |
 | Assets | ✅ | Save/list/delete under `assets/images/`; cross-references from posts |
-| Imprint | ✅ | `git:log` timeline (“publish log”, not full `git log` UI) |
+| Imprint (timeline) | ✅ | `git:log` lane UI — publish narrative, not Git vocabulary ([spec](PRODUCT.md#part-3--state--time-model)) |
+| Imprint rollback / Reset draft | 📋 | Timeline as rollback UI; discard uncommitted work ([spec](PRODUCT.md#part-3--state--time-model)) |
 | Publish flow | ✅ | `git:working-tree` + `git:publish` (stage all → commit → HTTPS push); sidebar dialog |
 | Workspace bootstrap | ✅ | Manifest, dirs, starter post, Astro **column** scaffold, `deploy-astro-gh-pages.yml` |
 | GitHub repo create (Hub) | ✅ | Public repo only; best-effort Pages API `build_type: workflow` after create |
@@ -59,6 +61,7 @@ It complements `docs/AGENT_BRIEF.md` (current state) and is written so any agent
 | Item | Status | Notes |
 |------|--------|-------|
 | Auto fetch + pull from remote | 📋 | See product decision above |
+| Imprint rollback + Reset draft | 📋 | [State & time model](PRODUCT.md#part-3--state--time-model) |
 | In-app deploy status (optional) | ⏳ | See [Why poll Actions / Pages?](#why-poll-actions--pages-status--logs) |
 | Scope review (optional) | ⏳ | Revoke on logout ✅; narrowing OAuth scopes still optional |
 
@@ -154,7 +157,22 @@ It complements `docs/AGENT_BRIEF.md` (current state) and is written so any agent
 | Static Pages URL on Hub cards | ✅ | `resolveGithubPagesUrl` |
 | Poll Actions / Pages + in-app logs | ⏳ | Decision pending — see rationale section |
 
-*Remaining epic focus*: **remote sync (fetch/pull)** and optional **deploy observability**—not new static generators or Hub clone.
+*Remaining epic focus*: **remote sync (fetch/pull)**, **Imprint rollback / Reset draft**, and optional **deploy observability**—not new static generators or Hub clone.
+
+### F) Imprint layer (state & time model)
+
+**Goal**: users think in **Draft (working)** vs **Imprint (published history)**; Imprint timeline is the rollback interface — no Git vocabulary.
+
+Canonical spec: [`PRODUCT.md#part-3--state--time-model`](PRODUCT.md#part-3--state--time-model).
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Two-layer mental model documented | ✅ | Draft layer vs Imprint layer |
+| Publish → new Imprint entry | ✅ | `git:publish` + timeline via `git:log` |
+| Imprint timeline UI (read-only) | ✅ | Lane-style; not “git log” |
+| **Rollback** to selected Imprint | 📋 | Restore snapshot to Working State; **do not** delete timeline entries |
+| **Reset draft** (discard uncommitted) | 📋 | Restore to latest published Imprint (or empty) |
+| Expose branches / merge / SHA UI | 🚫 | Linear Imprint only |
 
 ---
 
@@ -168,7 +186,8 @@ It complements `docs/AGENT_BRIEF.md` (current state) and is written so any agent
 | 4 | Commit/push (Publish) | ✅ | Auto fetch + pull |
 | 5 | Astro generator + Actions workflow | ✅ | — |
 | 6 | Pages API enablement | ✅ | Optional in-app deploy polling |
-| 7 | Polish | ❌ | Retries, partial-setup recovery, org/SSO edge cases |
+| 7 | Imprint rollback + Reset draft | 📋 | [State & time model](PRODUCT.md#part-3--state--time-model) |
+| 8 | Polish | ❌ | Retries, partial-setup recovery, org/SSO edge cases |
 
 ---
 
@@ -230,8 +249,8 @@ After first push, confirm on GitHub: **Actions** runs **Deploy Astro to GitHub P
 | Viewer | Open post → markdown preview |
 | Editor | TipTap edit + save persists to disk |
 | Design (4) | Template and/or Code; site preview; if “Workspace source API unavailable” → quit app, `npm run dev` |
-| Imprint (5) | `git:log` history after publish |
-| Publish | Sidebar control → message → push; new commit in Imprint |
+| Imprint (5) | Publish timeline after Publish (rollback UI planned) |
+| Publish | Sidebar → message → push; new Imprint entry on timeline |
 | Settings (6) | Theme, root, Device Flow, OAuth client ID, log out |
 
 Troubleshooting:
@@ -282,6 +301,8 @@ Troubleshooting:
 | Stage-all + commit + push (`git:publish` + dialog) | ✅ |
 | Auto `fetch` + `pull` when remote ahead | 📋 Planned |
 | Commit history for Imprint (`git:log`) | ✅ |
+| Imprint rollback (restore Working State from timeline) | 📋 Planned |
+| Reset draft (discard uncommitted → last Imprint) | 📋 Planned |
 
 ### Pages / Deploy
 
@@ -344,9 +365,9 @@ Troubleshooting:
 
 ---
 
-## Extended product plan (`emprint-added-plan`)
+## Extended product plan
 
-Canonical detail: [`latest/emprint-added-plan.md`](latest/emprint-added-plan.md). These items are **out of scope for the MVP GitHub Pages critical path** unless explicitly prioritized; they define the next product/architecture tranche after the baseline author → publish loop is solid.
+Full specification: [`PRODUCT.md` — Part 4](PRODUCT.md#part-4--extended-plan). Out of scope for the MVP GitHub Pages critical path unless explicitly prioritized.
 
 ### A) Template system & safe theme swapping
 
@@ -400,11 +421,12 @@ Canonical detail: [`latest/emprint-added-plan.md`](latest/emprint-added-plan.md)
 
 ### Suggested order (after MVP critical path)
 
-1. Finish MVP gaps in this doc (auto fetch/pull; optional deploy polling / token revoke).
-2. **Publication slug** + manifest fields; Hub create flow (format → name → repo).
-3. **Theme package** MVP (install + swap + preview) on top of existing Design/Code surfaces.
-4. **Book** format generator + semantic components (largest format bet).
-5. Memoir / Dictionary / Fragments formats (incremental).
-6. Anthology-level domain/navigation settings.
-7. Playwright doc scenarios + demo workspace (can parallelize once UI stabilizes).
+1. Finish MVP gaps in this doc (auto fetch/pull; optional deploy polling).
+2. **Imprint rollback** + **Reset draft** per [state & time model](PRODUCT.md#part-3--state--time-model).
+3. **Publication slug** + manifest fields; Hub create flow (format → name → repo).
+4. **Theme package** MVP (install + swap + preview) on top of existing Design/Code surfaces.
+5. **Book** format generator + semantic components (largest format bet).
+6. Memoir / Dictionary / Fragments formats (incremental).
+7. Anthology-level domain/navigation settings.
+8. Playwright doc scenarios + demo workspace (can parallelize once UI stabilizes).
 

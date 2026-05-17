@@ -4,14 +4,9 @@ Emprint is a Local-First, Git-Native workspace platform designed to preserve and
 
 ## Canonical product narrative
 
-Human-facing philosophy (anthologies, commit metaphor, emotional direction) and the brand system (voice, visual direction, landing guidance) are maintained in:
+Product narrative, brand, Draft vs Imprint, and post-MVP plans: [`docs/PRODUCT.md`](PRODUCT.md).
 
-- [`docs/latest/emprint-philosophy.md`](latest/emprint-philosophy.md)
-- [`docs/latest/emprint-brand-system.md`](latest/emprint-brand-system.md)
-
-**Planned extensions** after the MVP blog/Pages slice (template/theme architecture, Book and other formats, anthology publication identity, documentation automation) are maintained in:
-
-- [`docs/latest/emprint-added-plan.md`](latest/emprint-added-plan.md)
+This file is the **engineering contract** only. Delivery status: [`docs/ROADMAP.md`](ROADMAP.md). Implementation map: [`docs/AGENT_BRIEF.md`](AGENT_BRIEF.md).
 
 This document is the **engineering and architecture contract**: stack, security, MVP mechanics, and runtime shape. Where Git, markdown, and history appear here, they should stay aligned with the philosophy docs (for example treating publishing as traces and revisions, not only polished outputs).
 
@@ -386,7 +381,7 @@ Each workspace type may later customize:
 
 # Planned publication formats & anthology model
 
-*Not fully specified in this file; see [`latest/emprint-added-plan.md`](latest/emprint-added-plan.md). Implementation tracking: [`ROADMAP_MVP_GITHUB_PAGES.md`](ROADMAP_MVP_GITHUB_PAGES.md#extended-product-plan-emprint-added-plan).*
+*Not fully specified in this file; see [`PRODUCT.md` — Part 4](PRODUCT.md#part-4--extended-plan). Implementation tracking: [`ROADMAP.md` — Extended plan](ROADMAP.md#extended-product-plan).*
 
 ## Internal formats (semantic)
 
@@ -416,7 +411,7 @@ Current MVP: Design surface applies CSS presets and edits `src/` directly; full 
 
 The **runtime** should support focused, transparent work (compare Obsidian, VSCode, Cursor, Notion, GitHub Desktop): keyboard-first flows, filesystem visibility, and professional density.
 
-**Tone and pacing** must follow [`docs/latest/emprint-philosophy.md`](latest/emprint-philosophy.md) and [`docs/latest/emprint-brand-system.md`](latest/emprint-brand-system.md): calm, archival, deliberate—not feed-like, gamified, or dopamine-driven.
+**Tone and pacing** must follow [`PRODUCT.md`](PRODUCT.md) (Parts 1–2): calm, archival, deliberate—not feed-like, gamified, or dopamine-driven.
 
 Priority:
 - reliable, responsive editing and navigation
@@ -435,7 +430,7 @@ Avoid overly heavy animations and addictive-scroll patterns.
 - Drafts
 - Assets
 - Design (site template presets + workspace `src/` code in Monaco; local Astro preview)
-- Imprint (commit / publish history from `git:log`)
+- Imprint (linear **publish narrative** timeline — rollback UI; Git abstracted — see [`PRODUCT.md` — Part 3](PRODUCT.md#part-3--state--time-model))
 - Settings (keyboard hints in-shell; GitHub/theme/root in global Settings overlay; command palette via Ctrl/Cmd+K)
 
 ---
@@ -623,7 +618,7 @@ Do NOT hardcode everything into the core application.
 
 # Recommended Project Structure
 
-Target layout (not fully realized in the repo yet—see `docs/architecture.md`):
+Target layout (not fully realized in the repo yet—see `docs/AGENT_BRIEF.md` and `docs/PRODUCT.md` Part 4):
 
 ```txt
 apps/desktop     Electron main, preload, renderer (current home of MVP runtime)

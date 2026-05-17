@@ -2,15 +2,13 @@
 
 This document is a **working summary** of Emprint for other agents before they start making changes. It is based on the existing docs in `docs/` and the current implementation in the repository.
 
-*Last reconciled with the codebase: 2026-05-15. Planned extensions from `docs/latest/emprint-added-plan.md` incorporated below.*
+*Last reconciled with the codebase: 2026-05-15.*
 
-## Product narrative (canonical)
+**Doc map:** [`PRODUCT.md`](PRODUCT.md) (philosophy, brand, Imprint model, extended plan) · [`ROADMAP.md`](ROADMAP.md) (delivery status) · [`DESIGN.md`](DESIGN.md) (UI kit) · [`proposal.md`](proposal.md) (engineering contract)
 
-Read before writing user-facing copy or shaping UX tone:
+## Product narrative
 
-- `docs/latest/emprint-philosophy.md` — purpose, anthologies, commit philosophy, anti-patterns.
-- `docs/latest/emprint-brand-system.md` — voice, visual direction, landing structure, AI constraints, naming/mark.
-- `docs/latest/emprint-added-plan.md` — **planned** template/theme architecture, publication formats (incl. Book), anthology identity vs format naming, documentation automation (not implemented yet).
+Read [`PRODUCT.md`](PRODUCT.md) before user-facing copy or UX tone — especially Part 1 (philosophy), Part 2 (brand), Part 3 (Draft vs Imprint).
 
 ## Product intent (from `docs/proposal.md` + philosophy docs)
 
@@ -19,7 +17,7 @@ Read before writing user-facing copy or shaping UX tone:
 - **Cloud-optional**: MVP allowed to use GitHub OAuth/API, but no proprietary backend datastore.
 - **Workspace is the product; the app is the runtime**.
 
-UI target: a hybrid feel between **Obsidian / VSCode / Notion / GitHub Desktop**, with emphasis on ownership, focus, density, and keyboard workflows—while staying aligned with the **quiet, archival, non-feed** direction in `docs/latest/*` (deliberate pacing, not engagement-driven UI).
+UI target: a hybrid feel between **Obsidian / VSCode / Notion / GitHub Desktop**, with emphasis on ownership, focus, density, and keyboard workflows—while staying aligned with the **quiet, archival, non-feed** direction in `PRODUCT.md` (deliberate pacing, not engagement-driven UI).
 
 ## Repository boundaries
 
@@ -44,7 +42,16 @@ Key main-process areas:
 - **`core/`**: runtime abstractions (commands, workspace runtime, git contracts, document adapter concepts).
 - **`features/blog/`** (or similar): extract blog-specific templates and post summary logic from main.
 
-See `docs/architecture.md` for the boundary table and evolution steps.
+The desktop shell stays thin; long-term behavior should move behind a workspace runtime, command registry, and template adapters ([`proposal.md`](proposal.md)). That `core/` layer is **not extracted** yet.
+
+### Source of truth
+
+- Markdown in the workspace is canonical; `.workspace/` is for derived metadata and caches.
+- Git repos stay portable and editable outside Emprint.
+
+### State & time (Draft vs Imprint)
+
+See [`PRODUCT.md` — Part 3](PRODUCT.md#part-3--state--time-model). Today: `git:working-tree`, `git:publish`, Imprint lane UI via `git:log`. Rollback and Reset draft are planned ([`ROADMAP.md`](ROADMAP.md) § F).
 
 ## Current runtime + IPC shape (implementation reality)
 
@@ -74,10 +81,23 @@ Key IPC groups (channel strings live in `shared/src/ipc.ts` as `ipcChannels`):
 
 Starter post content for the blog template has been minimized (no “folder structure” bullets).
 
-### Publish + Imprint
+### Publish + Imprint (state & time model)
 
-- **Publish** (sidebar footer): opens a dialog that calls `git:working-tree()` and `git:publish({ message, push })` (stage all → commit → optional HTTPS push with stored session). Blocked while the active post editor has unsaved in-memory changes.
-- **Imprint** (sidebar section): `git:log()` for a lane-style commit / “publish mark” history.
+Product spec: [`PRODUCT.md` — Part 3](PRODUCT.md#part-3--state--time-model).
+
+Emprint exposes **two layers** to users — not Git:
+
+| Layer | Meaning | UI today |
+|-------|---------|----------|
+| **Working State** (Draft layer) | Uncommitted edits across the workspace | Dirty titlebar `*`, Publish dialog via `git:working-tree` |
+| **Imprint** (Published narrative) | Linear timeline of publish events | Imprint sidebar — lane UI from `git:log()` |
+
+User verbs: **write** → Working State; **publish** → new Imprint entry; **go back** → rollback to a prior Imprint (📋 planned); **reset** → discard uncommitted draft (📋 planned). No branches, merges, or commit-hash UI in the product model.
+
+- **Publish** (sidebar footer): `git:working-tree()` + `git:publish({ message, push })` (stage all → commit → HTTPS push). Blocked while the active post editor has unsaved in-memory changes.
+- **Imprint** (sidebar section): read-only publish timeline; **planned** — select an entry to roll back Working State without deleting history.
+
+Note: sidebar **Drafts** = posts with `draft: true` in frontmatter, not the Working State layer.
 
 ## Current UI (implementation reality)
 
@@ -94,7 +114,7 @@ Locales: **`en`** and **`ko`**. Themes: **`dark`**, **`light`**, **`warm`** (Set
 
 - Sidebar sections (keyboard **1–6**): **Posts / Drafts / Assets / Design / Imprint / Settings**
   - **Design** = site styling + `src/` code (see below)
-  - **Imprint** = `git:log` timeline
+  - **Imprint** = publish timeline (`git:log` under the hood); rollback UI planned per [PRODUCT §3](PRODUCT.md#part-3--state--time-model)
   - **Assets** = image library under `assets/images/`
   - **Settings** = in-shell keyboard hints; full GitHub/theme/root controls live in the global Settings overlay (titlebar / command palette), not only this section panel
 - **Custom frameless titlebar** (window controls via IPC), with:
@@ -145,24 +165,24 @@ If the UI shows **“Workspace source API unavailable”**, the renderer did not
 - Remove workspace from catalog with optional **remote repo delete** (`catalog:remove` + `delete_repo` scope).
 - Shows resolved **GitHub Pages URL** per entry when GitHub is connected (`resolveGithubPagesUrl`).
 
-## Design direction (`docs/emprint-design-docs/*` + `docs/latest/emprint-brand-system.md`)
+## Design direction
 
-- **Mood**: warm dark tones, quiet focus, traces / archive / terminal-journal feel (see brand system for color and texture intent).
-- **Motion**: subtle fades, restrained transitions; avoid playful/bouncy movement.
-- **Density**: professional density; avoid mobile-first whitespace bloat.
-- **Keyboard-first**: command palette + shortcuts are core surfaces.
-
-Index entry point: `docs/emprint-design-docs/DESIGN.md`.
+- **Mood / voice**: [`PRODUCT.md` — Part 2](PRODUCT.md#part-2--brand-system)
+- **Tokens, layout, interaction**: [`DESIGN.md`](DESIGN.md)
+- **Motion**: subtle fades, restrained transitions; avoid playful/bouncy movement
+- **Density**: professional; avoid mobile-first whitespace bloat
+- **Keyboard-first**: command palette + shortcuts are core surfaces
 
 ## MVP progress snapshot
 
-Full checklist and estimates: `docs/ROADMAP_MVP_GITHUB_PAGES.md`.
+Full checklist and estimates: [`ROADMAP.md`](ROADMAP.md).
 
 | Area | Status |
 |------|--------|
 | Posts / drafts / TipTap / assets | ✅ In daily use |
 | Design (template + code + local preview) | ✅ In daily use |
-| GitHub Device Flow + publish + Imprint | ✅ MVP (JSON token store) |
+| GitHub Device Flow + publish + Imprint timeline | ✅ MVP (JSON token store) |
+| Imprint rollback + Reset draft | 📋 [PRODUCT §3](PRODUCT.md#part-3--state--time-model) |
 | Workspace bootstrap + Astro + Actions workflow | ✅ Column path |
 | Git OS install guides (Wizard) | ✅ Done (no bundled git) |
 | Hub clone | 🚫 Won’t implement (template contract) |
@@ -173,48 +193,17 @@ Full checklist and estimates: `docs/ROADMAP_MVP_GITHUB_PAGES.md`.
 
 Rough overall completion vs full GitHub Pages journey: **~58–62%** (local preview helps author loop; remote deploy observability still open).
 
-Extended product work (templates, formats, anthology UX, doc automation) is **0% implemented** as specified in `emprint-added-plan.md` — see [Planned extensions](#planned-extensions-emprint-added-plan) below.
+Post-MVP product work (templates, Book format, anthology identity, doc automation) is **0% implemented** — spec in [`PRODUCT.md` — Part 4](PRODUCT.md#part-4--extended-plan); status tables in [`ROADMAP.md` — Extended plan](ROADMAP.md#extended-product-plan).
 
-## Planned extensions (`emprint-added-plan`)
+## Architecture — next steps
 
-Canonical spec: `docs/latest/emprint-added-plan.md`. Summary for agents:
-
-### 1. Template system (content ↔ presentation split)
-
-**Goal**: swap visual presentation without breaking content, metadata, or format semantics.
-
-- **Target workspace layout** (not current tree): `content/`, `theme/`, `assets/`, `config/` — content stable; theme replaceable (layouts, styles, Astro presentation components).
-- **Semantic components** per format (e.g. Column: `ArticleHeader`, `ArticleBody`; Book: `BookPage`, `ChapterNavigation`) — avoid monolithic HTML skins.
-- **Semantic CSS class names** (e.g. `.column-heading`, `.book-chapter`) — not visual names like `.left-panel`.
-- **Theme flow**: download → install into workspace → replace `theme/` / style / `src` presentation regions → preserve content → preview → publish.
-- **Today**: Design **Template** mode only writes preset CSS to `src/styles/global.css`; full theme packages and safe swap pipeline are **not built**.
-
-### 2. Publication formats (beyond Column / Showcase)
-
-Internal **format** types (drive layout, schema, editor): `column`, `memoir`, `dictionary`, `fragments`, `book`.
-
-- **Book** (planned): web-native independent publication — chapters, page-turn, typography modes, footnotes, ambient motion; static artifact on GitHub Pages, not a feed or marketplace.
-- **Today**: `SiteProjectKind` = `column` | `showcase` only; Hub locks to Column. Memoir / Dictionary / Fragments / Book are **design notes only**.
-
-### 3. Anthology & publication identity
-
-Anthology should feel like a **publishing namespace / personal world**, not a folder list.
-
-- **Do not** tie public identity to format names (avoid `column.domain.com`).
-- **Separate** internal `format` from user-defined **`publicationSlug`** (e.g. format Column + slug `observatory` → `observatory.minhyeong.dev`).
-- Encourage **custom domains** and subdomain organization; each repo stays independent (local-first, portable).
-- **Hub today**: catalog + create workspace; no anthology-level domain wiring, shared nav, or publication-slug step in wizard.
-
-### 4. Documentation automation (repo / product docs)
-
-Reduce manual screenshot/video churn for non-developer onboarding.
-
-- **Stack (planned)**: Playwright (UI scenarios), ffmpeg + gifski (GIF/video), docs site (Astro Starlight or VitePress).
-- **Structure (planned)**: `docs/scenarios/*.ts` → reproducible flows → `docs/assets/{screenshots,gifs,videos}/`.
-- **Demo workspace**: deterministic `demo-anthology/` for stable captures.
-- **Today**: no Playwright scenarios or automated doc asset pipeline in this repo.
-
-When implementing any of the above, update `emprint-added-plan.md` only if the spec changes; update this brief and `ROADMAP` checklists when shipping.
+1. Extract `core/` (runtime, commands, document adapters) without breaking `shared` IPC.
+2. Chokidar-backed file events → queue → normalizer → runtime (today: read directories on demand).
+3. Harden GitHub flows (keychain, org edge cases) on Device Flow + repo-create MVP.
+4. TipTap / Monaco behind document adapters ([`proposal.md`](proposal.md)).
+5. Command registry behind the existing palette.
+6. SQLite indexing cache for search / AI retrieval.
+7. Poll GitHub Actions / Pages after publish ([`ROADMAP.md`](ROADMAP.md)).
 
 ## Known gaps / next steps (important)
 
@@ -236,11 +225,7 @@ Even though TipTap is used in the UI, the architecture goal is to remain **edito
 
 ### File watching / derived caches
 
-Docs recommend: filesystem events → queue → normalization → runtime updates. Current implementation reads directories on demand; no chokidar service yet.
-
-### `core/` extraction
-
-Post parsing, bootstrap, and git/site logic are concentrated in `apps/desktop/src/main/`. Extracting `core/` and feature packages is the main structural debt called out in `docs/architecture.md`.
+Post parsing, bootstrap, and git/site logic are concentrated in `apps/desktop/src/main/`. Extracting `core/` is the main structural debt ([`proposal.md`](proposal.md)).
 
 ## Quick “how to run”
 
