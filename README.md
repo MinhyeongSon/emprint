@@ -4,12 +4,12 @@
 
 **과정까지 남기는 개인 출판 공간** — 결과물만이 아니라, 쓰고 고치고 보낸 흔적을 한곳에 쌓습니다.
 
-[![Website](https://img.shields.io/badge/🌐_홈페이지-emprint--home-1a1a1a?style=for-the-badge&logo=githubpages&logoColor=white)](https://minhyeongson.github.io/emprint-home)
-[![Document](https://img.shields.io/badge/📖_사용_가이드-document-44403c?style=for-the-badge)](https://minhyeongson.github.io/emprint-home/document/)
-[![Version](https://img.shields.io/badge/버전-0.1.0-e85d04?style=flat-square)](https://github.com/MinhyeongSon/emprint/releases)
-[![macOS](https://img.shields.io/badge/macOS-Apple_Silicon_·_Intel-000000?style=flat-square&logo=apple)](https://minhyeongson.github.io/emprint-home/#downloads)
-[![Windows](https://img.shields.io/badge/Windows-x64-0078D6?style=flat-square&logo=windows)](https://minhyeongson.github.io/emprint-home/#downloads)
-[![License](https://img.shields.io/badge/license-Source--Available-6b7280?style=flat-square)](LICENSE)
+[![ ](https://img.shields.io/badge/--1a1a1a?style=flat-square&logo=githubpages&logoColor=white)](https://minhyeongson.github.io/emprint-home)
+[![ ](https://img.shields.io/badge/--44403c?style=flat-square&logo=bookstack&logoColor=white)](https://minhyeongson.github.io/emprint-home/document/)
+[![ ](https://img.shields.io/badge/-0.1.0-e85d04?style=flat-square)](https://github.com/MinhyeongSon/emprint/releases)
+[![ ](https://img.shields.io/badge/--000000?style=flat-square&logo=apple&logoColor=white)](https://minhyeongson.github.io/emprint-home/#downloads)
+[![ ](https://img.shields.io/badge/--0078D6?style=flat-square&logo=windows&logoColor=white)](https://minhyeongson.github.io/emprint-home/#downloads)
+[![ ](https://img.shields.io/badge/--6b7280?style=flat-square)](LICENSE)
 
 *Just show you. Don't submit your result.*
 
@@ -85,47 +85,15 @@ Emprint는 **내 컴퓨터 안의 폴더**가 곧 작업실이 되는 데스크�
 
 ---
 
-## 아직 준비 중인 것
-
-다음은 로드맵에 있으나 **아직 앱에 없거나** 곧 다듬을 부분입니다.
-
-- Imprint에서 **이전 출판 시점으로 되돌리기**(rollback)
-- 편집 중인 내용만 **초안 폐기**(Reset draft)
-- 다른 기기에서 push한 뒤 **자동으로 원격 변경 가져오기**
-- Publish 직후 **배포(Actions/Pages) 상태**를 앱 안에서 보기
-
-자세한 진행 상황은 [`docs/ROADMAP.md`](docs/ROADMAP.md)를 참고하세요.
-
----
-
 ## 설치
 
-**일반 사용자** — 빌드된 설치 파일:
+macOS(Apple Silicon · Intel) · Windows 설치 파일은 **홈페이지**에서 받습니다.
 
-👉 **[홈페이지 Downloads](https://minhyeongson.github.io/emprint-home/#downloads)** (macOS Apple Silicon / Intel, Windows x64)
+👉 **[다운로드 · 설치](https://minhyeongson.github.io/emprint-home/#downloads)**
 
-**개발자** — 소스에서 실행:
+설치 후 첫 실행 → **Wizard**(Git · GitHub · 작업 폴더) → **Hub** → 워크스페이스에서 글쓰기 · Design · Publish.
 
-```bash
-git clone https://github.com/MinhyeongSon/emprint.git
-cd emprint
-npm install
-npm run dev
-```
-
-첫 실행 → **Wizard** (Git · GitHub · 폴더) → **Hub** → 워크스페이스 안에서 글쓰기 · Design · Publish.
-
-패키징: `npm run dist` · `dist:mac` · `dist:win` · `dist:linux`
-
----
-
-## 더 읽어보기
-
-| 문서 | 내용 |
-|------|------|
-| [홈페이지](https://minhyeongson.github.io/emprint-home) | 제품 소개 · 철학 · 설치 |
-| [사용 가이드](https://minhyeongson.github.io/emprint-home/document/) | 사용자 문서 |
-| [`docs/README.md`](docs/README.md) | 저장소 내 문서 색인 (개발·기획) |
+사용 방법은 **[사용 가이드](https://minhyeongson.github.io/emprint-home/document/)** 에서 확인할 수 있습니다.
 
 ---
 
