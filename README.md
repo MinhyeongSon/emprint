@@ -3,7 +3,7 @@
 **[English](#english)** · **[한국어](#korean)**
 
 <h1>
-  <img src="apps/desktop/src/renderer/src/asset/image/emprint-simple-logo.svg" width="36" height="36" alt="" style="vertical-align: text-bottom; margin-right: 0.4em; margin-bottom: 0.08em;" />
+  <img src="apps/desktop/src/renderer/src/asset/image/emprint-simple-logo.svg" width="40" height="40" alt="" style="vertical-align: text-bottom; margin-right: 0.4em; margin-bottom: -10px;" />
   Emprint
 </h1>
 
