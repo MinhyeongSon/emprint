@@ -4,12 +4,12 @@
 
 **과정까지 남기는 개인 출판 공간** — 결과물만이 아니라, 쓰고 고치고 보낸 흔적을 한곳에 쌓습니다.
 
-[![ ](https://img.shields.io/badge/--1a1a1a?style=flat-square&logo=githubpages&logoColor=white)](https://minhyeongson.github.io/emprint-home)
-[![ ](https://img.shields.io/badge/--44403c?style=flat-square&logo=bookstack&logoColor=white)](https://minhyeongson.github.io/emprint-home/document/)
-[![ ](https://img.shields.io/badge/-0.1.0-e85d04?style=flat-square)](https://github.com/MinhyeongSon/emprint/releases)
-[![ ](https://img.shields.io/badge/--000000?style=flat-square&logo=apple&logoColor=white)](https://minhyeongson.github.io/emprint-home/#downloads)
-[![ ](https://img.shields.io/badge/--0078D6?style=flat-square&logo=windows&logoColor=white)](https://minhyeongson.github.io/emprint-home/#downloads)
-[![ ](https://img.shields.io/badge/--6b7280?style=flat-square)](LICENSE)
+[![Website](https://img.shields.io/badge/website-emprint--home-1a1a1a?style=flat-square&logo=githubpages&logoColor=white)](https://minhyeongson.github.io/emprint-home)
+[![Guide](https://img.shields.io/badge/guide-document-44403c?style=flat-square&logo=bookstack&logoColor=white)](https://minhyeongson.github.io/emprint-home/document/)
+[![Version](https://img.shields.io/badge/version-0.1.0-e85d04?style=flat-square)](https://github.com/MinhyeongSon/emprint/releases)
+[![macOS](https://img.shields.io/badge/macOS-arm64%20%7C%20x64-000000?style=flat-square&logo=apple&logoColor=white)](https://minhyeongson.github.io/emprint-home/#downloads)
+[![Windows](https://img.shields.io/badge/Windows-x64-0078D6?style=flat-square&logo=windows&logoColor=white)](https://minhyeongson.github.io/emprint-home/#downloads)
+[![License](https://img.shields.io/badge/license-Source--Available-6b7280?style=flat-square)](LICENSE)
 
 *Just show you. Don't submit your result.*
 
