@@ -110,6 +110,7 @@ export function WorkspaceHub() {
   const [removeConfirmWorkspace, setRemoveConfirmWorkspace] = useState<WorkspaceCatalogEntry | null>(null)
   const [removeConfirmAlsoRemote, setRemoveConfirmAlsoRemote] = useState(false)
   const [removeConfirmBusy, setRemoveConfirmBusy] = useState(false)
+  const hubCatalogRefreshToken = useAppStore((s) => s.hubCatalogRefreshToken)
 
   useEffect(() => {
     let alive = true
@@ -139,7 +140,7 @@ export function WorkspaceHub() {
     return () => {
       alive = false
     }
-  }, [setWorkspaces])
+  }, [hubCatalogRefreshToken, locale, setWorkspaces])
 
   useEffect(() => {
     if (!window.emprint?.github?.authStatus) return

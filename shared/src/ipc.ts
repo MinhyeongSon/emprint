@@ -12,6 +12,11 @@ import type {
   GitLogInput,
   GitPublishInput,
   GitPublishResult,
+  GitPullInput,
+  GitPullResult,
+  GitRecoverWorkspaceInput,
+  GitRecoverWorkspaceProgress,
+  GitRecoverWorkspaceResult,
   GitWorkingTreeSummary,
   InitializeWorkspaceResult,
   PostSummary,
@@ -38,6 +43,9 @@ export const ipcChannels = {
   gitInitialSync: 'git:initial-sync',
   gitDetect: 'git:detect',
   gitWorkingTree: 'git:working-tree',
+  gitPull: 'git:pull',
+  gitRecoverWorkspace: 'git:recover-workspace',
+  gitRecoverWorkspaceProgress: 'git:recover-workspace:progress',
   gitPublish: 'git:publish',
   gitLog: 'git:log',
   postsList: 'posts:list',
@@ -100,6 +108,17 @@ export interface EmprintDesktopApi {
      * dialog. Throws if no workspace is mounted.
      */
     workingTree(): Promise<GitWorkingTreeSummary>
+    /**
+     * Merge `origin/main` into the mounted workspace (clean tree), or reset to
+     * `origin/main` when `discardLocal` is true.
+     */
+    pull(input?: GitPullInput): Promise<GitPullResult>
+    /**
+     * Delete the local workspace folder and re-clone from the catalog remote URL.
+     * Progress events are sent on `gitRecoverWorkspaceProgress`.
+     */
+    recoverWorkspace(input: GitRecoverWorkspaceInput): Promise<GitRecoverWorkspaceResult>
+    onRecoverWorkspaceProgress(handler: (payload: GitRecoverWorkspaceProgress) => void): () => void
     /**
      * Stage all changes under the mounted workspace, commit with the supplied
      * message, and optionally push using the stored GitHub session.

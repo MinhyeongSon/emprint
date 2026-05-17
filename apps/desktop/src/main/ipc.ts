@@ -3,7 +3,7 @@ import path from 'node:path'
 import { homedir } from 'node:os'
 import { mkdir, readFile, rename as fsRename, rm, stat, unlink, writeFile, readdir } from 'node:fs/promises'
 import { spawn } from 'node:child_process'
-import { BrowserWindow, app, dialog, ipcMain } from 'electron'
+import { BrowserWindow, app, dialog, ipcMain, type WebContents } from 'electron'
 import { WorkspaceBootstrapper } from './workspace/bootstrapper'
 import {
   ipcChannels,
@@ -21,8 +21,15 @@ import {
   type GitDetectResult,
   type GitInitialSyncResult,
   type GitLogInput,
+  EMPRINT_PUBLISH_BRANCH,
   type GitPublishInput,
   type GitPublishResult,
+  type GitPullInput,
+  type GitPullResult,
+  type GitPullSkipReason,
+  type GitRecoverWorkspaceInput,
+  type GitRecoverWorkspaceProgress,
+  type GitRecoverWorkspaceResult,
   type GitWorkingTreeSummary,
   type PostSummary,
   type WorkspaceCatalogEntry,
@@ -31,7 +38,7 @@ import {
 } from '@emprint/shared'
 import matter from 'gray-matter'
 import { NodeFileSystemGateway } from './infrastructure/node-file-system-gateway'
-import { setGitBinaryPath, SimpleGitProviderFactory } from './infrastructure/simple-git-provider'
+import { setGitBinaryPath, SimpleGitProvider, SimpleGitProviderFactory } from './infrastructure/simple-git-provider'
 import simpleGit from 'simple-git'
 import { MANIFEST_RELATIVE_PATH, WORKSPACE_DIR } from './workspace-paths'
 import {
@@ -221,6 +228,15 @@ export function setupIpcHandlers(): void {
   ipcMain.handle(ipcChannels.gitWorkingTree, async () => {
     const root = ensureWorkspaceMounted()
     return await gitWorkingTree(root)
+  })
+
+  ipcMain.handle(ipcChannels.gitPull, async (_event, input?: GitPullInput) => {
+    const root = ensureWorkspaceMounted()
+    return await gitPull(root, input)
+  })
+
+  ipcMain.handle(ipcChannels.gitRecoverWorkspace, async (event, input: GitRecoverWorkspaceInput) => {
+    return await gitRecoverWorkspace(event.sender, input)
   })
 
   ipcMain.handle(ipcChannels.gitPublish, async (_event, input: GitPublishInput) => {
@@ -1275,18 +1291,19 @@ async function gitInitialSync(input: { directory: string; remoteUrl?: string; br
   return { committed, pushed: true, branch }
 }
 
-/**
- * Snapshot the working tree, branch, and remote relationship for the publish UI.
- * The renderer uses this to decide whether the publish button is enabled and
- * how to summarize pending changes to the user.
- */
-async function gitWorkingTree(directory: string): Promise<GitWorkingTreeSummary> {
-  const git = simpleGit(directory)
-  const status = await git.status()
+function countPendingFiles(status: Awaited<ReturnType<ReturnType<typeof simpleGit>['status']>>): number {
+  return (
+    status.staged.length +
+    status.created.length +
+    status.modified.length +
+    status.deleted.length +
+    status.renamed.length +
+    status.not_added.length +
+    status.conflicted.length
+  )
+}
 
-  // `git status --porcelain` (which simple-git uses internally) labels
-  // every file with a working-tree code; map the most common ones into a
-  // single-letter UI status. Untracked files surface as '?'.
+function mapPendingFiles(status: Awaited<ReturnType<ReturnType<typeof simpleGit>['status']>>): GitWorkingTreeSummary['pendingFiles'] {
   const seen = new Set<string>()
   const pending: GitWorkingTreeSummary['pendingFiles'] = []
   const push = (filePath: string, statusCode: GitWorkingTreeSummary['pendingFiles'][number]['status'], staged: boolean) => {
@@ -1302,6 +1319,194 @@ async function gitWorkingTree(directory: string): Promise<GitWorkingTreeSummary>
   for (const f of status.renamed) push(typeof f === 'string' ? f : f.to, 'R', false)
   for (const f of status.not_added) push(f, '?', false)
   for (const f of status.conflicted) push(f, 'U', false)
+  return pending
+}
+
+async function resolveOriginPlainUrl(git: ReturnType<typeof simpleGit>): Promise<string | undefined> {
+  try {
+    const remotes = await git.getRemotes(true)
+    const origin = remotes.find((r) => r.name === 'origin') ?? remotes[0]
+    return origin?.refs.fetch || origin?.refs.push
+  } catch {
+    return undefined
+  }
+}
+
+async function withAuthenticatedOrigin<T>(
+  git: ReturnType<typeof simpleGit>,
+  fn: () => Promise<T>
+): Promise<T> {
+  const plainUrl = await resolveOriginPlainUrl(git)
+  if (!plainUrl) {
+    throw new Error('No git remote is configured for this workspace.')
+  }
+  const session = await readGithubSession()
+  if (!session) {
+    throw new Error('Sign in with GitHub to sync with the remote repository.')
+  }
+  const authUrl = buildGithubAuthRemoteUrl(plainUrl, session.accessToken)
+  const remotes = await git.getRemotes(true)
+  const origin = remotes.find((r) => r.name === 'origin')
+  if (!origin) {
+    throw new Error('No git remote is configured for this workspace.')
+  }
+  await git.remote(['set-url', 'origin', authUrl])
+  try {
+    return await fn()
+  } finally {
+    await git.remote(['set-url', 'origin', plainUrl])
+  }
+}
+
+async function ensurePublishBranch(git: ReturnType<typeof simpleGit>): Promise<{
+  branch: string
+  branchCorrected: boolean
+  previousBranch?: string
+  offPublishBranch: boolean
+}> {
+  const status = await git.status()
+  const current = status.current ?? 'HEAD'
+  if (current === EMPRINT_PUBLISH_BRANCH) {
+    return { branch: current, branchCorrected: false, offPublishBranch: false }
+  }
+
+  if (countPendingFiles(status) > 0 || status.conflicted.length > 0) {
+    return { branch: current, branchCorrected: false, offPublishBranch: true }
+  }
+
+  try {
+    await git.checkout(EMPRINT_PUBLISH_BRANCH)
+    return { branch: EMPRINT_PUBLISH_BRANCH, branchCorrected: true, previousBranch: current, offPublishBranch: false }
+  } catch {
+    return { branch: current, branchCorrected: false, offPublishBranch: true }
+  }
+}
+
+async function gitFetchOriginMain(git: ReturnType<typeof simpleGit>): Promise<void> {
+  const plainUrl = await resolveOriginPlainUrl(git)
+  if (!plainUrl) return
+  const session = await readGithubSession()
+  if (!session) return
+  await withAuthenticatedOrigin(git, async () => {
+    await runGitRawWithRetry(git, ['fetch', 'origin', EMPRINT_PUBLISH_BRANCH, '--prune'])
+  })
+}
+
+async function countRevList(git: ReturnType<typeof simpleGit>, fromRef: string, toRef: string): Promise<number> {
+  try {
+    const raw = (await git.raw(['rev-list', '--count', `${fromRef}..${toRef}`])).trim()
+    const n = Number.parseInt(raw, 10)
+    return Number.isFinite(n) && n >= 0 ? n : 0
+  } catch {
+    return 0
+  }
+}
+
+/** Compare HEAD to `origin/<publishBranch>` so behind/ahead work without upstream tracking. */
+async function resolveAheadBehind(git: ReturnType<typeof simpleGit>): Promise<{ ahead: number; behind: number }> {
+  const remoteRef = `origin/${EMPRINT_PUBLISH_BRANCH}`
+  try {
+    await git.raw(['rev-parse', '--verify', `${remoteRef}^{commit}`])
+  } catch {
+    const status = await git.status()
+    return { ahead: status.ahead, behind: status.behind }
+  }
+
+  const behind = await countRevList(git, 'HEAD', remoteRef)
+  const ahead = await countRevList(git, remoteRef, 'HEAD')
+  return { ahead, behind }
+}
+
+async function ensureUpstreamTracksOriginMain(git: ReturnType<typeof simpleGit>, branch: string): Promise<void> {
+  if (branch !== EMPRINT_PUBLISH_BRANCH) return
+  try {
+    await git.raw(['rev-parse', '--verify', `origin/${EMPRINT_PUBLISH_BRANCH}^{commit}`])
+  } catch {
+    return
+  }
+  try {
+    await git.branch([`--set-upstream-to=origin/${EMPRINT_PUBLISH_BRANCH}`, EMPRINT_PUBLISH_BRANCH])
+  } catch {
+    // Already configured or branch missing — non-fatal.
+  }
+}
+
+function sendRecoverProgress(sender: WebContents, payload: GitRecoverWorkspaceProgress): void {
+  if (sender.isDestroyed()) return
+  sender.send(ipcChannels.gitRecoverWorkspaceProgress, payload)
+}
+
+async function gitRecoverWorkspace(sender: WebContents, input: GitRecoverWorkspaceInput): Promise<GitRecoverWorkspaceResult> {
+  const workspaceId = input.workspaceId?.trim()
+  if (!workspaceId) {
+    throw new Error('Workspace id is required.')
+  }
+
+  const catalog = await readCatalog()
+  const entry = catalog.find((e) => e.id === workspaceId)
+  if (!entry) {
+    throw new Error('Workspace was not found in the catalog.')
+  }
+  const remoteUrl = entry.remoteUrl?.trim()
+  if (!remoteUrl) {
+    throw new Error('This workspace has no remote URL to restore from.')
+  }
+
+  const localDirectory = path.resolve(entry.localDirectory)
+  const progress = (phase: GitRecoverWorkspaceProgress['phase'], message: string, progressPct: number) => {
+    sendRecoverProgress(sender, { workspaceId, phase, message, progress: progressPct })
+  }
+
+  progress('starting', 'Preparing workspace recovery…', 5)
+
+  if (mountedWorkspaceRoot && path.resolve(mountedWorkspaceRoot) === localDirectory) {
+    mountedWorkspaceRoot = null
+    try {
+      await stopSiteDevServer()
+    } catch {
+      // ignore
+    }
+  }
+
+  progress('removing', 'Removing local copy…', 25)
+  await removeWorkspaceFromDisk(localDirectory)
+
+  const session = await readGithubSession()
+  if (!session) {
+    progress('error', 'GitHub sign-in is required to restore from the remote.', 0)
+    throw new Error('Sign in with GitHub to restore this workspace.')
+  }
+
+  progress('cloning', 'Downloading from GitHub…', 55)
+  const authUrl = buildGithubAuthRemoteUrl(remoteUrl, session.accessToken)
+  const gitProvider = new SimpleGitProvider()
+  await gitProvider.clone({
+    directory: localDirectory,
+    remoteUrl: authUrl,
+    defaultBranch: EMPRINT_PUBLISH_BRANCH
+  })
+
+  await ensureEmprintGitignore(localDirectory)
+  await untrackEmprintIgnoredPaths(localDirectory)
+
+  const now = new Date().toISOString()
+  const nextCatalog = catalog.map((e) =>
+    e.id === workspaceId ? { ...e, localDirectory, updatedAt: now } : e
+  )
+  await writeCatalog(nextCatalog)
+
+  progress('done', 'Workspace restored.', 100)
+  return { workspaceId, localDirectory }
+}
+
+/**
+ * Snapshot the working tree, branch, and remote relationship for the publish UI.
+ * Fetches `origin/main` first so `behind` is accurate, and auto-checks out `main`
+ * when an external tool left the repo on another branch with a clean tree.
+ */
+async function gitWorkingTree(directory: string): Promise<GitWorkingTreeSummary> {
+  const git = simpleGit(directory)
+  const branchInfo = await ensurePublishBranch(git)
 
   let hasRemote = false
   try {
@@ -1311,16 +1516,138 @@ async function gitWorkingTree(directory: string): Promise<GitWorkingTreeSummary>
     hasRemote = false
   }
 
+  if (hasRemote) {
+    try {
+      await gitFetchOriginMain(git)
+    } catch {
+      // Offline or auth issues — still return a local snapshot.
+    }
+  }
+
+  const status = await git.status()
+  const pendingFiles = mapPendingFiles(status)
+  const hasConflicts = status.conflicted.length > 0
   const session = await readGithubSession()
+  const branch = status.current ?? branchInfo.branch
+  const offPublishBranch = branch !== EMPRINT_PUBLISH_BRANCH
+  const { ahead, behind } = await resolveAheadBehind(git)
+
+  if (hasRemote && branch === EMPRINT_PUBLISH_BRANCH) {
+    await ensureUpstreamTracksOriginMain(git, branch)
+  }
+
+  const diverged = ahead > 0 && behind > 0
+  const hasLocalDelta = pendingFiles.length > 0 || ahead > 0 || hasConflicts
+
+  let pullBlockedReason: GitPullSkipReason | undefined
+  if (behind > 0) {
+    if (!session) pullBlockedReason = 'no-session'
+    else if (offPublishBranch) pullBlockedReason = 'off-branch'
+  }
+
+  const canPull =
+    hasRemote && behind > 0 && !pullBlockedReason && !hasLocalDelta && !hasConflicts
+  const canPullOverwrite =
+    hasRemote && behind > 0 && !pullBlockedReason && hasLocalDelta
 
   return {
-    branch: status.current ?? 'HEAD',
-    ahead: status.ahead,
-    behind: status.behind,
+    branch,
+    publishBranch: EMPRINT_PUBLISH_BRANCH,
+    ahead,
+    behind,
     hasUpstream: Boolean(status.tracking),
     hasRemote,
     hasGithubSession: Boolean(session),
-    pendingFiles: pending
+    hasConflicts,
+    offPublishBranch,
+    branchCorrected: branchInfo.branchCorrected,
+    ...(branchInfo.previousBranch ? { previousBranch: branchInfo.previousBranch } : {}),
+    canPull,
+    canPullOverwrite,
+    ...(pullBlockedReason ? { pullBlockedReason } : {}),
+    pendingFiles
+  }
+}
+
+async function gitPull(directory: string, input?: GitPullInput): Promise<GitPullResult> {
+  const git = simpleGit(directory)
+  const summary = await gitWorkingTree(directory)
+  const discardLocal = input?.discardLocal === true
+
+  if (!summary.hasRemote) {
+    return { pulled: false, behind: summary.behind, branch: summary.branch, skippedReason: 'no-remote' }
+  }
+  if (!summary.hasGithubSession) {
+    return { pulled: false, behind: summary.behind, branch: summary.branch, skippedReason: 'no-session' }
+  }
+  if (summary.offPublishBranch) {
+    return { pulled: false, behind: summary.behind, branch: summary.branch, skippedReason: 'off-branch' }
+  }
+  if (summary.behind === 0) {
+    return { pulled: false, behind: 0, branch: summary.branch, skippedReason: 'nothing-to-pull' }
+  }
+
+  if (discardLocal) {
+    if (!summary.canPullOverwrite) {
+      return {
+        pulled: false,
+        behind: summary.behind,
+        branch: summary.branch,
+        skippedReason: summary.pullBlockedReason ?? 'nothing-to-pull'
+      }
+    }
+
+    try {
+      await withAuthenticatedOrigin(git, async () => {
+        await runGitRawWithRetry(git, ['fetch', 'origin', EMPRINT_PUBLISH_BRANCH, '--prune'])
+        await runGitRawWithRetry(git, ['reset', '--hard', `origin/${EMPRINT_PUBLISH_BRANCH}`])
+        await runGitRawWithRetry(git, ['clean', '-fd'])
+      })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (/conflict|CONFLICT|merge failed|unmerged/i.test(msg)) {
+        return { pulled: false, behind: summary.behind, branch: summary.branch, skippedReason: 'conflict' }
+      }
+      throw e
+    }
+
+    const after = await resolveAheadBehind(git)
+    const status = await git.status()
+    return {
+      pulled: true,
+      behind: after.behind,
+      branch: status.current ?? summary.branch
+    }
+  }
+
+  if (summary.hasConflicts) {
+    return { pulled: false, behind: summary.behind, branch: summary.branch, skippedReason: 'conflict' }
+  }
+  if (summary.pendingFiles.length > 0) {
+    return { pulled: false, behind: summary.behind, branch: summary.branch, skippedReason: 'dirty-tree' }
+  }
+  if (summary.ahead > 0 && summary.behind > 0) {
+    return { pulled: false, behind: summary.behind, branch: summary.branch, skippedReason: 'diverged' }
+  }
+
+  try {
+    await withAuthenticatedOrigin(git, async () => {
+      await runGitRawWithRetry(git, ['pull', 'origin', EMPRINT_PUBLISH_BRANCH, '--no-edit'])
+    })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    if (/conflict|CONFLICT|merge failed|unmerged/i.test(msg)) {
+      return { pulled: false, behind: summary.behind, branch: summary.branch, skippedReason: 'conflict' }
+    }
+    throw e
+  }
+
+  const after = await resolveAheadBehind(git)
+  const status = await git.status()
+  return {
+    pulled: true,
+    behind: after.behind,
+    branch: status.current ?? summary.branch
   }
 }
 

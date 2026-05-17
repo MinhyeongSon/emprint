@@ -115,13 +115,37 @@ export interface InitializeWorkspaceResult {
  * Imprint sidebar status pill. `pendingFiles` is the union of every file with
  * any working-tree or staged change.
  */
+/** Branch Emprint treats as the single publish line (no in-app branch UI). */
+export const EMPRINT_PUBLISH_BRANCH = 'main' as const
+
 export interface GitWorkingTreeSummary {
   branch: string
+  /** Expected publish branch (`main`). */
+  publishBranch: string
   ahead: number
   behind: number
   hasUpstream: boolean
   hasRemote: boolean
   hasGithubSession: boolean
+  /** Merge/unmerged paths present — show conflict recovery UI. */
+  hasConflicts: boolean
+  /** Checked out branch is not `publishBranch` and could not be auto-corrected. */
+  offPublishBranch: boolean
+  /**
+   * Client-external git use was detected (wrong branch) and Emprint switched back to
+   * `publishBranch` automatically.
+   */
+  branchCorrected: boolean
+  previousBranch?: string
+  /** Safe fast-forward pull: clean tree on publish branch, behind > 0, not diverged. */
+  canPull: boolean
+  /**
+   * Remote is ahead and local has uncommitted changes and/or unpushed commits.
+   * Pull with `discardLocal: true` resets to `origin/main` after user confirmation.
+   */
+  canPullOverwrite: boolean
+  /** Why pull is blocked when `behind > 0` but neither pull mode is available. */
+  pullBlockedReason?: GitPullSkipReason
   pendingFiles: Array<{
     path: string
     /** Single-letter status code summarized for UI: M(odified), A(dded), D(eleted), R(enamed), C(opied), U(nmerged), ?(untracked) */
@@ -144,6 +168,50 @@ export interface GitPublishResult {
   branch: string
   /** Surfaced when push is skipped (no remote, no auth, nothing to push). */
   pushSkippedReason?: 'no-remote' | 'no-session' | 'nothing-to-push' | 'disabled'
+}
+
+export type GitPullSkipReason =
+  | 'no-remote'
+  | 'no-session'
+  | 'no-upstream'
+  | 'nothing-to-pull'
+  | 'dirty-tree'
+  | 'off-branch'
+  | 'conflict'
+  | 'diverged'
+
+export interface GitPullInput {
+  /**
+   * When true, fetch and `reset --hard` to `origin/main`, discarding local
+   * uncommitted changes and unpushed commits. Requires user confirmation in UI.
+   */
+  discardLocal?: boolean
+}
+
+export interface GitPullResult {
+  pulled: boolean
+  behind: number
+  branch: string
+  skippedReason?: GitPullSkipReason
+}
+
+export interface GitRecoverWorkspaceInput {
+  workspaceId: string
+}
+
+export interface GitRecoverWorkspaceResult {
+  workspaceId: string
+  localDirectory: string
+}
+
+export type GitRecoverWorkspacePhase = 'starting' | 'removing' | 'cloning' | 'done' | 'error'
+
+export interface GitRecoverWorkspaceProgress {
+  workspaceId: string
+  phase: GitRecoverWorkspacePhase
+  message: string
+  /** 0–100 when applicable */
+  progress: number
 }
 
 /**

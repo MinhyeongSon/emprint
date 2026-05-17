@@ -16,7 +16,7 @@ It complements `docs/AGENT_BRIEF.md` (current state) and is written so any agent
 |-------|----------|-------|
 | Git “setup” | ✅ **Done** (scope = OS guides only) | Wizard: `git:detect`, platform install commands, Retry. No bundled git / no `git:setup` automation. |
 | Hub **clone** | 🚫 **Won’t implement** | Emprint enforces template/component layout; cloning arbitrary repos risks broken or incompatible trees. New workspaces via bootstrap only; optional paste HTTPS = `init` + `origin`, not `git clone`. |
-| **fetch + pull** | 📋 **Will implement** | When remote has new commits: `fetch`, then **auto `pull`** if updates exist (see [D) Git operations](#d-git-operations-commit--push--pull--status)). |
+| **fetch + pull** | ✅ **Done** | Background `fetch` on sync refresh; **Update** button + Publish-before-pull confirm (see [D) Git operations](#d-git-operations-commit--push--pull--status)). |
 | Token revoke on logout / quit | ✅ **Done** | Wizard **Client Secret** required; explicit Settings **Log out** → Wizard; window close / quit → shared-PC dialog (logout optional) |
 | Scope review (tighten scopes) | ⏳ **Optional** | Revoke shipped; narrowing `repo` / `workflow` / `delete_repo` still open |
 | Poll Actions / Pages in app | 📋 **Will implement** | Rationale: [Why poll Actions / Pages?](#why-poll-actions--pages-status--logs) |
@@ -52,7 +52,7 @@ It complements `docs/AGENT_BRIEF.md` (current state) and is written so any agent
 |------|--------|-------|
 | Token storage | ⚠️ | `userData/github-session.json`; no keychain; logout revokes on GitHub when Client Secret configured |
 | Connect remote (Hub) | ⚠️ | Paste HTTPS → `git init` + `origin` on **empty** folder only (by design, not clone) |
-| Git fetch / pull | 📋 | Planned: auto `fetch`, then auto `pull` when remote is ahead |
+| Git fetch / pull | ✅ | `git:pull`, sidebar Update, Publish flow |
 | Deploy observability | ⏳ | Local preview + Hub static URL ✅; Actions/Pages polling — decision pending |
 | Showcase site kind | ⚠️ | Generator exists; Hub locks to Column only |
 
@@ -60,7 +60,7 @@ It complements `docs/AGENT_BRIEF.md` (current state) and is written so any agent
 
 | Item | Status | Notes |
 |------|--------|-------|
-| Auto fetch + pull from remote | 📋 | See product decision above |
+| Auto fetch + pull from remote | ✅ | See product decision above |
 | Imprint rollback + Reset draft | 📋 | [State & time model](PRODUCT.md#part-3--state--time-model) |
 | In-app deploy status (optional) | ⏳ | See [Why poll Actions / Pages?](#why-poll-actions--pages-status--logs) |
 | Scope review (optional) | ⏳ | Revoke on logout ✅; narrowing OAuth scopes still optional |
@@ -76,7 +76,7 @@ It complements `docs/AGENT_BRIEF.md` (current state) and is written so any agent
 | 2) Repo — create new | ✅ | Remote repo + local bootstrap + `origin` + initial commit + first push |
 | 2b) Repo — clone existing | 🚫 | **Out of scope** — preserves Emprint template/component contracts |
 | 3) Writing | ✅ | Create/edit posts; working tree dirty state visible |
-| 3b) Sync from remote | 📋 | Auto fetch + auto pull when remote ahead |
+| 3b) Sync from remote | ✅ | Fetch on refresh; Update / Publish confirm pull |
 | 4) Deploy | ⚠️ | Commit + push ✅; Pages URL (Hub) ✅; in-app Actions/Pages status ⏳ optional |
 
 ---
@@ -141,7 +141,7 @@ It complements `docs/AGENT_BRIEF.md` (current state) and is written so any agent
 | `git:working-tree` (Publish summary) | ✅ | Includes `ahead` / `behind`; not a full status panel |
 | `git:publish` (stage all → commit → push) | ✅ | Skip reasons surfaced |
 | `git:log` (Imprint) | ✅ | Lane-style UI |
-| `git:fetch` + auto `git:pull` when remote ahead | 📋 | **Planned**: fetch first; if pull needed, pull without separate user step (handle dirty tree / conflicts) |
+| `git:fetch` + `git:pull` when remote ahead | ✅ | Fetch in `working-tree`; pull via Update or Publish confirm; conflict → re-clone recover |
 | Split `status` / `commit` / `push` commands | 🚫 | Publish stays all-in-one |
 
 ### E) GitHub Pages provisioning + deployment pipeline
@@ -299,7 +299,7 @@ Troubleshooting:
 |------|--------|
 | Working tree snapshot for Publish (`git:working-tree`) | ✅ |
 | Stage-all + commit + push (`git:publish` + dialog) | ✅ |
-| Auto `fetch` + `pull` when remote ahead | 📋 Planned |
+| Auto `fetch` + `pull` when remote ahead | ✅ Done |
 | Commit history for Imprint (`git:log`) | ✅ |
 | Imprint rollback (restore Working State from timeline) | 📋 Planned |
 | Reset draft (discard uncommitted → last Imprint) | 📋 Planned |

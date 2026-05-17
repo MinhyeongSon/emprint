@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { ipcChannels, type EmprintDesktopApi } from '@emprint/shared'
+import { ipcChannels, type EmprintDesktopApi, type GitRecoverWorkspaceProgress } from '@emprint/shared'
 
 const siteDevApi = {
   stop: () => ipcRenderer.invoke(ipcChannels.siteDevStop),
@@ -30,6 +30,15 @@ const api: EmprintDesktopApi = {
     initialSync: (input) => ipcRenderer.invoke(ipcChannels.gitInitialSync, input),
     detect: () => ipcRenderer.invoke(ipcChannels.gitDetect),
     workingTree: () => ipcRenderer.invoke(ipcChannels.gitWorkingTree),
+    pull: (input) => ipcRenderer.invoke(ipcChannels.gitPull, input),
+    recoverWorkspace: (input) => ipcRenderer.invoke(ipcChannels.gitRecoverWorkspace, input),
+    onRecoverWorkspaceProgress: (handler) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: GitRecoverWorkspaceProgress) => {
+        handler(payload)
+      }
+      ipcRenderer.on(ipcChannels.gitRecoverWorkspaceProgress, listener)
+      return () => ipcRenderer.removeListener(ipcChannels.gitRecoverWorkspaceProgress, listener)
+    },
     publish: (input) => ipcRenderer.invoke(ipcChannels.gitPublish, input),
     log: (input) => ipcRenderer.invoke(ipcChannels.gitLog, input)
   },

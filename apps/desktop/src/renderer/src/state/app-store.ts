@@ -41,6 +41,13 @@ interface AppState {
   activeWorkspaceId?: string | undefined
   workspaceConfig?: WorkspaceConfig | undefined
   workspaceResult?: InitializeWorkspaceResult | undefined
+  hubRecovery: {
+    workspaceId: string
+    title: string
+    message: string
+    progress: number
+  } | null
+  hubCatalogRefreshToken: number
   setLocale(locale: AppLocale): void
   setTheme(theme: AppTheme): void
   setRuntimeInfo(runtimeInfo: RuntimeDiagnostics): void
@@ -62,11 +69,15 @@ interface AppState {
   backToList(): void
   setActiveDocumentTitle(title?: string): void
   setActiveDocumentDirty(dirty: boolean): void
+  startWorkspaceRecovery(workspaceId: string): void
+  setHubRecoveryProgress(input: { message: string; progress: number }): void
+  finishHubRecovery(): void
+  bumpHubCatalogRefresh(): void
 }
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       locale: 'en',
       theme: 'dark',
       mode: 'wizard',
@@ -79,6 +90,8 @@ export const useAppStore = create<AppState>()(
       githubLogin: undefined,
       workspaces: [],
       activeWorkspaceId: undefined,
+      hubRecovery: null,
+      hubCatalogRefreshToken: 0,
       setLocale: (locale) => set({ locale: normalizeLocale(locale) }),
       setTheme: (theme) => set({ theme: normalizeTheme(theme) }),
       setRuntimeInfo: (runtimeInfo) => set({ runtimeInfo }),
@@ -142,7 +155,35 @@ export const useAppStore = create<AppState>()(
       openEditor: (activeDocumentPath) => set({ activeDocumentPath, surface: 'editor', activeDocumentDirty: false }),
       backToList: () => set({ surface: 'list', activeDocumentPath: undefined, activeDocumentTitle: undefined, activeDocumentDirty: false }),
       setActiveDocumentTitle: (activeDocumentTitle) => set({ activeDocumentTitle }),
-      setActiveDocumentDirty: (activeDocumentDirty) => set({ activeDocumentDirty })
+      setActiveDocumentDirty: (activeDocumentDirty) => set({ activeDocumentDirty }),
+      startWorkspaceRecovery: (workspaceId) => {
+        const entry = get().workspaces.find((w) => w.id === workspaceId)
+        set({
+          mode: 'hub',
+          hubRecovery: {
+            workspaceId,
+            title: entry?.title ?? 'Workspace',
+            message: 'Preparing recovery…',
+            progress: 0
+          },
+          activeWorkspaceId: undefined,
+          workspaceConfig: undefined,
+          workspaceResult: undefined,
+          activeSection: 'posts',
+          surface: 'list',
+          activeDocumentPath: undefined,
+          activeDocumentTitle: undefined,
+          activeDocumentDirty: false
+        })
+      },
+      setHubRecoveryProgress: ({ message, progress }) =>
+        set((state) =>
+          state.hubRecovery
+            ? { hubRecovery: { ...state.hubRecovery, message, progress } }
+            : {}
+        ),
+      finishHubRecovery: () => set({ hubRecovery: null }),
+      bumpHubCatalogRefresh: () => set((state) => ({ hubCatalogRefreshToken: state.hubCatalogRefreshToken + 1 }))
     }),
     {
       name: 'emprint-preferences',

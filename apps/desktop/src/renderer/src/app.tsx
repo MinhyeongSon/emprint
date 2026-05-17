@@ -21,6 +21,9 @@ import {
 } from 'lucide-react'
 import { getSectionLabel } from '@renderer/lib/i18n'
 import { CommandPalette, type CommandPaletteItem } from '@renderer/features/shell/command-palette'
+import { HubRecoveryOverlay } from '@renderer/features/hub/hub-recovery-overlay'
+import { HubRecoveryRunner } from '@renderer/features/hub/hub-recovery-runner'
+
 export function App() {
   const locale = useAppStore((state) => state.locale)
   const setLocale = useAppStore((state) => state.setLocale)
@@ -206,6 +209,7 @@ export function App() {
 
   return (
     <>
+      <HubRecoveryRunner />
       {/* Match Titlebar `h-10` (2.5rem / 40px); a taller row leaves a visible gap under the bar */}
       <div className="grid h-screen grid-rows-[2.5rem_minmax(0,1fr)] bg-base">
         <Titlebar
@@ -361,6 +365,7 @@ export function App() {
         </div>
       ) : null}
 
+      <HubRecoveryOverlay locale={locale} />
     </>
   )
 }

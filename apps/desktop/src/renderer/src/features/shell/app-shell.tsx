@@ -5,8 +5,10 @@ import {
   getLocaleMessages,
 } from '@renderer/lib/i18n'
 import { Sidebar } from './sidebar'
-import { PublishButton } from './publish-button'
+import { PullBeforePublishDialog } from './pull-before-publish-dialog'
+import { PullOverwriteDialog } from './pull-overwrite-dialog'
 import { PublishDialog } from './publish-dialog'
+import { WorkspaceSyncFooter } from './workspace-sync-footer'
 import { useAppStore, type SidebarSection } from '@renderer/state/app-store'
 import { PostsSurface } from '@renderer/features/posts/posts-surface'
 import { DesignSurface } from '@renderer/features/design/design-surface'
@@ -30,6 +32,10 @@ export function AppShell() {
   const m = getLocaleMessages(locale)
 
   const [publishOpen, setPublishOpen] = useState(false)
+  const [pullBeforePublishOpen, setPullBeforePublishOpen] = useState(false)
+  const [pullOverwriteOpen, setPullOverwriteOpen] = useState(false)
+  const [pullBeforePublishBusy, setPullBeforePublishBusy] = useState(false)
+  const [pendingBehind, setPendingBehind] = useState(0)
   // Bumped after the publish dialog reports a successful publish so the
   // sidebar button and the Imprint surface know to refetch.
   const [gitRefreshToken, setGitRefreshToken] = useState(0)
@@ -37,6 +43,58 @@ export function AppShell() {
   const handlePublished = useCallback(() => {
     setGitRefreshToken((n) => n + 1)
   }, [])
+
+  const openPublishDialog = useCallback(() => {
+    setPublishOpen(true)
+  }, [])
+
+  const handlePublishClick = useCallback(async () => {
+    if (activeDocumentDirty) return
+    try {
+      const snap = await window.emprint.git.workingTree()
+      if (snap.hasConflicts && snap.behind === 0) return
+      if (snap.behind > 0) {
+        setPendingBehind(snap.behind)
+        if (snap.canPullOverwrite && !snap.canPull) {
+          setPullOverwriteOpen(true)
+          return
+        }
+        if (snap.canPull) {
+          setPullBeforePublishOpen(true)
+          return
+        }
+      }
+      openPublishDialog()
+    } catch {
+      openPublishDialog()
+    }
+  }, [activeDocumentDirty, openPublishDialog])
+
+  const finishPullBeforePublish = useCallback(
+    async (discardLocal: boolean) => {
+      setPullBeforePublishBusy(true)
+      try {
+        const result = await window.emprint.git.pull(discardLocal ? { discardLocal: true } : undefined)
+        if (result.pulled || result.skippedReason === 'nothing-to-pull') {
+          setPullBeforePublishOpen(false)
+          setPullOverwriteOpen(false)
+          setGitRefreshToken((n) => n + 1)
+          openPublishDialog()
+        }
+      } finally {
+        setPullBeforePublishBusy(false)
+      }
+    },
+    [openPublishDialog]
+  )
+
+  const handlePullBeforePublishConfirm = useCallback(() => {
+    void finishPullBeforePublish(false)
+  }, [finishPullBeforePublish])
+
+  const handlePullOverwriteConfirm = useCallback(() => {
+    void finishPullBeforePublish(true)
+  }, [finishPullBeforePublish])
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -77,11 +135,12 @@ export function AppShell() {
         {...(typeof githubConnected === 'boolean' ? { githubConnected } : {})}
         {...(githubLogin ? { githubLogin } : {})}
         footer={
-          <PublishButton
+          <WorkspaceSyncFooter
             locale={locale}
             refreshToken={gitRefreshToken}
             blocked={activeDocumentDirty}
-            onClick={() => setPublishOpen(true)}
+            onPublishClick={() => void handlePublishClick()}
+            onSyncChange={() => setGitRefreshToken((n) => n + 1)}
           />
         }
       />
@@ -133,6 +192,25 @@ export function AppShell() {
           </div>
         )}
       </main>
+
+      <PullBeforePublishDialog
+        open={pullBeforePublishOpen}
+        locale={locale}
+        behind={pendingBehind}
+        busy={pullBeforePublishBusy}
+        onCancel={() => setPullBeforePublishOpen(false)}
+        onConfirm={handlePullBeforePublishConfirm}
+      />
+
+      <PullOverwriteDialog
+        open={pullOverwriteOpen}
+        locale={locale}
+        behind={pendingBehind}
+        busy={pullBeforePublishBusy}
+        continueToPublish
+        onCancel={() => setPullOverwriteOpen(false)}
+        onConfirm={handlePullOverwriteConfirm}
+      />
 
       <PublishDialog
         open={publishOpen}
