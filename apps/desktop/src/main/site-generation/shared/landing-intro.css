@@ -39,6 +39,7 @@ html.__PREFIX__-intro-skip .__PREFIX__-LandingIntro {
   margin: 0;
   font-size: clamp(1.25rem, 4vw, 1.75rem);
   line-height: 1.45;
+  color: #e85d04; /* Emprint brand accent */
 }
 
 /* --- Terminal variant --- */

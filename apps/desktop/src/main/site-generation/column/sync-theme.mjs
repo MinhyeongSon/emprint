@@ -127,7 +127,7 @@ if (theme.contractVersion !== 1 || !SUPPORTED_ANTHOLOGIES.has(theme.anthology)) 
   process.exit(1)
 }
 theme.colorMode = normalizeColorMode(theme.colorMode)
-theme.classPrefix = normalizeClassPrefix(theme.anthology, theme.classPrefix)
+theme.classPrefix = classPrefixForAnthology(theme.anthology)
 mkdirSync(outDir, { recursive: true })
 writeFileSync(outPath, themeToCss(theme), 'utf8')
 console.log(`[emprint] Wrote src/styles/tokens.css (${theme.anthology})`)
