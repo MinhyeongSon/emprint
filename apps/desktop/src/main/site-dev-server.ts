@@ -4,6 +4,7 @@ import { execFile, spawn, type ChildProcess } from 'node:child_process'
 import { promisify } from 'node:util'
 import { shell } from 'electron'
 import type { SiteDevServerPhase, SiteDevServerState, SiteDevServerStatus } from '@emprint/shared'
+import { spawnNpm } from './resolve-node-toolchain'
 import { ensureWorkspaceSyncThemeScript } from './workspace-theme-script'
 
 export const SITE_DEV_PREVIEW_URL = 'http://localhost:4321/'
@@ -31,10 +32,6 @@ function snapshot(): SiteDevServerState {
   }
 }
 
-function npmCommand(): string {
-  return process.platform === 'win32' ? 'npm.cmd' : 'npm'
-}
-
 function bumpInstallProgress(delta = 3) {
   if (phase !== 'installing') return
   progress = Math.min(88, (progress ?? 8) + delta)
@@ -42,11 +39,9 @@ function bumpInstallProgress(delta = 3) {
 
 function spawnNpmInstall(cwd: string, onOutput?: () => void): Promise<void> {
   return new Promise<void>((resolve, reject) => {
-    const proc = spawn(npmCommand(), ['install', '--no-fund', '--no-audit'], {
+    const proc = spawnNpm(['install', '--no-fund', '--no-audit'], {
       cwd,
-      shell: process.platform === 'win32',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: process.env
+      stdio: ['ignore', 'pipe', 'pipe']
     })
     let err = ''
     const onData = () => {
@@ -304,11 +299,10 @@ async function startSiteDevServer(root: string): Promise<SiteDevServerState> {
   progress = 94
   statusMessage = undefined
 
-  const proc = spawn(npmCommand(), ['run', 'dev'], {
+  const proc = spawnNpm(['run', 'dev'], {
     cwd: resolved,
-    shell: process.platform === 'win32',
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, BROWSER: 'none', CI: 'true' }
+    env: { BROWSER: 'none', CI: 'true' }
   })
 
   child = proc

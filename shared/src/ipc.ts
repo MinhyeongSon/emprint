@@ -9,6 +9,7 @@ import type {
   GitHubRepoCreateResult,
   GitHubDeployStatus,
   GitDetectResult,
+  NodeDetectResult,
   GitInitialSyncResult,
   GitLogInput,
   GitPublishInput,
@@ -50,6 +51,7 @@ export const ipcChannels = {
   workspaceUnmount: 'workspace:unmount',
   gitInitialSync: 'git:initial-sync',
   gitDetect: 'git:detect',
+  nodeDetect: 'node:detect',
   gitWorkingTree: 'git:working-tree',
   gitPull: 'git:pull',
   gitRecoverWorkspace: 'git:recover-workspace',
@@ -103,6 +105,9 @@ export interface EmprintDesktopApi {
   system: {
     getRuntimeInfo(): Promise<RuntimeDiagnostics>
     selectDirectory(): Promise<DirectorySelectionResult | null>
+  }
+  node: {
+    detect(): Promise<NodeDetectResult>
   }
   github: {
     oauthClientGet(): Promise<GitHubOAuthClientConfig>

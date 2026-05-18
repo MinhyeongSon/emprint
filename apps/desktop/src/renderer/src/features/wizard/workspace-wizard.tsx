@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   ArrowRight,
   BookOpen,
+  Braces,
   Check,
   ExternalLink,
   FolderOpen,
@@ -18,9 +19,39 @@ import { GithubDeviceLoginForm } from '@renderer/features/github/github-device-l
 import { Sidebar } from '@renderer/features/shell/sidebar'
 import { useAppStore } from '@renderer/state/app-store'
 
-type WizardStep = 'git' | 'github' | 'root'
+type WizardStep = 'git' | 'node' | 'github' | 'root'
 
-const steps: WizardStep[] = ['git', 'github', 'root']
+const steps: WizardStep[] = ['git', 'node', 'github', 'root']
+
+function nodeInstallCommands(platform: string): string[] {
+  if (platform === 'win32') {
+    return [
+      'winget install OpenJS.NodeJS.LTS',
+      '# or',
+      'choco install nodejs-lts -y',
+      '# or download the installer from https://nodejs.org (LTS, v22+)'
+    ]
+  }
+  if (platform === 'darwin') {
+    return [
+      'brew install node',
+      '# or download LTS from https://nodejs.org',
+      '# or (nvm)',
+      'curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash',
+      'nvm install 22',
+      'nvm use 22'
+    ]
+  }
+  return [
+    '# Debian / Ubuntu (Node 22)',
+    'curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -',
+    'sudo apt-get install -y nodejs',
+    '# or (Fedora)',
+    'sudo dnf install -y nodejs npm',
+    '# or (Arch)',
+    'sudo pacman -S nodejs npm'
+  ]
+}
 
 export function WorkspaceWizard() {
   const locale = useAppStore((state) => state.locale)
@@ -34,6 +65,8 @@ export function WorkspaceWizard() {
   const [stepIndex, setStepIndex] = useState(0)
   const [gitReady, setGitReady] = useState(false)
   const [gitStatus, setGitStatus] = useState<null | { state: string; message?: string; error?: string }>(null)
+  const [nodeReady, setNodeReady] = useState(false)
+  const [nodeStatus, setNodeStatus] = useState<null | { state: string; message?: string; error?: string }>(null)
   const [githubFlowPending, setGithubFlowPending] = useState(false)
   const [oauthClientId, setOauthClientId] = useState('')
   const [oauthClientSecret, setOauthClientSecret] = useState('')
@@ -50,9 +83,11 @@ export function WorkspaceWizard() {
   const canContinue =
     currentStep === 'git'
       ? gitReady
-      : currentStep === 'github'
-        ? oauthCredentialsReady && (githubConnected || githubFlowPending)
-        : Boolean(rootDir.trim()) && githubConnected
+      : currentStep === 'node'
+        ? nodeReady
+        : currentStep === 'github'
+          ? oauthCredentialsReady && (githubConnected || githubFlowPending)
+          : Boolean(rootDir.trim()) && githubConnected
 
   async function selectRoot() {
     const result = await window.emprint.system.selectDirectory()
@@ -61,42 +96,87 @@ export function WorkspaceWizard() {
     }
   }
 
+  async function runGitDetect() {
+    if (!window.emprint?.git?.detect) return
+    setGitStatus({ state: 'checking' })
+    try {
+      const detected = await window.emprint.git.detect()
+      if (detected.available) {
+        setGitReady(true)
+        setGitStatus({ state: 'ready', message: `git ${detected.version ?? ''}`.trim() })
+      } else {
+        setGitReady(false)
+        setGitStatus({
+          state: 'missing',
+          message: locale === 'ko' ? 'Git을 찾을 수 없습니다.' : 'Git is not available yet.'
+        })
+      }
+    } catch (caught) {
+      setGitReady(false)
+      setGitStatus({
+        state: 'error',
+        error: caught instanceof Error ? caught.message : locale === 'ko' ? 'Git 확인 실패' : 'Failed to detect git.'
+      })
+    }
+  }
+
+  async function runNodeDetect() {
+    if (!window.emprint?.node?.detect) return
+    setNodeStatus({ state: 'checking' })
+    try {
+      const detected = await window.emprint.node.detect()
+      if (detected.available && detected.meetsMinimum) {
+        setNodeReady(true)
+        const npmHint = detected.npmPath ? ` · npm` : ''
+        setNodeStatus({
+          state: 'ready',
+          message: `Node ${detected.version ?? ''}${npmHint}`.trim()
+        })
+      } else if (detected.available) {
+        setNodeReady(false)
+        setNodeStatus({
+          state: 'outdated',
+          message:
+            locale === 'ko'
+              ? `Node ${detected.version ?? ''} — v${detected.minimumVersion} 이상이 필요합니다.`
+              : `Node ${detected.version ?? ''} — need v${detected.minimumVersion} or newer.`
+        })
+      } else {
+        setNodeReady(false)
+        setNodeStatus({
+          state: 'missing',
+          message: locale === 'ko' ? 'Node.js를 찾을 수 없습니다.' : 'Node.js is not available yet.'
+        })
+      }
+    } catch (caught) {
+      setNodeReady(false)
+      setNodeStatus({
+        state: 'error',
+        error:
+          caught instanceof Error ? caught.message : locale === 'ko' ? 'Node.js 확인 실패' : 'Failed to detect Node.js.'
+      })
+    }
+  }
+
   useEffect(() => {
     if (currentStep !== 'git') return
-    if (!window.emprint?.git?.detect) return
-
-    let alive = true
-    setGitStatus({ state: 'checking' })
-    void window.emprint.git
-      .detect()
-      .then((detected) => {
-        if (!alive) return
-        if (detected.available) {
-          setGitReady(true)
-          setGitStatus({ state: 'ready', message: `git ${detected.version ?? ''}`.trim() })
-        } else {
-          setGitReady(false)
-          setGitStatus({ state: 'missing', message: 'Git is not available yet.' })
-        }
-      })
-      .catch((caught) => {
-        if (!alive) return
-        setGitReady(false)
-        setGitStatus({ state: 'error', error: caught instanceof Error ? caught.message : 'Failed to detect git.' })
-      })
-
-    return () => {
-      alive = false
-    }
+    void runGitDetect()
   }, [currentStep])
 
-  const platform = runtimeInfo?.platform || ''
-  const installCommands =
+  useEffect(() => {
+    if (currentStep !== 'node') return
+    void runNodeDetect()
+  }, [currentStep])
+
+  const platform = runtimeInfo?.platform || window.emprint?.env?.platform || ''
+  const gitInstallCommands =
     platform === 'win32'
       ? ['winget install --id Git.Git -e', '# or', 'choco install git -y']
       : platform === 'darwin'
         ? ['xcode-select --install', '# or (Homebrew)', 'brew install git']
         : ['sudo apt-get update && sudo apt-get install -y git', '# or (Fedora)', 'sudo dnf install -y git', '# or (Arch)', 'sudo pacman -S git']
+
+  const nodeInstallCmds = nodeInstallCommands(platform)
 
   useEffect(() => {
     if (!window.emprint?.github?.oauthClientGet) return
@@ -150,13 +230,17 @@ export function WorkspaceWizard() {
       ? locale === 'ko'
         ? 'Git 준비'
         : 'Git'
-      : currentStep === 'github'
+      : currentStep === 'node'
         ? locale === 'ko'
-          ? 'GitHub 로그인'
-          : 'GitHub'
-        : locale === 'ko'
-          ? '루트 폴더'
-          : 'Root folder'
+          ? 'Node.js 준비'
+          : 'Node.js'
+        : currentStep === 'github'
+          ? locale === 'ko'
+            ? 'GitHub 로그인'
+            : 'GitHub'
+          : locale === 'ko'
+            ? '루트 폴더'
+            : 'Root folder'
 
   return (
     <div className="h-full bg-base text-ink">
@@ -187,13 +271,17 @@ export function WorkspaceWizard() {
                         ? locale === 'ko'
                           ? 'Git 준비'
                           : 'Git'
-                        : id === 'github'
+                        : id === 'node'
                           ? locale === 'ko'
-                            ? 'GitHub 로그인'
-                            : 'GitHub'
-                          : locale === 'ko'
-                            ? '루트 폴더 선택'
-                            : 'Root folder'}
+                            ? 'Node.js 준비'
+                            : 'Node.js'
+                          : id === 'github'
+                            ? locale === 'ko'
+                              ? 'GitHub 로그인'
+                              : 'GitHub'
+                            : locale === 'ko'
+                              ? '루트 폴더 선택'
+                              : 'Root folder'}
                     </div>
                   </div>
                   <div
@@ -244,7 +332,7 @@ export function WorkspaceWizard() {
                 {!gitReady ? (
                   <div className="rounded-md border border-border/70 bg-surface px-3 py-2.5">
                     <div className="text-[11px] uppercase tracking-[0.16em] text-muted">Install commands</div>
-                    <pre className="mt-2 whitespace-pre-wrap font-mono text-[11px] text-ink">{installCommands.join('\n')}</pre>
+                    <pre className="mt-2 whitespace-pre-wrap font-mono text-[11px] text-ink">{gitInstallCommands.join('\n')}</pre>
                   </div>
                 ) : null}
 
@@ -255,20 +343,71 @@ export function WorkspaceWizard() {
                     className="h-8 w-8 shrink-0 p-0"
                     aria-label="Retry Git detection"
                     title="Retry"
-                    onClick={() => {
-                      // re-run detect with UI feedback
-                      setGitReady(false)
-                      setGitStatus({ state: 'checking' })
-                      void window.emprint.git.detect().then((detected) => {
-                        if (detected.available) {
-                          setGitReady(true)
-                          setGitStatus({ state: 'ready', message: `git ${detected.version ?? ''}`.trim() })
-                        } else {
-                          setGitReady(false)
-                          setGitStatus({ state: 'missing', message: 'Git is not available yet.' })
-                        }
-                      })
-                    }}
+                    onClick={() => void runGitDetect()}
+                  >
+                    <RefreshCw className="h-4 w-4" strokeWidth={2} />
+                  </Button>
+                </div>
+              </Card>
+            ) : null}
+
+            {currentStep === 'node' ? (
+              <Card className="space-y-4">
+                <CardTitle>{locale === 'ko' ? 'Node.js 준비' : 'Node.js ready'}</CardTitle>
+                <CardDescription>
+                  {locale === 'ko'
+                    ? 'Design 미리보기와 사이트 빌드에 Node.js 22+와 npm이 필요합니다. 없거나 버전이 낮으면 아래 방법으로 설치한 뒤 Emprint를 다시 실행하고 다시 시도하세요.'
+                    : 'Design preview and site builds need Node.js 22+ and npm. Install using the commands below, quit and reopen Emprint, then retry.'}
+                </CardDescription>
+                {nodeStatus?.error ? (
+                  <div className="rounded-md border border-danger/55 bg-dangerBg px-3 py-2.5 text-sm text-dangerInk">
+                    {nodeStatus.error}
+                  </div>
+                ) : null}
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge>
+                    {nodeReady
+                      ? 'Ready'
+                      : nodeStatus?.state === 'checking'
+                        ? 'Checking…'
+                        : nodeStatus?.state === 'outdated'
+                          ? locale === 'ko'
+                            ? '업데이트 필요'
+                            : 'Update required'
+                          : 'Not ready'}
+                  </Badge>
+                  {nodeStatus?.message ? <div className="text-sm text-muted">{nodeStatus.message}</div> : null}
+                </div>
+
+                {!nodeReady ? (
+                  <div className="rounded-md border border-border/70 bg-surface px-3 py-2.5">
+                    <div className="text-[11px] uppercase tracking-[0.16em] text-muted">
+                      {locale === 'ko' ? '설치 방법' : 'Install commands'}
+                    </div>
+                    <pre className="mt-2 whitespace-pre-wrap font-mono text-[11px] text-ink">
+                      {nodeInstallCmds.join('\n')}
+                    </pre>
+                  </div>
+                ) : null}
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-8 gap-1.5 px-3"
+                    onClick={() => window.open('https://nodejs.org/', '_blank')}
+                  >
+                    <Braces className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+                    <span className="text-xs">{locale === 'ko' ? 'nodejs.org' : 'nodejs.org'}</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    type="button"
+                    className="h-8 w-8 shrink-0 p-0"
+                    aria-label={locale === 'ko' ? 'Node.js 다시 확인' : 'Retry Node.js detection'}
+                    title={locale === 'ko' ? '다시 확인' : 'Retry'}
+                    onClick={() => void runNodeDetect()}
                   >
                     <RefreshCw className="h-4 w-4" strokeWidth={2} />
                   </Button>

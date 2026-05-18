@@ -17,7 +17,7 @@ export type AppTheme = 'dark' | 'light' | 'warm'
 
 function normalizeTheme(value: unknown): AppTheme {
   if (value === 'dark' || value === 'light' || value === 'warm') return value
-  return 'dark'
+  return 'warm'
 }
 
 function normalizeLocale(value: unknown): AppLocale {
@@ -83,7 +83,7 @@ export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
       locale: 'en',
-      theme: 'dark',
+      theme: 'warm',
       mode: 'wizard',
       activeSection: 'posts',
       surface: 'list',

@@ -14,6 +14,9 @@ const api: EmprintDesktopApi = {
     getRuntimeInfo: () => ipcRenderer.invoke(ipcChannels.systemGetRuntimeInfo),
     selectDirectory: () => ipcRenderer.invoke(ipcChannels.systemSelectDirectory)
   },
+  node: {
+    detect: () => ipcRenderer.invoke(ipcChannels.nodeDetect)
+  },
   github: {
     oauthClientGet: () => ipcRenderer.invoke(ipcChannels.githubOAuthClientGet),
     oauthClientSet: (input) => ipcRenderer.invoke(ipcChannels.githubOAuthClientSet, input),

@@ -399,3 +399,14 @@ export interface GitDetectResult {
   source: GitBinarySource
 }
 
+export interface NodeDetectResult {
+  available: boolean
+  /** e.g. v22.11.0 */
+  version?: string
+  nodePath?: string
+  npmPath?: string
+  /** true when major version >= minimumVersion */
+  meetsMinimum: boolean
+  minimumVersion: string
+}
+

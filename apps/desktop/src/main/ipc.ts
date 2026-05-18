@@ -66,6 +66,7 @@ import {
   openSiteDevPreview,
   stopSiteDevServer
 } from './site-dev-server'
+import { detectNodeToolchain, resetNodeToolchainCache } from './resolve-node-toolchain'
 import { resolveWorkspaceMonacoTypescript } from './workspace-monaco-ts'
 
 let mountedWorkspaceRoot: string | null = null
@@ -277,6 +278,11 @@ export function setupIpcHandlers(): void {
   ipcMain.handle(ipcChannels.gitDetect, async () => {
     const detected = await gitDetect()
     return detected
+  })
+
+  ipcMain.handle(ipcChannels.nodeDetect, async () => {
+    resetNodeToolchainCache()
+    return await detectNodeToolchain()
   })
 
   ipcMain.handle(ipcChannels.gitWorkingTree, async () => {
