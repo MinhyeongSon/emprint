@@ -167,7 +167,7 @@ export function App() {
         label: 'Go to Hub',
         hint: locale === 'ko' ? '앤솔로지 허브로 돌아가기' : 'Back to anthology hub',
         meta: 'Nav',
-        onSelect: () => enterHub()
+        onSelect: () => void enterHub()
       })
     }
 
@@ -183,7 +183,7 @@ export function App() {
           className="h-7 w-7 shrink-0 p-0"
           aria-label="Go to Hub"
           title="Hub"
-          onClick={enterHub}
+          onClick={() => void enterHub()}
         >
           <LayoutGrid className="h-3.5 w-3.5" strokeWidth={2} />
         </Button>
@@ -204,7 +204,7 @@ export function App() {
   useEffect(() => {
     if (mode !== 'workspace') return
     if (workspaceConfig && workspaceResult) return
-    enterHub()
+    void enterHub()
   }, [enterHub, mode, workspaceConfig, workspaceResult])
 
   return (

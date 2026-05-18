@@ -52,7 +52,7 @@ export function workspaceFileToMonacoUri(workspaceRoot: string, srcRelativePath:
       return encodeURIComponent(segment)
     })
     .join('/')
-  return `file:///${encoded}`
+  return encoded.startsWith('/') ? `file://${encoded}` : `file:///${encoded}`
 }
 
 export async function configureMonacoForWorkspace(monaco: Monaco): Promise<WorkspaceMonacoTypescriptPayload | null> {

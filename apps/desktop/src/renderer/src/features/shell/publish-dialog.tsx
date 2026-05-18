@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { AlertTriangle, ArrowUpFromLine, CheckCircle2, Loader2, X } from 'lucide-react'
 import type { AppLocale, GitPublishResult, GitWorkingTreeSummary } from '@emprint/shared'
 import { Button } from '@renderer/components/ui/button'
+import { DeployStatusPanel } from './deploy-status-panel'
 
 function t(locale: AppLocale, en: string, ko: string): string {
   return locale === 'ko' ? ko : en
@@ -159,7 +160,10 @@ export function PublishDialog({ open, locale, onClose, onPublished }: PublishDia
           ) : null}
 
           {phase === 'done' && result ? (
-            <DoneBanner locale={locale} result={result} />
+            <>
+              <DoneBanner locale={locale} result={result} />
+              <DeployStatusPanel locale={locale} active={Boolean(result.pushed)} />
+            </>
           ) : null}
 
           {phase !== 'done' ? (

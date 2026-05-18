@@ -11,7 +11,7 @@
 
 [![Website](https://img.shields.io/badge/website-emprint--home-1a1a1a?style=flat-square&logo=githubpages&logoColor=white)](https://minhyeongson.github.io/emprint-home)
 [![Guide](https://img.shields.io/badge/guide-document-44403c?style=flat-square&logo=bookstack&logoColor=white)](https://minhyeongson.github.io/emprint-home/document/)
-[![Version](https://img.shields.io/badge/version-0.1.0-e85d04?style=flat-square)](https://github.com/MinhyeongSon/emprint/releases)
+[![Version](https://img.shields.io/badge/version-0.2.0-e85d04?style=flat-square)](https://github.com/MinhyeongSon/emprint/releases)
 [![macOS](https://img.shields.io/badge/macOS-arm64%20%7C%20x64-000000?style=flat-square&logo=apple&logoColor=white)](https://minhyeongson.github.io/emprint-home/#downloads)
 [![Windows](https://img.shields.io/badge/Windows-x64-0078D6?style=flat-square&logo=windows&logoColor=white)](https://minhyeongson.github.io/emprint-home/#downloads)
 [![License](https://img.shields.io/badge/license-Source--Available-6b7280?style=flat-square)](LICENSE)
@@ -47,15 +47,18 @@ Each publish leaves a mark on the **Imprint** timeline—a story of *when* you s
 #### Hub — manage multiple homepages
 
 - Browse, open, and remove workspaces from the catalog
-- **New workspace**: Column-style site + optional automatic **public** GitHub repo
+- **New workspace**: choose **Column** (blog) or **Memoir** (portfolio) + optional automatic **public** GitHub repo
 - After your first **Publish**, see the GitHub Pages URL on the Hub card
 - Switch between several “homepages of your own” from one Hub (anthology metaphor)
 
-#### Writing — Posts · Drafts
+#### Writing
 
-- Manage posts under **Posts** / **Drafts**; move or delete between folders
-- List → markdown preview → edit in **TipTap** and save
-- Title, tags, and draft flag live in frontmatter
+| Format | Content |
+|--------|---------|
+| **Column** | **Posts** / **Drafts** — markdown posts with frontmatter (title, tags, draft) |
+| **Memoir** | **Sections** — portfolio blocks composed in the app |
+
+- List → preview → edit in **TipTap** and save
 - **Publish** is blocked while the editor has unsaved changes
 
 #### Assets — images
@@ -67,22 +70,24 @@ Each publish leaves a mark on the **Imprint** timeline—a story of *when* you s
 
 | Mode | What you can do |
 |------|-----------------|
-| **Template** | Apply Warm / Dark / Light presets to global site styles |
-| **Code** | File tree for Astro site `src/` + Monaco edit, create, rename, delete |
+| **Template** | Layout composition + **Emprint** / **Paper & Ink** palettes → `config/theme.json` |
+| **Code** | Site project tree (`config/`, `src/`, …) + Monaco; install site deps for preview |
 | **Preview** | Run the site locally and open in the browser (`localhost:4321`) |
 | **AI prompt** | Copy a prompt for external AI tools (no in-app LLM calls) |
+
+Published sites include a header control so **readers** can switch System / Light / Dark theme. Optional **landing intro** overlay before the site chrome.
 
 #### Publish · Imprint — send and publication history
 
 - **Publish**: stage, commit, and push to GitHub with a message
-- **Imprint**: a publication timeline in plain language—not a raw `git log`
+- **Imprint**: publication timeline; **Rollback** to a past snapshot; **Reset draft** for uncommitted edits
 - New workspaces include a GitHub Actions workflow for Pages deploy after push
 
 #### App-wide
 
 - **Dark / Light / Warm** themes; **English / Korean** UI
 - **Command palette** (`Ctrl`/`Cmd` + `K`)
-- Sidebar shortcuts `1`–`6`: Posts · Drafts · Assets · Design · Imprint · Settings
+- Sidebar shortcuts `1`–`6` (Column: Posts · Drafts · …; Memoir: Sections · Assets · …)
 - GitHub log out; OAuth Client ID & Secret in Settings (also in Wizard)
 - On window close or quit: optional log-out prompt for shared PCs
 
@@ -123,15 +128,18 @@ Emprint는 **내 컴퓨터 안의 폴더**가 곧 작업실이 되는 데스크�
 #### Hub — 여러 홈페이지(워크스페이스) 관리
 
 - 카탈로그에서 워크스페이스 목록 보기 · 열기 · 목록에서 제거
-- **새 워크스페이스** 만들기: Column 형식 사이트 + (선택) GitHub **public** 저장소 자동 생성
+- **새 워크스페이스** 만들기: **Column**(블로그) 또는 **Memoir**(포트폴리오) 선택 + (선택) GitHub **public** 저장소 자동 생성
 - 첫 **Publish**까지 이어지면 GitHub Pages 주소를 Hub 카드에서 확인
 - 여러 개의 “나만의 홈페이지”를 한 Hub에서 전환하며 관리 (앤솔로지 개념)
 
-#### 글쓰기 — Posts · Drafts
+#### 글쓰기
 
-- **Posts** / **Drafts** 폴더로 글 목록 관리, 서로 이동 · 삭제
-- 목록 → 읽기(마크다운 미리보기) → **TipTap** 편집기로 작성 · 저장
-- 제목, 태그, 초안(draft) 여부는 글 앞머리(frontmatter)로 관리
+| 형식 | 콘텐츠 |
+|------|--------|
+| **Column** | **Posts** / **Drafts** — frontmatter(제목, 태그, 초안)가 있는 마크다운 글 |
+| **Memoir** | **Sections** — 앱에서 구성하는 포트폴리오 섹션 |
+
+- 목록 → 미리보기 → **TipTap** 편집 · 저장
 - 저장하지 않은 편집 중에는 Publish를 막아 실수 방지
 
 #### Assets — 이미지
@@ -143,22 +151,24 @@ Emprint는 **내 컴퓨터 안의 폴더**가 곧 작업실이 되는 데스크�
 
 | 모드 | 할 수 있는 일 |
 |------|----------------|
-| **Template** | Warm / Dark / Light 프리셋으로 사이트 전역 스타일 적용 |
-| **Code** | Astro 사이트 소스(`src/`) 파일 트리 + Monaco 편집 · 생성 · 이름 변경 · 삭제 |
+| **Template** | 레이아웃 구성 + **Emprint** / **Paper & Ink** 팔레트 → `config/theme.json` 적용 |
+| **Code** | 사이트 프로젝트 트리(`config/`, `src/` 등) + Monaco · 의존성 설치 후 미리보기 |
 | **미리보기** | 로컬에서 사이트 실행 후 브라우저로 확인 (`localhost:4321`) |
 | **AI prompt** | 외부 AI 도구에 넘길 수정 요청 문장 복사 (앱 안에서 LLM 호출은 하지 않음) |
+
+배포된 사이트 헤더에서 **방문자**가 시스템/라이트/다크 테마를 고를 수 있습니다. 사이트 진입 전 **랜딩 인트로** 오버레이를 켤 수 있습니다.
 
 #### Publish · Imprint — 보내기와 출판 기록
 
 - **Publish**: 변경 사항을 한 번에 커밋하고 GitHub로 push (메시지 입력)
-- **Imprint**: 출판 타임라인 — “언제 무엇을 보냈는지”를 Git 용어 없이 레인 UI로 표시
+- **Imprint**: 출판 타임라인 · 항목 **Rollback** · 미저장 변경 **초안 되돌리기**
 - 워크스페이스 생성 시 GitHub Actions로 Pages 배포 워크플로 포함 (push 후 사이트 반영)
 
 #### 앱 전반
 
 - **다크 / 라이트 / 웜** 테마, **한국어 / English** UI
 - **Command palette** (`Ctrl`/`Cmd` + `K`) — 빠른 이동
-- 사이드바 단축키 `1`–`6`: Posts · Drafts · Assets · Design · Imprint · Settings
+- 사이드바 단축키 `1`–`6` (Column: Posts · Drafts · … / Memoir: Sections · Assets · …)
 - 설정에서 GitHub 로그아웃, OAuth Client ID·Secret 저장 (Wizard에서도 설정 가능)
 - 창 닫기 · 앱 종료 시 공용 PC 안내(로그아웃 선택 가능)
 

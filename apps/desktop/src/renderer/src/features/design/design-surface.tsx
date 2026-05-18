@@ -6,7 +6,6 @@ import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
 import { cn } from '@renderer/lib/cn'
 import { CodeModePanel } from './code-mode-panel'
-import { SITE_GLOBAL_CSS_PATH } from './design-workspace-paths'
 import {
   openSiteDevPreview,
   pollSiteDevStatus,
@@ -14,7 +13,6 @@ import {
   stopSiteDevPreview
 } from './design-dev-preview'
 import { DesignPreviewProgress } from './design-preview-progress'
-import { buildSiteGlobalStylesheet } from './site-global-presets'
 import { DesignAiPromptDialog } from './design-ai-prompt-dialog'
 import { TemplateModePanel } from './template-mode-panel'
 import { useAppStore } from '@renderer/state/app-store'
@@ -61,14 +59,6 @@ export function DesignSurface({ locale }: { locale: AppLocale }) {
     }
   }, [])
 
-  const applyModeReset = useCallback(async (mode: DesignUiMode) => {
-    const api = window.emprint?.workspaceSrc
-    if (!api?.save) return
-    if (mode === 'template') {
-      await api.save({ path: SITE_GLOBAL_CSS_PATH, content: buildSiteGlobalStylesheet('warm') })
-    }
-  }, [])
-
   function requestModeChange(next: DesignUiMode) {
     if (next === uiMode) return
     setPendingMode(next)
@@ -77,7 +67,6 @@ export function DesignSurface({ locale }: { locale: AppLocale }) {
   async function confirmModeChange() {
     if (!pendingMode) return
     await stopSiteDevPreview()
-    await applyModeReset(pendingMode)
     setUiMode(pendingMode)
     setPendingMode(null)
   }
@@ -123,7 +112,12 @@ export function DesignSurface({ locale }: { locale: AppLocale }) {
   ]
 
   return (
-    <div className="flex h-[calc(100svh-2.5rem)] max-h-[calc(100svh-2.5rem)] min-h-[360px] flex-col bg-base">
+    <div
+      className={cn(
+        'flex h-[calc(100svh-2.5rem)] max-h-[calc(100svh-2.5rem)] min-h-[360px] flex-col bg-base',
+        uiMode === 'code' && 'overflow-hidden'
+      )}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-panel px-4 py-2">
         <div className="flex flex-wrap items-center gap-2">
           {modeTabs.map((tab) => (
@@ -174,7 +168,12 @@ export function DesignSurface({ locale }: { locale: AppLocale }) {
         <div className="border-b border-danger/40 bg-dangerBg px-4 py-2 text-xs text-dangerInk">{previewError}</div>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-auto px-4 py-4">
+      <div
+        className={cn(
+          'min-h-0 flex-1',
+          uiMode === 'code' ? 'overflow-hidden' : 'overflow-auto px-4 py-4'
+        )}
+      >
         {uiMode === 'template' ? <TemplateModePanel locale={locale} /> : <CodeModePanel locale={locale} />}
       </div>
 

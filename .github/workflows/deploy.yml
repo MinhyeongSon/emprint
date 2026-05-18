@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag to create or update (example: v0.1.0)'
+        description: 'Release tag to create or update (example: v0.2.0)'
         required: true
         type: string
       draft:
@@ -156,7 +156,7 @@ jobs:
 
           # Collect only regular files (not directories) from the downloaded
           # artifacts tree. Artifacts are stored with their relative path
-          # preserved (e.g. release-assets/0.1.0/Emprint-0.1.0-arm64.dmg),
+          # preserved (e.g. release-assets/0.2.0/Emprint-0.2.0-arm64.dmg),
           # so a flat glob like release-assets/* would pick up directories.
           mapfile -t assets < <(find release-assets -type f)
           if [ "${#assets[@]}" -eq 0 ]; then

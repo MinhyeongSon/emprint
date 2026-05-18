@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, Loader2, RefreshCw } from 'lucide-react'
+import { AlertTriangle, History, Loader2, RefreshCw } from 'lucide-react'
 import type { AppLocale, GitCommitNode } from '@emprint/shared'
 import { Button } from '@renderer/components/ui/button'
 import { cn } from '@renderer/lib/cn'
+import { ImprintRollbackDialog } from './imprint-rollback-dialog'
 
 function t(locale: AppLocale, en: string, ko: string): string {
   return locale === 'ko' ? ko : en
@@ -12,6 +13,9 @@ interface ImprintSurfaceProps {
   locale: AppLocale
   /** Bumped by app-shell after each publish so we refetch. */
   refreshToken?: number
+  onSyncChange?(): void
+  /** Called after rollback so open editors reload from disk. */
+  onWorkingStateRestored?(): void
 }
 
 const DEFAULT_LIMIT = 200
@@ -23,12 +27,15 @@ const DEFAULT_LIMIT = 200
  * graph is a single vertical lane with a dot per publish and a connecting
  * line, giving it the feel of a journal timeline.
  */
-export function ImprintSurface({ locale, refreshToken }: ImprintSurfaceProps) {
+export function ImprintSurface({ locale, refreshToken, onSyncChange, onWorkingStateRestored }: ImprintSurfaceProps) {
   const [commits, setCommits] = useState<GitCommitNode[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [reloadTick, setReloadTick] = useState(0)
   const [selectedSha, setSelectedSha] = useState<string | null>(null)
+  const [rollbackOpen, setRollbackOpen] = useState(false)
+  const [rollbackBusy, setRollbackBusy] = useState(false)
+  const [rollbackError, setRollbackError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -59,6 +66,23 @@ export function ImprintSurface({ locale, refreshToken }: ImprintSurfaceProps) {
     [commits, selectedSha]
   )
   const focused = selectedCommit ?? commits[0] ?? null
+
+  const handleRollbackConfirm = async () => {
+    if (!focused || rollbackBusy) return
+    setRollbackBusy(true)
+    setRollbackError(null)
+    try {
+      await window.emprint.git.rollback({ sha: focused.sha })
+      setRollbackOpen(false)
+      onSyncChange?.()
+      onWorkingStateRestored?.()
+    } catch (caught) {
+      const m = caught instanceof Error ? caught.message : String(caught)
+      setRollbackError(m)
+    } finally {
+      setRollbackBusy(false)
+    }
+  }
 
   return (
     <div className="mx-auto w-full max-w-[1180px] px-4 py-8 lg:px-10">
@@ -137,10 +161,35 @@ export function ImprintSurface({ locale, refreshToken }: ImprintSurfaceProps) {
           </ol>
 
           <aside className="rounded-lg border border-border bg-surface p-4">
-            <Detail locale={locale} commit={focused} />
+            <Detail
+              locale={locale}
+              commit={focused}
+              onRestore={() => {
+                setRollbackError(null)
+                setRollbackOpen(true)
+              }}
+            />
+            {rollbackError ? (
+              <p className="mt-3 text-[11px] leading-relaxed text-dangerInk" role="alert">
+                {rollbackError}
+              </p>
+            ) : null}
           </aside>
         </div>
       )}
+
+      {focused ? (
+        <ImprintRollbackDialog
+          open={rollbackOpen}
+          locale={locale}
+          imprintTitle={focused.summary || t(locale, 'this publish', '이 발행')}
+          busy={rollbackBusy}
+          onCancel={() => {
+            if (!rollbackBusy) setRollbackOpen(false)
+          }}
+          onConfirm={() => void handleRollbackConfirm()}
+        />
+      ) : null}
     </div>
   )
 }
@@ -208,7 +257,15 @@ function Entry({
   )
 }
 
-function Detail({ locale, commit }: { locale: AppLocale; commit: GitCommitNode | null }) {
+function Detail({
+  locale,
+  commit,
+  onRestore
+}: {
+  locale: AppLocale
+  commit: GitCommitNode | null
+  onRestore(): void
+}) {
   if (!commit) {
     return (
       <div className="text-sm text-muted">
@@ -246,6 +303,11 @@ function Detail({ locale, commit }: { locale: AppLocale; commit: GitCommitNode |
           </div>
         ) : null}
       </div>
+
+      <Button type="button" variant="outline" className="mt-4 h-9 w-full gap-1.5 text-[12px]" onClick={onRestore}>
+        <History className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+        {t(locale, 'Restore as draft', '초안으로 되돌리기')}
+      </Button>
     </div>
   )
 }

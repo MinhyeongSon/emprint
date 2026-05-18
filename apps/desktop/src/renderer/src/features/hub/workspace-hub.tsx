@@ -10,7 +10,6 @@ import {
   Trash2,
   X
 } from 'lucide-react'
-import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
 import { Input } from '@renderer/components/ui/input'
@@ -19,11 +18,12 @@ import { useAppStore } from '@renderer/state/app-store'
 import {
   parseGithubRepoFromRemoteUrl,
   resolveGithubPagesUrl,
-  type SiteProjectKind,
   type WorkspaceCatalogEntry,
+  type SiteProjectKind,
   type WorkspaceConfig
 } from '@emprint/shared'
 import { Sidebar } from '@renderer/features/shell/sidebar'
+import { ColumnReadingRoomPreview, MemoirLayoutPreview } from '@renderer/features/hub/workspace-format-previews'
 import { cn } from '@renderer/lib/cn'
 
 function formatDate(value: string): string {
@@ -44,46 +44,6 @@ function slugifyRepoName(value: string): string {
   )
 }
 
-/** Decorative wireframe: blog index (posts list). */
-function BlogLayoutPreview() {
-  return (
-    <div className="pointer-events-none aspect-[16/10] w-full max-h-[140px] select-none overflow-hidden rounded-lg border border-border/80 bg-base/40 p-2.5 shadow-inner sm:max-h-[160px]">
-      <div className="mb-2 flex items-center gap-2 border-b border-border/50 pb-2">
-        <div className="h-1.5 w-1/4 rounded-full bg-muted/40" />
-        <div className="ml-auto h-1 w-8 rounded-full bg-muted/30" />
-      </div>
-      <div className="space-y-2">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="flex gap-2">
-            <div className="mt-0.5 h-8 w-10 shrink-0 rounded bg-muted/25" />
-            <div className="min-w-0 flex-1 space-y-1 pt-0.5">
-              <div className="h-1 w-[70%] rounded-full bg-ink/14" />
-              <div className="h-0.5 w-full rounded-full bg-ink/8" />
-              <div className="h-0.5 w-[45%] rounded-full bg-ink/8" />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-/** Decorative wireframe: portfolio hero + project grid. */
-function PortfolioLayoutPreview() {
-  return (
-    <div className="pointer-events-none aspect-[16/10] w-full max-h-[140px] select-none overflow-hidden rounded-lg border border-border/80 bg-base/40 p-2.5 shadow-inner sm:max-h-[160px]">
-      <div className="mb-2 h-[32%] min-h-[40px] rounded-md bg-gradient-to-br from-accent/40 via-muted/10 to-panel2" />
-      <div className="grid grid-cols-3 gap-1">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div
-            key={i}
-            className="aspect-square rounded-sm border border-border/50 bg-muted/15"
-          />
-        ))}
-      </div>
-    </div>
-  )
-}
 
 export function WorkspaceHub() {
   const locale = useAppStore((state) => state.locale)
@@ -100,12 +60,12 @@ export function WorkspaceHub() {
 
   const [createOpen, setCreateOpen] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [createSiteProjectKind, setCreateSiteProjectKind] = useState<SiteProjectKind>('column')
   const [createTitle, setCreateTitle] = useState(locale === 'ko' ? '새 앤솔로지' : 'New anthology')
   const [createDescription, setCreateDescription] = useState('')
   const [createRemoteUrl, setCreateRemoteUrl] = useState('')
   const [createOnGithub, setCreateOnGithub] = useState(true)
   const [syncAfterCreate, setSyncAfterCreate] = useState(true)
-  const [siteProjectKind, setSiteProjectKind] = useState<SiteProjectKind>('column')
   const [suggestedRepoName, setSuggestedRepoName] = useState<string | null>(null)
   const [removeConfirmWorkspace, setRemoveConfirmWorkspace] = useState<WorkspaceCatalogEntry | null>(null)
   const [removeConfirmAlsoRemote, setRemoveConfirmAlsoRemote] = useState(false)
@@ -156,13 +116,6 @@ export function WorkspaceHub() {
       alive = false
     }
   }, [setGithubSession])
-
-  /** Showcase workspace UI is not ready; keep selection on column when the create panel opens. */
-  useEffect(() => {
-    if (createOpen && siteProjectKind === 'showcase') {
-      setSiteProjectKind('column')
-    }
-  }, [createOpen, siteProjectKind])
 
   const sorted = useMemo(
     () => [...workspaces].sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1)),
@@ -260,7 +213,7 @@ export function WorkspaceHub() {
         authProvider: 'github' as const,
         locale,
         workspaceType: 'creator' as const,
-        siteProjectKind: siteProjectKind === 'showcase' ? 'column' : siteProjectKind,
+        siteProjectKind: createSiteProjectKind,
         templateId: 'blog',
         title: createTitle.trim() || repoName,
         description: createDescription.trim(),
@@ -453,82 +406,63 @@ export function WorkspaceHub() {
                 <div className="text-[11px] uppercase tracking-[0.16em] text-muted">
                   {locale === 'ko' ? '사이트 형식' : 'Site format'}
                 </div>
-                <div className="grid w-full grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2">
-                  <button
-                    type="button"
-                    onClick={() => setSiteProjectKind('column')}
-                    aria-pressed={siteProjectKind === 'column'}
-                    className={cn(
-                      'titlebar-nodrag relative flex w-full min-w-0 flex-col gap-3 rounded-xl border bg-panel p-4 text-left transition-shadow',
-                      'hover:border-accent/45 hover:bg-panel2/40',
-                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60',
-                      siteProjectKind === 'column'
-                        ? 'border-accent shadow-[0_0_0_1px_rgb(var(--accent)/0.45)] ring-2 ring-accent/25'
-                        : 'border-border'
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        'absolute right-4 top-4 z-10 flex h-7 w-7 items-center justify-center rounded-full border-2 transition-colors',
-                        siteProjectKind === 'column'
-                          ? 'border-accent bg-accent text-[rgb(20_18_14)]'
-                          : 'border-muted/35 bg-panel2/30'
-                      )}
-                      aria-hidden
-                    >
-                      {siteProjectKind === 'column' ? <Check className="h-3.5 w-3.5" strokeWidth={2.5} /> : null}
-                    </div>
-                    <div className="min-w-0 pr-11">
-                      <div className="text-sm font-semibold tracking-tight text-ink">Column</div>
-                      <div className="mt-0.5 text-xs text-muted">
-                        {locale === 'ko' ? '블로그 형식 · 글 중심' : 'Blog-style · writing-first'}
-                      </div>
-                    </div>
-                    <BlogLayoutPreview />
-                    <p className="text-[11px] leading-relaxed text-muted">
-                      {locale === 'ko'
-                        ? 'posts/에서 Markdown으로 글을 쓰고, 방문자에게는 최신 글부터 이어 읽히는 전형적인 블로그 사이트입니다.'
-                        : 'Write in Markdown under posts/; visitors read newest entries first—classic blog flow.'}
-                    </p>
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled
-                    aria-disabled="true"
-                    className={cn(
-                      'titlebar-nodrag relative flex w-full min-w-0 flex-col gap-3 rounded-xl border border-border bg-panel p-4 text-left',
-                      'cursor-not-allowed opacity-[0.58]',
-                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border/80'
-                    )}
-                    title={
-                      locale === 'ko'
-                        ? '쇼케이스 형식은 아직 준비 중입니다. 지금은 Column만 선택할 수 있습니다.'
-                        : 'Showcase is not available yet. Use Column for now.'
-                    }
-                  >
-                    <div
-                      className="absolute right-4 top-4 z-10 flex h-7 w-7 items-center justify-center rounded-full border-2 border-muted/25 bg-panel2/20"
-                      aria-hidden
-                    />
-                    <div className="min-w-0 pr-11">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div className="text-sm font-semibold tracking-tight text-ink">Showcase</div>
-                        <Badge className="text-[10px] font-normal uppercase tracking-wide">
-                          {locale === 'ko' ? '준비 중' : 'Soon'}
-                        </Badge>
-                      </div>
-                      <div className="mt-0.5 text-xs text-muted">
-                        {locale === 'ko' ? '포트폴리오 형식 · 작업물 그리드' : 'Portfolio-style · project grid'}
-                      </div>
-                    </div>
-                    <PortfolioLayoutPreview />
-                    <p className="text-[11px] leading-relaxed text-muted">
-                      {locale === 'ko'
-                        ? '대표 작업을 카드로 모아 보여 주는 형식은 추후 제공될 예정입니다.'
-                        : 'A project-card layout is planned for a later release.'}
-                    </p>
-                  </button>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {(
+                    [
+                      {
+                        kind: 'column' as const,
+                        title: 'Column',
+                        subtitle: locale === 'ko' ? '블로그 · 글 타임라인' : 'Blog · post timeline',
+                        body:
+                          locale === 'ko'
+                            ? 'posts/와 drafts/에서 Markdown 글을 쓰고 발행합니다.'
+                            : 'Write Markdown posts under posts/ and drafts/.'
+                      },
+                      {
+                        kind: 'memoir' as const,
+                        title: 'Memoir',
+                        subtitle: locale === 'ko' ? '포트폴리오 · 섹션 구성' : 'Portfolio · section composition',
+                        body:
+                          locale === 'ko'
+                            ? 'sections/ 아래 시맨틱 JSON 섹션으로 프로필·작업을 구성합니다.'
+                            : 'Compose semantic JSON sections under sections/.'
+                      }
+                    ] as const
+                  ).map((format) => {
+                    const selected = createSiteProjectKind === format.kind
+                    return (
+                      <button
+                        key={format.kind}
+                        type="button"
+                        className={cn(
+                          'titlebar-nodrag relative flex w-full min-w-0 flex-col gap-2 rounded-xl border p-4 text-left transition',
+                          selected
+                            ? 'border-accent bg-panel shadow-[0_0_0_1px_rgb(var(--accent)/0.45)] ring-2 ring-accent/25'
+                            : 'border-border bg-panel hover:border-accent/30'
+                        )}
+                        onClick={() => setCreateSiteProjectKind(format.kind)}
+                      >
+                        {selected ? (
+                          <div
+                            className="absolute right-4 top-4 flex h-7 w-7 items-center justify-center rounded-full border-2 border-accent bg-accent text-[rgb(20_18_14)]"
+                            aria-hidden
+                          >
+                            <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+                          </div>
+                        ) : null}
+                        <div className={cn('min-w-0', selected && 'pr-11')}>
+                          <div className="text-sm font-semibold tracking-tight text-ink">{format.title}</div>
+                          <div className="mt-0.5 text-xs text-muted">{format.subtitle}</div>
+                        </div>
+                        {format.kind === 'column' ? (
+                          <ColumnReadingRoomPreview />
+                        ) : (
+                          <MemoirLayoutPreview />
+                        )}
+                        <p className="text-[11px] leading-relaxed text-muted">{format.body}</p>
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
 

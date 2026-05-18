@@ -28,6 +28,7 @@ function formatDate(value: string): string {
 }
 
 export function AssetsSurface({ locale }: { locale: AppLocale }) {
+  const bumpWorkspaceGitRefresh = useAppStore((state) => state.bumpWorkspaceGitRefresh)
   const setActiveSection = useAppStore((state) => state.setActiveSection)
   const openEditor = useAppStore((state) => state.openEditor)
 
@@ -85,6 +86,7 @@ export function AssetsSurface({ locale }: { locale: AppLocale }) {
     setDeleting(image.path)
     try {
       await window.emprint.assets.deleteImage({ path: image.path })
+      bumpWorkspaceGitRefresh()
       if (selected === image.path) setSelected(null)
       setPendingDelete(null)
       await load()
@@ -93,7 +95,7 @@ export function AssetsSurface({ locale }: { locale: AppLocale }) {
     } finally {
       setDeleting(null)
     }
-  }, [load, pendingDelete, selected])
+  }, [bumpWorkspaceGitRefresh, load, pendingDelete, selected])
 
   const handleOpenReference = useCallback(
     (ref: AssetReference) => {

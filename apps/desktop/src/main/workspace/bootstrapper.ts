@@ -2,9 +2,21 @@ import path from 'node:path'
 import type { FileSystemGateway } from '../infrastructure/file-system-gateway'
 import type { GitProviderFactory } from '../infrastructure/git-provider'
 import { getSiteProjectGenerator } from '../site-generation/site-generator-registry'
-import { MANIFEST_RELATIVE_PATH, REQUIRED_WORKSPACE_DIRECTORIES, WORKSPACE_DIR } from '../workspace-paths'
+import {
+  getRequiredWorkspaceDirectories,
+  MANIFEST_RELATIVE_PATH,
+  WORKSPACE_DIR
+} from '../workspace-paths'
 import { createStarterPostArtifact, createWorkspaceCacheReadme } from './starter-post'
-import type { AppLocale, InitializeWorkspaceResult, WorkspaceConfig, WorkspaceManifest } from '@emprint/shared'
+import { createStarterMemoirArtifacts } from './starter-memoir'
+import {
+  EMPRINT_GITIGNORE_LINES,
+  type AppLocale,
+  type InitializeWorkspaceResult,
+  type SiteProjectKind,
+  type WorkspaceConfig,
+  type WorkspaceManifest
+} from '@emprint/shared'
 
 export interface WorkspaceBootstrapperDependencies {
   fileSystem: FileSystemGateway
@@ -19,6 +31,7 @@ export class WorkspaceBootstrapper {
     const fileSystem = this.dependencies.fileSystem
     const gitProvider = this.dependencies.gitProviderFactory.create(config.repository.providerId)
     const manifestPath = path.join(workspaceRoot, MANIFEST_RELATIVE_PATH)
+    const siteKind: SiteProjectKind = config.siteProjectKind ?? 'column'
 
     await fileSystem.ensureDirectory(workspaceRoot)
 
@@ -54,7 +67,7 @@ export class WorkspaceBootstrapper {
       }
     }
 
-    for (const directory of REQUIRED_WORKSPACE_DIRECTORIES) {
+    for (const directory of getRequiredWorkspaceDirectories(siteKind)) {
       await fileSystem.ensureDirectory(path.join(workspaceRoot, directory))
     }
 
@@ -64,14 +77,21 @@ export class WorkspaceBootstrapper {
       manifest = JSON.parse(await fileSystem.readFile(manifestPath)) as WorkspaceManifest
     }
 
-    const starter = createStarterPostArtifact(config)
-    const siteKind = config.siteProjectKind ?? 'column'
     const siteArtifacts = await getSiteProjectGenerator(siteKind).generate({
       title: config.title,
       description: config.description,
-      locale: config.locale
+      locale: config.locale,
+      themeColor: config.themeColor
     })
+
+    const memoirStarters = siteKind === 'memoir' ? createStarterMemoirArtifacts(config) : []
+    const columnStarter = siteKind === 'column' ? createStarterPostArtifact(config) : null
+
     const createdFiles: string[] = []
+    let starterPost: InitializeWorkspaceResult['starterPost']
+    let starterPostContent: string | undefined
+    let starterSection: InitializeWorkspaceResult['starterSection']
+    let starterSectionContent: string | undefined
 
     const staticArtifacts = [
       {
@@ -96,39 +116,24 @@ export class WorkspaceBootstrapper {
         )
       },
       {
-        relativePath: `${WORKSPACE_DIR.drafts}/.gitkeep`,
-        content: ''
-      },
-      {
         relativePath: `${WORKSPACE_DIR.assets}/.gitkeep`,
         content: ''
       },
       {
         relativePath: '.gitignore',
-        // Emprint convention:
-        //  - drafts/ is a private staging area that never ships.
-        //  - public/assets/ is regenerated from assets/ on every build, so
-        //    it's a build artifact, not a source. The corresponding
-        //    `scripts/sync-assets.mjs` produces it at predev/prebuild.
-        content:
-          [
-            `${WORKSPACE_DIR.workspace}/cache`,
-            '.DS_Store',
-            'node_modules',
-            'dist',
-            '.astro',
-            'public/assets',
-            WORKSPACE_DIR.drafts
-          ].join('\n') + '\n'
+        content: buildGitignore(siteKind)
       },
       {
         relativePath: 'README.md',
         content: createWorkspaceReadme(config)
       },
-      {
-        relativePath: starter.relativePath,
-        content: starter.content
-      }
+      ...(siteKind === 'column'
+        ? [{ relativePath: `${WORKSPACE_DIR.drafts}/.gitkeep`, content: '' }]
+        : []),
+      ...(columnStarter
+        ? [{ relativePath: columnStarter.relativePath, content: columnStarter.content }]
+        : []),
+      ...memoirStarters.map((a) => ({ relativePath: a.relativePath, content: a.content }))
     ]
 
     for (const artifact of [...staticArtifacts, ...siteArtifacts]) {
@@ -142,13 +147,28 @@ export class WorkspaceBootstrapper {
       createdFiles.push(artifact.relativePath)
     }
 
-    return {
+    if (columnStarter) {
+      starterPost = columnStarter.summary
+      starterPostContent = columnStarter.content
+    } else if (memoirStarters[0]) {
+      starterSection = memoirStarters[0].summary
+      starterSectionContent = memoirStarters[0].content
+    }
+
+    const result: InitializeWorkspaceResult = {
       workspaceRoot,
       createdFiles,
-      manifest,
-      starterPost: starter.summary,
-      starterPostContent: starter.content
+      manifest
     }
+    if (starterPost) {
+      result.starterPost = starterPost
+      if (starterPostContent) result.starterPostContent = starterPostContent
+    }
+    if (starterSection) {
+      result.starterSection = starterSection
+      if (starterSectionContent) result.starterSectionContent = starterSectionContent
+    }
+    return result
   }
 
   private async ensureDirectoryIsReady(directory: string, locale: AppLocale): Promise<void> {
@@ -181,6 +201,22 @@ export class WorkspaceBootstrapper {
   }
 }
 
+function buildGitignore(kind: SiteProjectKind): string {
+  const lines = [
+    `${WORKSPACE_DIR.workspace}/cache`,
+    '.DS_Store',
+    'node_modules',
+    'dist',
+    '.astro',
+    'public/assets',
+    ...EMPRINT_GITIGNORE_LINES.filter((line) => line !== 'drafts/')
+  ]
+  if (kind === 'column') {
+    lines.push(WORKSPACE_DIR.drafts)
+  }
+  return lines.join('\n') + '\n'
+}
+
 function slugify(value: string): string {
   return value
     .normalize('NFKC')
@@ -197,33 +233,13 @@ function createWorkspaceReadme(config: WorkspaceConfig): string {
       '',
       config.description || '_(설명 없음)_',
       '',
-      '> 이 폴더는 [Emprint](https://github.com/) 으로 관리되는 블로그 워크스페이스입니다. 보통은 Emprint 앱 안에서만 사용하면 충분합니다.',
+      '이 프로젝트는 **Emprint**로 만들어진 워크스페이스입니다.',
       '',
-      '## 워크스페이스 구조',
+      config.siteProjectKind === 'memoir'
+        ? '콘텐츠는 `sections/` 아래 시맨틱 JSON 섹션으로 구성됩니다.'
+        : '글은 `posts/`와 `drafts/`에서 관리합니다.',
       '',
-      '| 폴더 | 역할 |',
-      '| --- | --- |',
-      '| `posts/` | 발행할 마크다운 글. **`발행` 버튼을 누르면 push되어 사이트에 공개됩니다.** |',
-      '| `drafts/` | 개인 초안. **공개되지 않습니다** (자동으로 `.gitignore` 처리). |',
-      '| `assets/images/` | 글에 첨부한 이미지. 빌드 시 자동으로 사이트에 동기화됩니다. |',
-      '| `src/` | 사이트(Astro) 코드. UI를 직접 손볼 일이 없다면 그대로 두어도 됩니다. |',
-      '',
-      '## 매일의 흐름',
-      '',
-      '1. Emprint 앱 → `Posts` 또는 `Drafts` 에서 글을 쓰고 저장합니다.',
-      '2. 사이드바 하단 **발행** 버튼으로 변경사항을 한 번에 push 합니다.',
-      '3. GitHub Actions가 자동으로 사이트를 빌드해 GitHub Pages에 배포합니다.',
-      '',
-      '## 직접 작업하고 싶다면',
-      '',
-      '- 모든 글은 일반 마크다운 파일이므로, VSCode 같은 다른 편집기로 열어 수정해도 됩니다.',
-      '- 로컬에서 사이트 미리보기: `npm install` → `npm run dev`',
-      '- 로컬에서 정적 빌드 확인: `npm run build` → `npm run preview`',
-      '',
-      '## 백업과 이식성',
-      '',
-      '이 워크스페이스는 Emprint 밖에서도 그대로 사용할 수 있습니다.',
-      '마크다운 파일과 git 기록이 항상 실제 소스입니다.'
+      '이 README.md 문서는 GitHub 저장소에서 마크다운 형식으로 확인할 수 있습니다.'
     ].join('\n')
   }
 
@@ -232,33 +248,13 @@ function createWorkspaceReadme(config: WorkspaceConfig): string {
     '',
     config.description || '_(no description)_',
     '',
-    '> This folder is a blog workspace managed by [Emprint](https://github.com/). Day-to-day you only need to use the Emprint app.',
+    'This project is a workspace created with **Emprint**.',
     '',
-    '## Workspace layout',
+    config.siteProjectKind === 'memoir'
+      ? 'Content lives as semantic JSON sections under `sections/`.'
+      : 'Writing lives under `posts/` and `drafts/`.',
     '',
-    '| Folder | Purpose |',
-    '| --- | --- |',
-    '| `posts/` | Markdown to publish. **The Publish button pushes these and they go live on the site.** |',
-    '| `drafts/` | Private drafts. **Never published** (auto-added to `.gitignore`). |',
-    '| `assets/images/` | Images attached to posts. Synced into the site at build time. |',
-    '| `src/` | Astro site code. Leave it alone unless you want to tweak the UI. |',
-    '',
-    '## Day-to-day flow',
-    '',
-    '1. Open the Emprint app → write under `Posts` or `Drafts` and save.',
-    '2. Use the **Publish** button at the bottom of the sidebar to push everything at once.',
-    '3. GitHub Actions builds the site and deploys it to GitHub Pages automatically.',
-    '',
-    '## Working outside Emprint',
-    '',
-    '- Every post is plain Markdown, so feel free to edit in VSCode or any other editor.',
-    '- Preview the site locally: `npm install`, then `npm run dev`.',
-    '- Verify the static build: `npm run build`, then `npm run preview`.',
-    '',
-    '## Portability',
-    '',
-    'This workspace remains portable outside Emprint.',
-    'Markdown files and git history always remain the source of truth.'
+    'You can read this README.md on GitHub as rendered Markdown.'
   ].join('\n')
 }
 

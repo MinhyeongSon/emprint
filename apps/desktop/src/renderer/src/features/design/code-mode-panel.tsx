@@ -5,20 +5,30 @@ import {
   ChevronRight,
   FilePlus,
   FolderPlus,
+  Info,
   Loader2,
+  Package,
   Pencil,
   RefreshCw,
   Save,
   Trash2
 } from 'lucide-react'
-import type { AppLocale, WorkspaceSrcTreeNode } from '@emprint/shared'
-import { normalizeWorkspaceSrcPath } from './design-workspace-paths'
+import {
+  canCreateUnderDesignParent,
+  isWorkspaceContentConfigPath,
+  isWorkspaceDesignTreeRootPath,
+  type AppLocale,
+  type WorkspaceSrcTreeNode
+} from '@emprint/shared'
+import { normalizeWorkspaceDesignPath, WORKSPACE_CONTENT_CONFIG_PATH } from './design-workspace-paths'
 import {
   configureMonacoForWorkspace,
   resetMonacoWorkspaceConfig,
   workspaceFileToMonacoUri
 } from './design-monaco-typescript'
 import { Button } from '@renderer/components/ui/button'
+import { Tooltip } from '@renderer/components/ui/tooltip'
+import { useAppStore } from '@renderer/state/app-store'
 import { ContextMenu, type ContextMenuItem } from '@renderer/components/ui/context-menu'
 
 function t(locale: AppLocale, en: string, ko: string) {
@@ -278,9 +288,10 @@ function InlineNameInput({
   )
 }
 
-function joinSrcPath(parent: string, name: string): string {
-  const base = !parent || parent === '.' ? 'src' : parent.replace(/\/+$/, '')
-  return normalizeWorkspaceSrcPath(`${base}/${name}`)
+function joinDesignPath(parent: string, name: string): string {
+  const base = parent.replace(/\/+$/, '')
+  const joined = base && base !== '.' ? `${base}/${name}` : name
+  return normalizeWorkspaceDesignPath(joined)
 }
 
 function findNodeByPath(root: WorkspaceSrcTreeNode | null, target: string): WorkspaceSrcTreeNode | null {
@@ -308,10 +319,8 @@ function collectDirectoryPaths(node: WorkspaceSrcTreeNode | null, into: string[]
   return into
 }
 
-function isRootSrcPath(path: string, rootPath: string | undefined): boolean {
-  if (!path) return false
-  if (rootPath && path === rootPath) return true
-  return path === 'src'
+function isDesignTreeRoot(path: string): boolean {
+  return isWorkspaceDesignTreeRootPath(path)
 }
 
 function isDescendantPath(child: string, ancestor: string): boolean {
@@ -325,6 +334,7 @@ function replacePathPrefix(value: string, from: string, to: string): string {
 }
 
 export function CodeModePanel({ locale }: { locale: AppLocale }) {
+  const bumpWorkspaceGitRefresh = useAppStore((state) => state.bumpWorkspaceGitRefresh)
   const api = window.emprint?.workspaceSrc
   const [tree, setTree] = useState<WorkspaceSrcTreeNode | null>(null)
   const [treeLoading, setTreeLoading] = useState(true)
@@ -344,8 +354,47 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
   const [pendingRename, setPendingRename] = useState<PendingRename | null>(null)
   const [monacoTsHint, setMonacoTsHint] = useState<string | null>(null)
   const [monacoWorkspaceRoot, setMonacoWorkspaceRoot] = useState<string | null>(null)
+  const [installBusy, setInstallBusy] = useState(false)
+  const [installError, setInstallError] = useState<string | null>(null)
 
   const dirty = content !== committed
+
+  const refreshMonacoTypescript = useCallback(async () => {
+    const monaco = await loader.init().catch(() => null)
+    if (!monaco) return
+    const payload = await configureMonacoForWorkspace(monaco)
+    if (!payload) return
+    setMonacoWorkspaceRoot(payload.workspaceRoot)
+    if (payload.nodeModulesMissing) {
+      setMonacoTsHint(
+        t(
+          locale,
+          'Run “Install code snippets” for full TypeScript checks (Astro types).',
+          'Astro 타입 검사를 위해 “코드 조각 설치”를 실행하세요.'
+        )
+      )
+    } else {
+      setMonacoTsHint(null)
+    }
+  }, [locale])
+
+  const handleInstallDependencies = useCallback(async () => {
+    const install = window.emprint?.siteDev?.installDependencies
+    if (!install) {
+      setInstallError(t(locale, 'Install API unavailable.', '설치 API를 사용할 수 없습니다.'))
+      return
+    }
+    setInstallBusy(true)
+    setInstallError(null)
+    try {
+      await install()
+      await refreshMonacoTypescript()
+    } catch (caught) {
+      setInstallError(caught instanceof Error ? caught.message : String(caught))
+    } finally {
+      setInstallBusy(false)
+    }
+  }, [locale, refreshMonacoTypescript])
 
   useEffect(() => {
     let cancelled = false
@@ -359,8 +408,8 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
           setMonacoTsHint(
             t(
               locale,
-              'Run npm install in this anthology for full TypeScript checks (Astro types).',
-              'Astro 타입 검사를 위해 이 앤솔로지에서 npm install을 실행하세요.'
+              'Run “Install code snippets” for full TypeScript checks (Astro types).',
+              'Astro 타입 검사를 위해 “코드 조각 설치”를 실행하세요.'
             )
           )
         } else {
@@ -399,7 +448,7 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
       }
       return next
     } catch (caught) {
-      setTreeError(caught instanceof Error ? caught.message : 'Failed to load src/.')
+      setTreeError(caught instanceof Error ? caught.message : 'Failed to load site files.')
       return null
     } finally {
       setTreeLoading(false)
@@ -428,7 +477,7 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
         )
         if (!ok) return
       }
-      const safePath = normalizeWorkspaceSrcPath(path)
+      const safePath = normalizeWorkspaceDesignPath(path)
       setSelectedPath(safePath)
       setFileLoading(true)
       setFileError(null)
@@ -448,17 +497,19 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
 
   const handleSave = useCallback(async () => {
     if (!api?.save || !selectedPath) return
+    if (isWorkspaceContentConfigPath(selectedPath)) return
     setSaveBusy(true)
     setSaveError(null)
     try {
-      await api.save({ path: normalizeWorkspaceSrcPath(selectedPath), content })
+      await api.save({ path: normalizeWorkspaceDesignPath(selectedPath), content })
+      bumpWorkspaceGitRefresh()
       setCommitted(content)
     } catch (caught) {
       setSaveError(caught instanceof Error ? caught.message : 'Save failed.')
     } finally {
       setSaveBusy(false)
     }
-  }, [api, content, selectedPath])
+  }, [api, bumpWorkspaceGitRefresh, content, selectedPath])
 
   const beginCreate = useCallback(
     (parentPath: string, kind: 'file' | 'directory') => {
@@ -500,9 +551,13 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
       if (!api?.create || !pendingCreate) {
         return
       }
-      const targetPath = joinSrcPath(pendingCreate.parentPath, name)
+      if (!canCreateUnderDesignParent(pendingCreate.parentPath)) {
+        throw new Error('Choose a folder (for example src/) to create a file or directory.')
+      }
+      const targetPath = joinDesignPath(pendingCreate.parentPath, name)
       const { kind } = pendingCreate
-      const res = await api.create({ path: normalizeWorkspaceSrcPath(targetPath), kind })
+      const res = await api.create({ path: normalizeWorkspaceDesignPath(targetPath), kind })
+      bumpWorkspaceGitRefresh()
       setPendingCreate(null)
       const refreshed = await loadTree()
       if (kind === 'directory') {
@@ -515,7 +570,7 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
         void trySelectFile(res.path)
       }
     },
-    [api, loadTree, pendingCreate, trySelectFile]
+    [api, bumpWorkspaceGitRefresh, loadTree, pendingCreate, trySelectFile]
   )
 
   const handleCancelCreate = useCallback(() => {
@@ -528,7 +583,8 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
         return
       }
       const target = pendingRename
-      const res = await api.rename({ path: normalizeWorkspaceSrcPath(target.path), newName })
+      const res = await api.rename({ path: normalizeWorkspaceDesignPath(target.path), newName })
+      bumpWorkspaceGitRefresh()
       setPendingRename(null)
 
       // Keep the editor in sync if the renamed entry was (or contained) the selected file.
@@ -541,7 +597,7 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
       })
       await loadTree()
     },
-    [api, loadTree, pendingRename]
+    [api, bumpWorkspaceGitRefresh, loadTree, pendingRename]
   )
 
   const handleCancelRename = useCallback(() => {
@@ -562,7 +618,8 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
       if (!window.confirm(message)) return
 
       try {
-        await api.delete({ path: normalizeWorkspaceSrcPath(node.path) })
+        await api.delete({ path: normalizeWorkspaceDesignPath(node.path) })
+        bumpWorkspaceGitRefresh()
       } catch (caught) {
         setTreeError(caught instanceof Error ? caught.message : 'Delete failed.')
         return
@@ -581,15 +638,19 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
       })
       await loadTree()
     },
-    [api, loadTree, locale, selectedPath]
+    [api, bumpWorkspaceGitRefresh, loadTree, locale, selectedPath]
   )
 
   const menuItems = useMemo<ContextMenuItem[]>(() => {
     if (!menu) return []
     const target = menu.node
     const isDirectory = target.kind === 'directory'
-    const parentPath = isDirectory ? target.path : parentDirPath(target.path) || (tree?.path ?? 'src')
-    const isRoot = isRootSrcPath(target.path, tree?.path)
+    const isRoot = isDesignTreeRoot(target.path)
+    const parentPath = isDirectory
+      ? isRoot
+        ? 'src'
+        : target.path
+      : parentDirPath(target.path) || 'src'
 
     if (isDirectory) {
       const items: ContextMenuItem[] = [
@@ -651,6 +712,8 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
 
   const editorLanguage = useMemo(() => (selectedPath ? languageForPath(selectedPath) : 'plaintext'), [selectedPath])
 
+  const contentConfigLocked = selectedPath ? isWorkspaceContentConfigPath(selectedPath) : false
+
   const editorModelPath = useMemo(() => {
     if (!selectedPath) return undefined
     if (monacoWorkspaceRoot) {
@@ -673,11 +736,13 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
   )
 
   return (
-    <div className="flex h-[calc(100svh-2.5rem)] max-h-[calc(100svh-2.5rem)] min-h-[360px] flex-col bg-base lg:flex-row">
-      <aside className="flex max-h-[40vh] min-h-0 w-full shrink-0 flex-col border-b border-border bg-panel lg:h-full lg:max-h-none lg:w-80 lg:border-b-0 lg:border-r">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-base lg:flex-row">
+      <aside className="flex max-h-[min(40vh,320px)] min-h-0 w-full shrink-0 flex-col overflow-hidden border-b border-border bg-panel lg:h-full lg:max-h-none lg:w-80 lg:shrink-0 lg:border-b-0 lg:border-r">
         <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
           <div className="min-w-0">
-            <div className="text-[11px] uppercase tracking-[0.16em] text-muted">src/</div>
+            <div className="text-[11px] uppercase tracking-[0.16em] text-muted">
+              {t(locale, 'Site project', '사이트 프로젝트')}
+            </div>
             <div className="truncate text-sm font-semibold text-ink">
               {t(locale, 'Code', '코드')}
             </div>
@@ -697,8 +762,56 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
             )}
           </Button>
         </div>
+        <div className="space-y-1.5 overflow-visible border-b border-border px-3 py-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-8 gap-1.5 px-2.5 text-xs"
+              disabled={installBusy}
+              onClick={() => void handleInstallDependencies()}
+            >
+              {installBusy ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} aria-hidden />
+              ) : (
+                <Package className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+              )}
+              {t(locale, 'Install code snippets', '코드 조각 설치')}
+            </Button>
+            <Tooltip
+              multiline
+              side="bottom"
+              label={
+                locale === 'ko' ? (
+                  <>
+                    미리보기 전에 한 번 눌러 두면 좋습니다.
+                    <br />
+                    기본 구성 외에 필요한 코드 조각이 있으면 package.json에 추가하세요.
+                  </>
+                ) : (
+                  <>
+                    Run once before preview so dependencies are ready.
+                    <br />
+                    Add extra packages in package.json if you need more than the default setup.
+                  </>
+                )
+              }
+            >
+              <button
+                type="button"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-panel2/40 text-muted transition-colors hover:bg-panel2 hover:text-ink"
+                aria-label={
+                  locale === 'ko' ? '코드 조각 설치 안내' : 'About installing code snippets'
+                }
+              >
+                <Info className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+              </button>
+            </Tooltip>
+          </div>
+          {installError ? <div className="text-[11px] text-dangerInk">{installError}</div> : null}
+        </div>
         <div
-          className="min-h-0 flex-1 overflow-auto px-2 py-2"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2"
           onContextMenu={handlePanelContextMenu}
         >
           {treeError ? <div className="px-2 py-2 text-xs text-dangerInk">{treeError}</div> : null}
@@ -728,7 +841,7 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
         </div>
       </aside>
 
-      <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-panel px-3 py-2">
           <div className="min-w-0 font-mono text-[11px] text-muted">
             {selectedPath ?? t(locale, 'Select a file', '파일을 선택하세요')}
@@ -743,7 +856,7 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
               type="button"
               variant="outline"
               className="h-8 gap-1.5 px-2.5 text-xs"
-              disabled={!selectedPath || !dirty || saveBusy || fileLoading}
+              disabled={!selectedPath || !dirty || saveBusy || fileLoading || contentConfigLocked}
               onClick={() => void handleSave()}
             >
               {saveBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} aria-hidden /> : null}
@@ -757,32 +870,44 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
         {monacoTsHint ? (
           <div className="border-b border-amber-500/30 bg-amber-500/5 px-3 py-1.5 text-xs text-muted">{monacoTsHint}</div>
         ) : null}
-        <div className="relative min-h-0 flex-1">
+        {contentConfigLocked ? (
+          <div className="border-b border-border bg-panel2/40 px-3 py-1.5 text-xs text-muted">
+            {t(
+              locale,
+              `${WORKSPACE_CONTENT_CONFIG_PATH} is locked: the site must load posts from ./posts. Edit writing in Posts/Drafts.`,
+              `${WORKSPACE_CONTENT_CONFIG_PATH}는 잠겨 있습니다. 사이트는 ./posts만 읽습니다. 글은 Posts/Drafts에서 편집하세요.`
+            )}
+          </div>
+        ) : null}
+        <div className="relative min-h-0 flex-1 overflow-hidden">
           {fileLoading ? (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-base/70">
               <Loader2 className="h-8 w-8 animate-spin text-muted" strokeWidth={2} aria-hidden />
             </div>
           ) : null}
           {selectedPath && editorModelPath ? (
-            <Editor
-              height="100%"
-              theme={monacoTheme()}
-              path={editorModelPath}
-              language={editorLanguage}
-              value={content}
-              onChange={(v) => setContent(v ?? '')}
-              onMount={handleEditorMount}
-              options={{
-                minimap: { enabled: false },
-                fontSize: 13,
-                wordWrap: 'on',
-                scrollBeyondLastLine: false,
-                tabSize: 2,
-                automaticLayout: true
-              }}
-            />
+            <div className="absolute inset-0 overflow-hidden">
+              <Editor
+                height="100%"
+                theme={monacoTheme()}
+                path={editorModelPath}
+                language={editorLanguage}
+                value={content}
+                onChange={(v) => setContent(v ?? '')}
+                onMount={handleEditorMount}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 13,
+                  wordWrap: 'on',
+                  scrollBeyondLastLine: false,
+                  tabSize: 2,
+                  automaticLayout: true,
+                  readOnly: contentConfigLocked
+                }}
+              />
+            </div>
           ) : (
-            <div className="flex h-full min-h-[240px] items-center justify-center px-6 text-center text-sm text-muted">
+            <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted">
               {t(
                 locale,
                 'Pick a file from the tree. Right-click to create, rename, or delete entries.',

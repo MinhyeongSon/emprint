@@ -4,7 +4,8 @@ import { ipcChannels, type EmprintDesktopApi, type GitRecoverWorkspaceProgress }
 const siteDevApi = {
   stop: () => ipcRenderer.invoke(ipcChannels.siteDevStop),
   status: () => ipcRenderer.invoke(ipcChannels.siteDevStatus),
-  openPreview: () => ipcRenderer.invoke(ipcChannels.siteDevOpenPreview)
+  openPreview: () => ipcRenderer.invoke(ipcChannels.siteDevOpenPreview),
+  installDependencies: () => ipcRenderer.invoke(ipcChannels.siteDevInstallDependencies)
 }
 
 const api: EmprintDesktopApi = {
@@ -20,11 +21,13 @@ const api: EmprintDesktopApi = {
     authStart: (input) => ipcRenderer.invoke(ipcChannels.githubAuthStart, input),
     authPoll: (input) => ipcRenderer.invoke(ipcChannels.githubAuthPoll, input),
     logout: () => ipcRenderer.invoke(ipcChannels.githubLogout),
-    repoCreate: (input) => ipcRenderer.invoke(ipcChannels.githubRepoCreate, input)
+    repoCreate: (input) => ipcRenderer.invoke(ipcChannels.githubRepoCreate, input),
+    deployStatus: () => ipcRenderer.invoke(ipcChannels.githubDeployStatus)
   },
   workspace: {
     initialize: (config) => ipcRenderer.invoke(ipcChannels.workspaceInitialize, config),
-    open: (input) => ipcRenderer.invoke(ipcChannels.workspaceOpen, input)
+    open: (input) => ipcRenderer.invoke(ipcChannels.workspaceOpen, input),
+    unmount: () => ipcRenderer.invoke(ipcChannels.workspaceUnmount)
   },
   git: {
     initialSync: (input) => ipcRenderer.invoke(ipcChannels.gitInitialSync, input),
@@ -40,12 +43,23 @@ const api: EmprintDesktopApi = {
       return () => ipcRenderer.removeListener(ipcChannels.gitRecoverWorkspaceProgress, listener)
     },
     publish: (input) => ipcRenderer.invoke(ipcChannels.gitPublish, input),
-    log: (input) => ipcRenderer.invoke(ipcChannels.gitLog, input)
+    log: (input) => ipcRenderer.invoke(ipcChannels.gitLog, input),
+    rollback: (input) => ipcRenderer.invoke(ipcChannels.gitRollback, input),
+    resetDraft: () => ipcRenderer.invoke(ipcChannels.gitResetDraft)
   },
   catalog: {
     list: () => ipcRenderer.invoke(ipcChannels.catalogList),
     add: (input) => ipcRenderer.invoke(ipcChannels.catalogAdd, input),
     remove: (input) => ipcRenderer.invoke(ipcChannels.catalogRemove, input)
+  },
+  sections: {
+    list: () => ipcRenderer.invoke(ipcChannels.sectionsList),
+    read: (input) => ipcRenderer.invoke(ipcChannels.sectionRead, input),
+    save: (input) => ipcRenderer.invoke(ipcChannels.sectionSave, input),
+    saveStructured: (input) => ipcRenderer.invoke(ipcChannels.sectionSaveStructured, input),
+    create: (input) => ipcRenderer.invoke(ipcChannels.sectionCreate, input),
+    delete: (input) => ipcRenderer.invoke(ipcChannels.sectionsDelete, input),
+    reorderRoots: (input) => ipcRenderer.invoke(ipcChannels.sectionsReorderRoots, input)
   },
   posts: {
     list: (input) => ipcRenderer.invoke(ipcChannels.postsList, input),

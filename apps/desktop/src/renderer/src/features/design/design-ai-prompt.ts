@@ -11,9 +11,8 @@ function t(locale: AppLocale, en: string, ko: string) {
   return locale === 'ko' ? ko : en
 }
 
-function projectKindLabel(locale: AppLocale, kind?: SiteProjectKind): string {
-  if (kind === 'showcase') return t(locale, 'portfolio / showcase', '포트폴리오(쇼케이스)')
-  return t(locale, 'blog / column', '블로그(칼럼)')
+function projectKindLabel(locale: AppLocale, _kind?: SiteProjectKind): string {
+  return t(locale, 'column / editorial blog', '칼럼 · 글 중심 블로그')
 }
 
 /** Static context bundled into every generated prompt (bilingual sections). */
@@ -27,7 +26,7 @@ You are helping customize the **public Astro site** inside an **Emprint antholog
 - **Drafts** live in \`drafts/\` and are **gitignored** — never published.
 - **Images** live in \`assets/images/\`. A sync script copies them to \`public/assets/\` before dev/build so markdown can reference \`/assets/...\`.
 - **Publishing**: user commits in Emprint → push to GitHub → GitHub Actions builds Astro → GitHub Pages. Site URL pattern: \`https://<github-user>.github.io/<repo-name>/\`.
-- **Template mode** in Emprint can reset \`src/styles/global.css\` to warm/dark/light presets. Prefer editing CSS variables in \`global.css\` for theme-wide color/typography changes.
+- **Template mode** applies **Emprint** or **Paper & Ink** presets via \`config/theme.json\` (each includes light + dark). Prefer editing \`theme.json\` tokens; run \`npm run theme:sync\` or save in Design → Code to regenerate \`src/styles/tokens.css\`.
 
 ### Anthology site stack
 - **Astro 6** static site (\`output: 'static'\`), \`trailingSlash: 'always'\`
@@ -99,7 +98,7 @@ src/
 - **초안**은 \`drafts/\`에 있으며 **gitignore** — 공개되지 않습니다.
 - **이미지**는 \`assets/images/\`에 있으며, dev/build 전 동기화 스크립트가 \`public/assets/\`로 복사합니다.
 - **발행**: Emprint에서 커밋 → GitHub 푸시 → Actions가 Astro 빌드 → GitHub Pages. URL: \`https://<github-계정>.github.io/<레포이름>/\`.
-- **템플릿 모드**는 \`src/styles/global.css\` 프리셋(warm/dark/light) 적용이 가능합니다. 전역 분위기/색은 \`global.css\` 변수 수정을 우선하세요.
+- **템플릿 모드**는 \`config/theme.json\`에 **Emprint** / **Paper & Ink** 프리셋(라이트·다크 포함)을 적용합니다. 전역 색·폰트는 \`theme.json\` 수정 후 \`npm run theme:sync\` 또는 Design → Code 저장으로 \`tokens.css\`를 재생성하세요.
 
 ### 사이트 스택
 - **Astro 6** 정적 사이트, \`trailingSlash: 'always'\`

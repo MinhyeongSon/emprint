@@ -1,3 +1,5 @@
+import type { MemoirSectionSummary } from './memoir-sections'
+
 export type AppLocale = 'ko' | 'en'
 
 export type SiteDevServerStatus = 'stopped' | 'starting' | 'running' | 'error'
@@ -14,7 +16,8 @@ export interface SiteDevServerState {
 }
 export type WorkspaceType = 'creator' | 'developer' | 'ai'
 /** Astro site scaffold: GitHub-oriented blog vs portfolio. */
-export type SiteProjectKind = 'column' | 'showcase'
+/** Astro site scaffold / semantic content format. */
+export type SiteProjectKind = 'column' | 'memoir'
 /**
  * A single workspace template (blog). Kept as a named type rather than a
  * literal so workspaces with older manifest values still round-trip through
@@ -108,7 +111,12 @@ export interface InitializeWorkspaceResult {
   manifest: WorkspaceManifest
   starterPost?: PostSummary
   starterPostContent?: string
+  starterSection?: MemoirSectionSummary
+  starterSectionContent?: string
 }
+
+export type { MemoirSectionFile, MemoirSectionType } from './memoir-sections'
+export type { MemoirSectionSummary } from './memoir-sections'
 
 /**
  * Snapshot of the workspace's git state used by the publish dialog and the
@@ -236,6 +244,46 @@ export interface GitLogInput {
   limit?: number
   /** When true, includes all refs (`--all`). Defaults to true. */
   allBranches?: boolean
+}
+
+export interface GitRollbackInput {
+  /** Full commit SHA of the selected Imprint entry. */
+  sha: string
+}
+
+export interface GitRollbackResult {
+  sha: string
+  restored: boolean
+  /** Whether the working tree had local changes before restore. */
+  hadLocalChanges: boolean
+}
+
+export interface GitResetDraftResult {
+  restored: boolean
+  /** Whether the working tree had local changes before restore. */
+  hadLocalChanges: boolean
+}
+
+/** Deploy pipeline state after a push (GitHub Actions + Pages). */
+export type GitHubDeployPhase =
+  | 'no_session'
+  | 'no_remote'
+  | 'queued'
+  | 'in_progress'
+  | 'live'
+  | 'failed'
+  | 'unknown'
+
+export interface GitHubDeployStatus {
+  phase: GitHubDeployPhase
+  /** Public site URL when known. */
+  pagesUrl?: string
+  /** Link to the latest Actions workflow run. */
+  workflowRunUrl?: string
+  workflowName?: string
+  /** ISO timestamp of the workflow run we are reporting. */
+  updatedAt?: string
+  message?: string
 }
 
 export interface RuntimeDiagnostics {

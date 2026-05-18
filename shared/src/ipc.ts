@@ -7,10 +7,14 @@ import type {
   GitHubOAuthClientConfig,
   GitHubRepoCreateInput,
   GitHubRepoCreateResult,
+  GitHubDeployStatus,
   GitDetectResult,
   GitInitialSyncResult,
   GitLogInput,
   GitPublishInput,
+  GitRollbackInput,
+  GitRollbackResult,
+  GitResetDraftResult,
   GitPublishResult,
   GitPullInput,
   GitPullResult,
@@ -19,6 +23,8 @@ import type {
   GitRecoverWorkspaceResult,
   GitWorkingTreeSummary,
   InitializeWorkspaceResult,
+  MemoirSectionFile,
+  MemoirSectionSummary,
   PostSummary,
   RuntimeDiagnostics,
   WorkspaceCatalogEntry,
@@ -38,8 +44,10 @@ export const ipcChannels = {
   githubAuthPoll: 'github:auth:poll',
   githubLogout: 'github:logout',
   githubRepoCreate: 'github:repo:create',
+  githubDeployStatus: 'github:deploy-status',
   workspaceInitialize: 'workspace:initialize',
   workspaceOpen: 'workspace:open',
+  workspaceUnmount: 'workspace:unmount',
   gitInitialSync: 'git:initial-sync',
   gitDetect: 'git:detect',
   gitWorkingTree: 'git:working-tree',
@@ -48,11 +56,20 @@ export const ipcChannels = {
   gitRecoverWorkspaceProgress: 'git:recover-workspace:progress',
   gitPublish: 'git:publish',
   gitLog: 'git:log',
+  gitRollback: 'git:rollback',
+  gitResetDraft: 'git:reset-draft',
   postsList: 'posts:list',
   postRead: 'post:read',
   postSave: 'post:save',
   postsMove: 'posts:move',
   postsDelete: 'posts:delete',
+  sectionsList: 'sections:list',
+  sectionRead: 'section:read',
+  sectionSave: 'section:save',
+  sectionSaveStructured: 'section:save-structured',
+  sectionCreate: 'section:create',
+  sectionsDelete: 'sections:delete',
+  sectionsReorderRoots: 'sections:reorder-roots',
   workspaceSrcListTree: 'workspace:src:list-tree',
   workspaceSrcRead: 'workspace:src:read',
   workspaceSrcSave: 'workspace:src:save',
@@ -72,6 +89,7 @@ export const ipcChannels = {
   siteDevStop: 'site:dev:stop',
   siteDevStatus: 'site:dev:status',
   siteDevOpenPreview: 'site:dev:open-preview',
+  siteDevInstallDependencies: 'site:dev:install-dependencies',
   workspaceMonacoTypescript: 'workspace:monaco:typescript',
   /** Main cleared GitHub session (e.g. logout from native close dialog). */
   githubSessionCleared: 'github:session-cleared'
@@ -94,10 +112,14 @@ export interface EmprintDesktopApi {
     authPoll(input: { deviceCode: string }): Promise<GitHubAuthStatus>
     logout(): Promise<void>
     repoCreate(input: GitHubRepoCreateInput): Promise<GitHubRepoCreateResult>
+    /** Latest GitHub Actions / Pages deploy state for the mounted workspace repo. */
+    deployStatus(): Promise<GitHubDeployStatus>
   }
   workspace: {
     initialize(config: WorkspaceConfig): Promise<InitializeWorkspaceResult>
     open(input: { localDirectory: string }): Promise<InitializeWorkspaceResult>
+    /** Stop site preview and clear the mounted anthology (e.g. when returning to Hub). */
+    unmount(): Promise<void>
   }
   git: {
     initialSync(input: { directory: string; remoteUrl?: string; branch?: string }): Promise<GitInitialSyncResult>
@@ -129,11 +151,27 @@ export interface EmprintDesktopApi {
      * parent SHAs so the renderer can render a lane graph.
      */
     log(input?: GitLogInput): Promise<GitCommitNode[]>
+    /**
+     * Restore the working tree to a previous Imprint snapshot without moving
+     * `HEAD` (timeline entries stay visible).
+     */
+    rollback(input: GitRollbackInput): Promise<GitRollbackResult>
+    /** Discard uncommitted changes and match the latest published Imprint. */
+    resetDraft(): Promise<GitResetDraftResult>
   }
   catalog: {
     list(): Promise<WorkspaceCatalogEntry[]>
     add(input: Omit<WorkspaceCatalogEntry, 'createdAt' | 'updatedAt'> & { createdAt?: string; updatedAt?: string }): Promise<WorkspaceCatalogEntry>
     remove(input: { id: string; deleteRemote?: boolean }): Promise<void>
+  }
+  sections: {
+    list(): Promise<MemoirSectionSummary[]>
+    read(input: { path: string }): Promise<{ path: string; content: string }>
+    save(input: { path: string; content: string }): Promise<{ path: string }>
+    saveStructured(input: { path: string; section: MemoirSectionFile }): Promise<{ path: string }>
+    create(input: { section: MemoirSectionFile; parentId?: string }): Promise<{ path: string }>
+    delete(input: { path: string }): Promise<{ path: string }>
+    reorderRoots(input: { orderedIds: string[] }): Promise<void>
   }
   posts: {
     list(input: { section: 'posts' | 'drafts' }): Promise<PostSummary[]>
@@ -190,6 +228,8 @@ export interface EmprintDesktopApi {
     stop(): Promise<SiteDevServerState>
     status(): Promise<SiteDevServerState>
     openPreview(): Promise<SiteDevServerState>
+    /** Run `npm install` in the mounted workspace (for preview / Monaco typings). */
+    installDependencies(): Promise<void>
   }
   app: {
     onGithubSessionCleared(handler: () => void): () => void

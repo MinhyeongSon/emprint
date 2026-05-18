@@ -17,6 +17,7 @@ const messages = {
     sectionNames: {
       posts: '포스트',
       drafts: '드래프트',
+      sections: '섹션',
       assets: '에셋',
       design: '디자인',
       imprint: '발행 기록',
@@ -25,6 +26,7 @@ const messages = {
     sectionHints: {
       posts: '발행된 글',
       drafts: '작업 중인 초안',
+      sections: '시맨틱 섹션',
       assets: '이미지와 미디어',
       design: '템플릿 · 코드',
       imprint: '커밋 그래프와 발행 이력',
@@ -244,6 +246,7 @@ const messages = {
     sectionNames: {
       posts: 'Posts',
       drafts: 'Drafts',
+      sections: 'Sections',
       assets: 'Assets',
       design: 'Design',
       imprint: 'Imprint',
@@ -252,6 +255,7 @@ const messages = {
     sectionHints: {
       posts: 'Published writing',
       drafts: 'Works in progress',
+      sections: 'Semantic sections',
       assets: 'Images and media',
       design: 'Template or code',
       imprint: 'Commit history and publish log',

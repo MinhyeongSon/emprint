@@ -7,8 +7,9 @@ import type {
   WorkspaceConfig,
   WorkspaceCatalogEntry
 } from '@emprint/shared'
+import { leaveAnthologySession } from '@renderer/lib/leave-anthology-session'
 
-export type SidebarSection = 'posts' | 'drafts' | 'assets' | 'design' | 'imprint' | 'settings'
+export type SidebarSection = 'posts' | 'drafts' | 'sections' | 'assets' | 'design' | 'imprint' | 'settings'
 
 export type WorkspaceSurface = 'list' | 'viewer' | 'editor'
 
@@ -48,14 +49,16 @@ interface AppState {
     progress: number
   } | null
   hubCatalogRefreshToken: number
+  /** Bumped when workspace files change on disk (save, design edit, publish, etc.). */
+  workspaceGitRefreshToken: number
   setLocale(locale: AppLocale): void
   setTheme(theme: AppTheme): void
   setRuntimeInfo(runtimeInfo: RuntimeDiagnostics): void
   setGithubSession(input: { connected: boolean; login?: string | undefined }): void
   setWorkspaceRootDir(dir?: string | undefined): void
   completeWizard(input: { workspaceRootDir: string; githubConnected: boolean }): void
-  returnToWizard(): void
-  enterHub(): void
+  returnToWizard(): Promise<void>
+  enterHub(): Promise<void>
   enterWorkspace(input: {
     workspaceId: string
     workspaceConfig: WorkspaceConfig
@@ -69,10 +72,11 @@ interface AppState {
   backToList(): void
   setActiveDocumentTitle(title?: string): void
   setActiveDocumentDirty(dirty: boolean): void
-  startWorkspaceRecovery(workspaceId: string): void
+  startWorkspaceRecovery(workspaceId: string): Promise<void>
   setHubRecoveryProgress(input: { message: string; progress: number }): void
   finishHubRecovery(): void
   bumpHubCatalogRefresh(): void
+  bumpWorkspaceGitRefresh(): void
 }
 
 export const useAppStore = create<AppState>()(
@@ -92,6 +96,7 @@ export const useAppStore = create<AppState>()(
       activeWorkspaceId: undefined,
       hubRecovery: null,
       hubCatalogRefreshToken: 0,
+      workspaceGitRefreshToken: 0,
       setLocale: (locale) => set({ locale: normalizeLocale(locale) }),
       setTheme: (theme) => set({ theme: normalizeTheme(theme) }),
       setRuntimeInfo: (runtimeInfo) => set({ runtimeInfo }),
@@ -103,7 +108,8 @@ export const useAppStore = create<AppState>()(
           workspaceRootDir,
           githubConnected
         }),
-      returnToWizard: () =>
+      returnToWizard: async () => {
+        await leaveAnthologySession()
         set({
           mode: 'wizard',
           githubConnected: false,
@@ -116,8 +122,10 @@ export const useAppStore = create<AppState>()(
           activeDocumentPath: undefined,
           activeDocumentTitle: undefined,
           activeDocumentDirty: false
-        }),
-      enterHub: () =>
+        })
+      },
+      enterHub: async () => {
+        await leaveAnthologySession()
         set({
           mode: 'hub',
           activeWorkspaceId: undefined,
@@ -128,19 +136,23 @@ export const useAppStore = create<AppState>()(
           activeDocumentPath: undefined,
           activeDocumentTitle: undefined,
           activeDocumentDirty: false
-        }),
-      enterWorkspace: ({ workspaceId, workspaceConfig, workspaceResult }) =>
-        set({
+        })
+      },
+      enterWorkspace: ({ workspaceId, workspaceConfig, workspaceResult }) => {
+        const kind =
+          workspaceConfig.siteProjectKind ?? workspaceResult.manifest.siteProjectKind ?? 'column'
+        return set({
           mode: 'workspace',
           activeWorkspaceId: workspaceId,
           workspaceConfig,
           workspaceResult,
-          activeSection: 'posts',
+          activeSection: kind === 'memoir' ? 'sections' : 'posts',
           surface: 'list',
           activeDocumentPath: undefined,
           activeDocumentTitle: undefined,
           activeDocumentDirty: false
-        }),
+        })
+      },
       setWorkspaces: (workspaces) => set({ workspaces }),
       setActiveWorkspaceId: (activeWorkspaceId) => set({ activeWorkspaceId }),
       setActiveSection: (activeSection) =>
@@ -156,8 +168,9 @@ export const useAppStore = create<AppState>()(
       backToList: () => set({ surface: 'list', activeDocumentPath: undefined, activeDocumentTitle: undefined, activeDocumentDirty: false }),
       setActiveDocumentTitle: (activeDocumentTitle) => set({ activeDocumentTitle }),
       setActiveDocumentDirty: (activeDocumentDirty) => set({ activeDocumentDirty }),
-      startWorkspaceRecovery: (workspaceId) => {
+      startWorkspaceRecovery: async (workspaceId) => {
         const entry = get().workspaces.find((w) => w.id === workspaceId)
+        await leaveAnthologySession()
         set({
           mode: 'hub',
           hubRecovery: {
@@ -183,7 +196,9 @@ export const useAppStore = create<AppState>()(
             : {}
         ),
       finishHubRecovery: () => set({ hubRecovery: null }),
-      bumpHubCatalogRefresh: () => set((state) => ({ hubCatalogRefreshToken: state.hubCatalogRefreshToken + 1 }))
+      bumpHubCatalogRefresh: () => set((state) => ({ hubCatalogRefreshToken: state.hubCatalogRefreshToken + 1 })),
+      bumpWorkspaceGitRefresh: () =>
+        set((state) => ({ workspaceGitRefreshToken: state.workspaceGitRefreshToken + 1 }))
     }),
     {
       name: 'emprint-preferences',

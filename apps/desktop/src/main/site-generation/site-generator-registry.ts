@@ -1,9 +1,12 @@
 import type { SiteProjectKind } from '@emprint/shared'
 import { ColumnSiteProjectGenerator } from './column-site-generator'
-import { ShowcaseSiteProjectGenerator } from './showcase-site-generator'
+import { MemoirSiteProjectGenerator } from './memoir-site-generator'
 import type { SiteProjectGenerator } from './site-project-generator'
 
-const generators: SiteProjectGenerator[] = [new ColumnSiteProjectGenerator(), new ShowcaseSiteProjectGenerator()]
+const generators: SiteProjectGenerator[] = [
+  new ColumnSiteProjectGenerator(),
+  new MemoirSiteProjectGenerator()
+]
 
 const byKind = new Map<SiteProjectKind, SiteProjectGenerator>(generators.map((g) => [g.kind, g]))
 

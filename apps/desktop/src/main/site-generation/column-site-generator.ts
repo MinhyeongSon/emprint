@@ -1,9 +1,7 @@
 import type { SiteProjectKind } from '@emprint/shared'
-import {
-  astroBlogLayoutArtifacts,
-  astroBlogPageArtifacts,
-  astroSharedArtifacts
-} from './astro-stack'
+import { astroSharedArtifacts } from './astro-stack'
+import { createContentConfigArtifact } from './content-config-artifacts'
+import { createColumnLayoutArtifacts } from './column/column-layout-artifacts'
 import type { SiteGenerationContext, SiteProjectGenerator } from './site-project-generator'
 
 /**
@@ -22,8 +20,8 @@ export class ColumnSiteProjectGenerator implements SiteProjectGenerator {
   async generate(context: SiteGenerationContext) {
     return [
       ...astroSharedArtifacts(context),
-      ...astroBlogLayoutArtifacts(context),
-      ...astroBlogPageArtifacts(context)
+      createContentConfigArtifact('column'),
+      ...createColumnLayoutArtifacts(context)
     ]
   }
 }

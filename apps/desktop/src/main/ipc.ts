@@ -5,6 +5,7 @@ import { mkdir, readFile, rename as fsRename, rm, stat, unlink, writeFile, readd
 import { spawn } from 'node:child_process'
 import { BrowserWindow, app, dialog, ipcMain, type WebContents } from 'electron'
 import { WorkspaceBootstrapper } from './workspace/bootstrapper'
+import { fetchGithubDeployStatus } from './github-deploy-status'
 import {
   ipcChannels,
   MAX_ASSET_IMAGE_BYTES,
@@ -17,11 +18,17 @@ import {
   type GitHubDeviceCode,
   type GitHubRepoCreateInput,
   type GitHubRepoCreateResult,
+  type GitHubDeployStatus,
   type GitCommitNode,
   type GitDetectResult,
   type GitInitialSyncResult,
   type GitLogInput,
+  type GitRollbackInput,
+  type GitRollbackResult,
+  type GitResetDraftResult,
+  EMPRINT_GITIGNORE_LINES,
   EMPRINT_PUBLISH_BRANCH,
+  isEmprintIgnoredPublishPath,
   type GitPublishInput,
   type GitPublishResult,
   type GitPullInput,
@@ -31,11 +38,23 @@ import {
   type GitRecoverWorkspaceProgress,
   type GitRecoverWorkspaceResult,
   type GitWorkingTreeSummary,
+  type MemoirSectionSummary,
   type PostSummary,
+  type SiteProjectKind,
+  parseMemoirSectionFile,
+  sectionTitleFromProps,
+  assertContentLoaderBase,
   type WorkspaceCatalogEntry,
   type WorkspaceManifest,
-  type WorkspaceSrcTreeNode
+  type WorkspaceSrcTreeNode,
+  assertPostsContentLoaderBase,
+  draftFlagFromRelativePath,
+  isWorkspaceContentConfigPath,
+  isWorkspaceProtectedDesignDir
 } from '@emprint/shared'
+import { resolveSafeDesignFilePath } from './workspace-design-paths'
+import { syncWorkspaceThemeFromFile, THEME_JSON_RELATIVE_PATH } from './workspace-theme-sync'
+import { listWorkspaceDesignTree } from './workspace-design-tree'
 import matter from 'gray-matter'
 import { NodeFileSystemGateway } from './infrastructure/node-file-system-gateway'
 import { setGitBinaryPath, SimpleGitProvider, SimpleGitProviderFactory } from './infrastructure/simple-git-provider'
@@ -43,12 +62,25 @@ import simpleGit from 'simple-git'
 import { MANIFEST_RELATIVE_PATH, WORKSPACE_DIR } from './workspace-paths'
 import {
   getSiteDevServerState,
+  installSiteDependencies,
   openSiteDevPreview,
   stopSiteDevServer
 } from './site-dev-server'
 import { resolveWorkspaceMonacoTypescript } from './workspace-monaco-ts'
 
 let mountedWorkspaceRoot: string | null = null
+let mountedSiteProjectKind: SiteProjectKind = 'column'
+
+function getMountedSiteProjectKind(): SiteProjectKind {
+  return mountedSiteProjectKind
+}
+
+function assertMemoirWorkspace(): void {
+  if (getMountedSiteProjectKind() !== 'memoir') {
+    throw new Error('Sections are only available in Memoir workspaces.')
+  }
+}
+
 let resolvedGitBinaryPath: string | null = null
 
 /** Read-only accessor used by the asset protocol and other read-side helpers. */
@@ -78,6 +110,11 @@ export function setupIpcHandlers(): void {
   ipcMain.handle(ipcChannels.siteDevOpenPreview, async () => {
     const root = ensureWorkspaceMounted()
     return openSiteDevPreview(root)
+  })
+
+  ipcMain.handle(ipcChannels.siteDevInstallDependencies, async () => {
+    const root = ensureWorkspaceMounted()
+    await installSiteDependencies(root)
   })
 
   ipcMain.handle(ipcChannels.workspaceMonacoTypescript, async () => {
@@ -128,6 +165,14 @@ export function setupIpcHandlers(): void {
 
   ipcMain.handle(ipcChannels.githubRepoCreate, async (_event, input: GitHubRepoCreateInput) => {
     return await githubRepoCreate(input)
+  })
+
+  ipcMain.handle(ipcChannels.githubDeployStatus, async (): Promise<GitHubDeployStatus> => {
+    return await fetchGithubDeployStatus({
+      readSession: readGithubSession,
+      readCatalog,
+      getMountedWorkspaceRoot: ensureWorkspaceMounted
+    })
   })
 
   ipcMain.handle(ipcChannels.catalogList, async () => {
@@ -188,6 +233,8 @@ export function setupIpcHandlers(): void {
 
     await stopSiteDevServer()
     mountedWorkspaceRoot = initializedWorkspace.workspaceRoot
+    mountedSiteProjectKind =
+      initializedWorkspace.manifest.siteProjectKind ?? config.siteProjectKind ?? 'column'
 
     return initializedWorkspace
   })
@@ -207,6 +254,7 @@ export function setupIpcHandlers(): void {
     await untrackEmprintIgnoredPaths(workspaceRoot)
 
     mountedWorkspaceRoot = workspaceRoot
+    mountedSiteProjectKind = manifest.siteProjectKind ?? 'column'
 
     // Minimal InitializeWorkspaceResult shape for the renderer shell.
     return {
@@ -214,6 +262,12 @@ export function setupIpcHandlers(): void {
       createdFiles: [],
       manifest
     }
+  })
+
+  ipcMain.handle(ipcChannels.workspaceUnmount, async () => {
+    await stopSiteDevServer()
+    mountedWorkspaceRoot = null
+    mountedSiteProjectKind = 'column'
   })
 
   ipcMain.handle(ipcChannels.gitInitialSync, async (_event, input: { directory: string; remoteUrl?: string; branch?: string }) => {
@@ -249,6 +303,16 @@ export function setupIpcHandlers(): void {
     return await gitLog(root, input ?? {})
   })
 
+  ipcMain.handle(ipcChannels.gitRollback, async (_event, input: GitRollbackInput) => {
+    const root = ensureWorkspaceMounted()
+    return await gitRollback(root, input)
+  })
+
+  ipcMain.handle(ipcChannels.gitResetDraft, async () => {
+    const root = ensureWorkspaceMounted()
+    return await gitResetDraft(root)
+  })
+
   ipcMain.handle(ipcChannels.postsList, async (_event, input: { section: 'posts' | 'drafts' }) => {
     const root = ensureWorkspaceMounted()
     const directory = path.join(root, input.section)
@@ -270,16 +334,27 @@ export function setupIpcHandlers(): void {
 
   ipcMain.handle(ipcChannels.postRead, async (_event, input: { path: string }) => {
     const root = ensureWorkspaceMounted()
-    const absolutePath = path.join(root, input.path)
-    const content = await readFile(absolutePath, 'utf8')
-    return { path: input.path, content }
+    const abs = resolveSafePostsOrDraftsPath(root, input.path)
+    const st = await stat(abs).catch(() => null)
+    if (!st?.isFile()) {
+      throw new Error('File not found.')
+    }
+    if (!abs.toLowerCase().endsWith('.md')) {
+      throw new Error('Only markdown files can be read here.')
+    }
+    const content = await readFile(abs, 'utf8')
+    return { path: toPosixWorkspacePath(path.relative(root, abs)), content }
   })
 
   ipcMain.handle(ipcChannels.postSave, async (_event, input: { path: string; content: string }) => {
     const root = ensureWorkspaceMounted()
-    const absolutePath = path.join(root, input.path)
-    await writeFile(absolutePath, input.content, 'utf8')
-    return { path: input.path }
+    const abs = resolveSafePostsOrDraftsPath(root, input.path)
+    if (!abs.toLowerCase().endsWith('.md')) {
+      throw new Error('Only markdown files can be saved here.')
+    }
+    await mkdir(path.dirname(abs), { recursive: true })
+    await writeFile(abs, input.content, 'utf8')
+    return { path: toPosixWorkspacePath(path.relative(root, abs)) }
   })
 
   ipcMain.handle(ipcChannels.postsMove, async (_event, input: { from: string; to: string }) => {
@@ -295,6 +370,106 @@ export function setupIpcHandlers(): void {
     await mkdir(path.dirname(toAbs), { recursive: true })
     await fsRename(fromAbs, toAbs)
     return { path: toPosixWorkspacePath(path.relative(root, toAbs)) }
+  })
+
+  ipcMain.handle(ipcChannels.sectionsList, async () => {
+    const root = ensureWorkspaceMounted()
+    assertMemoirWorkspace()
+    const { listMemoirSectionSummaries } = await import('./memoir-sections-io')
+    return listMemoirSectionSummaries(root)
+  })
+
+  ipcMain.handle(ipcChannels.sectionRead, async (_event, input: { path: string }) => {
+    const root = ensureWorkspaceMounted()
+    assertMemoirWorkspace()
+    const abs = resolveSafeSectionsPath(root, input.path)
+    const st = await stat(abs).catch(() => null)
+    if (!st?.isFile()) throw new Error('File not found.')
+    const content = await readFile(abs, 'utf8')
+    return { path: toPosixWorkspacePath(path.relative(root, abs)), content }
+  })
+
+  ipcMain.handle(ipcChannels.sectionSave, async (_event, input: { path: string; content: string }) => {
+    const root = ensureWorkspaceMounted()
+    assertMemoirWorkspace()
+    const abs = resolveSafeSectionsPath(root, input.path)
+    parseMemoirSectionFile(input.content, toPosixWorkspacePath(path.relative(root, abs)))
+    await mkdir(path.dirname(abs), { recursive: true })
+    await writeFile(abs, input.content, 'utf8')
+    return { path: toPosixWorkspacePath(path.relative(root, abs)) }
+  })
+
+  ipcMain.handle(
+    ipcChannels.sectionSaveStructured,
+    async (_event, input: { path: string; section: import('@emprint/shared').MemoirSectionFile }) => {
+      const root = ensureWorkspaceMounted()
+      assertMemoirWorkspace()
+      const abs = resolveSafeSectionsPath(root, input.path)
+      const st = await stat(abs).catch(() => null)
+      if (!st?.isFile()) throw new Error('File not found.')
+      const previousPath = toPosixWorkspacePath(path.relative(root, abs))
+      const { writeMemoirSectionFile } = await import('./memoir-sections-io')
+      const result = await writeMemoirSectionFile(root, input.section, { previousPath })
+      return { path: result.path }
+    }
+  )
+
+  ipcMain.handle(
+    ipcChannels.sectionCreate,
+    async (
+      _event,
+      input: { section: import('@emprint/shared').MemoirSectionFile; parentId?: string }
+    ) => {
+      const root = ensureWorkspaceMounted()
+      assertMemoirWorkspace()
+      const { createMemoirSectionFile } = await import('./memoir-sections-io')
+      const result = await createMemoirSectionFile(
+        root,
+        input.section,
+        input.parentId ? { parentId: input.parentId } : undefined
+      )
+      return { path: result.path }
+    }
+  )
+
+  ipcMain.handle(ipcChannels.sectionsDelete, async (_event, input: { path: string }) => {
+    const root = ensureWorkspaceMounted()
+    assertMemoirWorkspace()
+    const abs = resolveSafeSectionsPath(root, input.path)
+    const st = await stat(abs).catch(() => null)
+    if (!st?.isFile()) throw new Error('File not found.')
+    const relativePath = toPosixWorkspacePath(path.relative(root, abs))
+    const { deleteMemoirSectionWithCleanup } = await import('./memoir-sections-io')
+    return deleteMemoirSectionWithCleanup(root, relativePath)
+  })
+
+  ipcMain.handle(ipcChannels.sectionsReorderRoots, async (_event, input: { orderedIds: string[] }) => {
+    const root = ensureWorkspaceMounted()
+    assertMemoirWorkspace()
+    const { loadAllMemoirSectionFiles, writeMemoirSectionFile } = await import('./memoir-sections-io')
+    const { sections } = await loadAllMemoirSectionFiles(root)
+    const childIds = new Set<string>()
+    for (const section of sections) {
+      for (const id of section.children ?? []) {
+        childIds.add(id)
+      }
+    }
+    const rootSections = sections.filter((s) => !childIds.has(s.id))
+    const rootIdSet = new Set(rootSections.map((s) => s.id))
+    for (const id of input.orderedIds) {
+      if (!rootIdSet.has(id)) {
+        throw new Error(`Section "${id}" is not a root section.`)
+      }
+    }
+    if (input.orderedIds.length !== rootSections.length) {
+      throw new Error('Reorder must include every root section exactly once.')
+    }
+    for (let index = 0; index < input.orderedIds.length; index++) {
+      const id = input.orderedIds[index]
+      const section = sections.find((s) => s.id === id)
+      if (!section || section.order === index) continue
+      await writeMemoirSectionFile(root, { ...section, order: index })
+    }
   })
 
   ipcMain.handle(ipcChannels.postsDelete, async (_event, input: { path: string }) => {
@@ -319,12 +494,12 @@ export function setupIpcHandlers(): void {
 
   ipcMain.handle(ipcChannels.workspaceSrcListTree, async () => {
     const root = ensureWorkspaceMounted()
-    return await listWorkspaceSrcTree(root)
+    return await listWorkspaceDesignTree(root, getMountedSiteProjectKind())
   })
 
   ipcMain.handle(ipcChannels.workspaceSrcRead, async (_event, input: { path: string }) => {
     const root = ensureWorkspaceMounted()
-    const abs = resolveSafeSrcFilePath(root, input.path)
+    const abs = resolveSafeDesignFilePath(root, input.path, getMountedSiteProjectKind())
     const st = await stat(abs)
     if (!st.isFile()) {
       throw new Error('Not a file.')
@@ -335,10 +510,17 @@ export function setupIpcHandlers(): void {
 
   ipcMain.handle(ipcChannels.workspaceSrcSave, async (_event, input: { path: string; content: string }) => {
     const root = ensureWorkspaceMounted()
-    const abs = resolveSafeSrcFilePath(root, input.path)
+    const abs = resolveSafeDesignFilePath(root, input.path, getMountedSiteProjectKind())
+    const relative = toPosixWorkspacePath(path.relative(root, abs))
+    if (isWorkspaceContentConfigPath(relative)) {
+      assertContentLoaderBase(input.content, getMountedSiteProjectKind())
+    }
     await mkdir(path.dirname(abs), { recursive: true })
     await writeFile(abs, input.content, 'utf8')
-    return { path: toPosixWorkspacePath(path.relative(root, abs)) }
+    if (relative === THEME_JSON_RELATIVE_PATH) {
+      await syncWorkspaceThemeFromFile(root, getMountedSiteProjectKind())
+    }
+    return { path: relative }
   })
 
   ipcMain.handle(ipcChannels.workspaceSrcCreate, async (_event, input: { path: string; kind: 'file' | 'directory' }) => {
@@ -346,7 +528,7 @@ export function setupIpcHandlers(): void {
     if (input.kind !== 'file' && input.kind !== 'directory') {
       throw new Error('Invalid create kind.')
     }
-    const abs = resolveSafeSrcFilePath(root, input.path)
+    const abs = resolveSafeDesignFilePath(root, input.path, getMountedSiteProjectKind())
     const baseName = path.basename(abs)
     if (!isValidSrcEntryName(baseName)) {
       throw new Error('Invalid name. Avoid empty values, slashes, or names like "." and "..".')
@@ -369,10 +551,10 @@ export function setupIpcHandlers(): void {
 
   ipcMain.handle(ipcChannels.workspaceSrcRename, async (_event, input: { path: string; newName: string }) => {
     const root = ensureWorkspaceMounted()
-    const abs = resolveSafeSrcFilePath(root, input.path)
-    const srcRoot = path.resolve(root, 'src')
-    if (path.resolve(abs) === srcRoot) {
-      throw new Error('Cannot rename the src/ root.')
+    const abs = resolveSafeDesignFilePath(root, input.path, getMountedSiteProjectKind())
+    const relative = toPosixWorkspacePath(path.relative(root, abs))
+    if (isWorkspaceProtectedDesignDir(relative)) {
+      throw new Error('Cannot rename this folder.')
     }
     const newName = input.newName.trim()
     if (!isValidSrcEntryName(newName)) {
@@ -386,18 +568,21 @@ export function setupIpcHandlers(): void {
     if (existsSync(nextAbs)) {
       throw new Error('A file or folder with this name already exists.')
     }
-    // Re-validate that the new path stays under src/.
-    const safeNext = resolveSafeSrcFilePath(root, toPosixWorkspacePath(path.relative(root, nextAbs)))
+    const safeNext = resolveSafeDesignFilePath(
+      root,
+      toPosixWorkspacePath(path.relative(root, nextAbs)),
+      getMountedSiteProjectKind()
+    )
     await fsRename(abs, safeNext)
     return { path: toPosixWorkspacePath(path.relative(root, safeNext)) }
   })
 
   ipcMain.handle(ipcChannels.workspaceSrcDelete, async (_event, input: { path: string }) => {
     const root = ensureWorkspaceMounted()
-    const abs = resolveSafeSrcFilePath(root, input.path)
-    const srcRoot = path.resolve(root, 'src')
-    if (path.resolve(abs) === srcRoot) {
-      throw new Error('Cannot delete the src/ root.')
+    const abs = resolveSafeDesignFilePath(root, input.path, getMountedSiteProjectKind())
+    const relative = toPosixWorkspacePath(path.relative(root, abs))
+    if (isWorkspaceProtectedDesignDir(relative)) {
+      throw new Error('Cannot delete this folder.')
     }
     await rm(abs, { recursive: true, force: false })
   })
@@ -1319,7 +1504,7 @@ function mapPendingFiles(status: Awaited<ReturnType<ReturnType<typeof simpleGit>
   for (const f of status.renamed) push(typeof f === 'string' ? f : f.to, 'R', false)
   for (const f of status.not_added) push(f, '?', false)
   for (const f of status.conflicted) push(f, 'U', false)
-  return pending
+  return pending.filter((f) => !isEmprintIgnoredPublishPath(f.path))
 }
 
 async function resolveOriginPlainUrl(git: ReturnType<typeof simpleGit>): Promise<string | undefined> {
@@ -1504,7 +1689,19 @@ async function gitRecoverWorkspace(sender: WebContents, input: GitRecoverWorkspa
  * Fetches `origin/main` first so `behind` is accurate, and auto-checks out `main`
  * when an external tool left the repo on another branch with a clean tree.
  */
+const gitignoreUntrackedRoots = new Set<string>()
+
+async function untrackEmprintIgnoredPathsOnce(workspaceRoot: string): Promise<void> {
+  const key = path.resolve(workspaceRoot)
+  if (gitignoreUntrackedRoots.has(key)) return
+  await untrackEmprintIgnoredPaths(workspaceRoot)
+  gitignoreUntrackedRoots.add(key)
+}
+
 async function gitWorkingTree(directory: string): Promise<GitWorkingTreeSummary> {
+  await ensureEmprintGitignore(directory)
+  await untrackEmprintIgnoredPathsOnce(directory)
+
   const git = simpleGit(directory)
   const branchInfo = await ensurePublishBranch(git)
 
@@ -1665,16 +1862,11 @@ async function gitPublish(directory: string, input: GitPublishInput): Promise<Gi
   const wantPush = input.push !== false
   const git = simpleGit(directory)
 
+  await ensureEmprintGitignore(directory)
+  await untrackEmprintIgnoredPathsOnce(directory)
+
   const preStatus = await git.status()
-  const hasPendingChanges =
-    preStatus.staged.length +
-      preStatus.created.length +
-      preStatus.modified.length +
-      preStatus.deleted.length +
-      preStatus.renamed.length +
-      preStatus.not_added.length +
-      preStatus.conflicted.length >
-    0
+  const hasPendingChanges = mapPendingFiles(preStatus).length > 0 || preStatus.conflicted.some((f) => !isEmprintIgnoredPublishPath(f))
 
   let committed = false
   let commitSha: string | undefined
@@ -1770,6 +1962,75 @@ function parseGitLogOutput(raw: string): GitCommitNode[] {
   return nodes
 }
 
+/**
+ * Make the working tree (and index) match `sourceRef` while keeping `HEAD`
+ * unchanged so older Imprint entries remain on the timeline.
+ */
+async function gitRestoreWorkingTreeFromRef(
+  directory: string,
+  sourceRef: string
+): Promise<{ hadLocalChanges: boolean }> {
+  const git = simpleGit(directory)
+  const before = await git.status()
+  const hadLocalChanges = mapPendingFiles(before).length > 0
+
+  await ensureEmprintGitignore(directory)
+
+  try {
+    await git.raw(['rev-parse', '--verify', `${sourceRef}^{commit}`])
+  } catch {
+    throw new Error('Could not find that version in this workspace.')
+  }
+
+  await runGitRawWithRetry(git, ['restore', '--source', sourceRef, '--worktree', '--staged', ':/'])
+  await runGitRawWithRetry(git, ['clean', '-fd'])
+
+  return { hadLocalChanges }
+}
+
+async function assertImprintCommitReachable(git: ReturnType<typeof simpleGit>, sha: string): Promise<void> {
+  const status = await git.status()
+  if (status.current !== EMPRINT_PUBLISH_BRANCH) {
+    throw new Error('Switch to the main publishing line before restoring an Imprint.')
+  }
+  try {
+    await git.raw(['merge-base', '--is-ancestor', sha, 'HEAD'])
+  } catch {
+    throw new Error('That Imprint point is not on your current publishing line.')
+  }
+}
+
+async function gitRollback(directory: string, input: GitRollbackInput): Promise<GitRollbackResult> {
+  const sha = input.sha?.trim()
+  if (!sha) {
+    throw new Error('An Imprint entry is required.')
+  }
+
+  const git = simpleGit(directory)
+  await ensurePublishBranch(git)
+  await assertImprintCommitReachable(git, sha)
+
+  const { hadLocalChanges } = await gitRestoreWorkingTreeFromRef(directory, sha)
+  return { sha, restored: true, hadLocalChanges }
+}
+
+async function gitResetDraft(directory: string): Promise<GitResetDraftResult> {
+  const git = simpleGit(directory)
+  await ensurePublishBranch(git)
+
+  try {
+    await git.raw(['rev-parse', '--verify', 'HEAD^{commit}'])
+  } catch {
+    const before = mapPendingFiles(await git.status())
+    await ensureEmprintGitignore(directory)
+    await runGitRawWithRetry(git, ['clean', '-fd'])
+    return { restored: true, hadLocalChanges: before.length > 0 }
+  }
+
+  const { hadLocalChanges } = await gitRestoreWorkingTreeFromRef(directory, 'HEAD')
+  return { restored: true, hadLocalChanges }
+}
+
 async function gitLog(directory: string, input: GitLogInput): Promise<GitCommitNode[]> {
   const limit = Math.max(1, Math.min(input.limit ?? 200, 1000))
   const allBranches = input.allBranches !== false
@@ -1853,10 +2114,8 @@ async function ensureGitignoreLine(workspaceRoot: string, rawLine: string): Prom
  * always wants represented in `.gitignore`. Currently just `drafts/` — extend
  * this list rather than touching the gitignore machinery directly.
  */
-const ALWAYS_IGNORED_PATHS = ['drafts/']
-
 async function ensureEmprintGitignore(workspaceRoot: string): Promise<void> {
-  for (const line of ALWAYS_IGNORED_PATHS) {
+  for (const line of EMPRINT_GITIGNORE_LINES) {
     await ensureGitignoreLine(workspaceRoot, line)
   }
 }
@@ -1880,13 +2139,18 @@ async function untrackEmprintIgnoredPaths(workspaceRoot: string): Promise<void> 
     return
   }
 
-  for (const candidate of ALWAYS_IGNORED_PATHS) {
+  for (const candidate of EMPRINT_GITIGNORE_LINES) {
+    if (candidate.includes('*')) continue
     const normalized = candidate.replace(/\/+$/, '')
+    if (!normalized) continue
+    const rmArgs = ['rm', '--cached', '--ignore-unmatch']
+    if (candidate.endsWith('/')) rmArgs.push('-r')
+    rmArgs.push(normalized)
     try {
       // `--cached` removes from the index only, leaving the working tree
       // untouched. `--ignore-unmatch` keeps git from erroring out when the
-      // path is already untracked. `-r` is needed because we pass a folder.
-      await git.raw(['rm', '-r', '--cached', '--ignore-unmatch', normalized])
+      // path is already untracked. `-r` is needed for folders.
+      await git.raw(rmArgs)
     } catch {
       // ignored on purpose — see function-level comment
     }
@@ -1977,6 +2241,26 @@ function isValidSrcEntryName(name: string): boolean {
   return true
 }
 
+function resolveSafeSectionsPath(workspaceRoot: string, inputPath: string): string {
+  const normalized = inputPath.replace(/\\/g, '/').replace(/^\/+/, '')
+  if (!normalized || hasPathTraversalSegment(normalized)) {
+    throw new Error('Invalid path.')
+  }
+  if (!normalized.startsWith(`${WORKSPACE_DIR.sections}/`)) {
+    throw new Error('Path must be under sections/.')
+  }
+  const abs = path.resolve(workspaceRoot, ...normalized.split('/'))
+  const sectionsRoot = path.resolve(workspaceRoot, WORKSPACE_DIR.sections)
+  const rel = path.relative(sectionsRoot, abs)
+  if (rel.startsWith('..') || path.isAbsolute(rel)) {
+    throw new Error('Path escapes sections/.')
+  }
+  if (!abs.toLowerCase().endsWith('.json')) {
+    throw new Error('Only JSON section files can be edited here.')
+  }
+  return abs
+}
+
 function resolveSafePostsOrDraftsPath(workspaceRoot: string, inputPath: string): string {
   const normalized = inputPath.replace(/\\/g, '/').replace(/^\/+/, '')
   if (!normalized || hasPathTraversalSegment(normalized)) {
@@ -1994,54 +2278,6 @@ function resolveSafePostsOrDraftsPath(workspaceRoot: string, inputPath: string):
     throw new Error('Path escapes posts/ and drafts/.')
   }
   return abs
-}
-
-function resolveSafeSrcFilePath(workspaceRoot: string, inputPath: string): string {
-  const normalized = inputPath.replace(/\\/g, '/').replace(/^\/+/, '')
-  if (!normalized || hasPathTraversalSegment(normalized)) {
-    throw new Error('Invalid path.')
-  }
-  if (normalized !== 'src' && !normalized.startsWith('src/')) {
-    throw new Error('Path must be under src/.')
-  }
-  const abs = path.resolve(workspaceRoot, ...normalized.split('/'))
-  const srcRoot = path.resolve(workspaceRoot, 'src')
-  const rel = path.relative(srcRoot, abs)
-  if (rel.startsWith('..') || path.isAbsolute(rel)) {
-    throw new Error('Path escapes src/.')
-  }
-  return abs
-}
-
-async function buildSrcTreeNode(absPath: string, relativePath: string): Promise<WorkspaceSrcTreeNode> {
-  const name = path.basename(absPath)
-  const posixRel = relativePath.replace(/\\/g, '/')
-  const st = await stat(absPath)
-  if (!st.isDirectory()) {
-    return { name, path: posixRel, kind: 'file' }
-  }
-
-  const dirents = await readdir(absPath, { withFileTypes: true })
-  const children: WorkspaceSrcTreeNode[] = []
-  for (const ent of dirents) {
-    if (ent.name === 'node_modules' || ent.name === '.git') continue
-    const childRel = `${posixRel}/${ent.name}`
-    const childAbs = path.join(absPath, ent.name)
-    children.push(await buildSrcTreeNode(childAbs, childRel))
-  }
-  children.sort((a, b) => {
-    if (a.kind !== b.kind) return a.kind === 'directory' ? -1 : 1
-    return a.name.localeCompare(b.name)
-  })
-  return { name, path: posixRel, kind: 'directory', children }
-}
-
-async function listWorkspaceSrcTree(workspaceRoot: string): Promise<WorkspaceSrcTreeNode | null> {
-  const srcRoot = path.join(workspaceRoot, 'src')
-  if (!existsSync(srcRoot)) {
-    return { name: 'src', path: 'src', kind: 'directory', children: [] }
-  }
-  return await buildSrcTreeNode(srcRoot, 'src')
 }
 
 function ensureWorkspaceMounted(): string {
@@ -2074,7 +2310,10 @@ function summarizeMarkdown(relativePath: string, content: string, fallbackUpdate
 
   const description = typeof data.description === 'string' ? data.description : ''
   const tags = Array.isArray(data.tags) ? data.tags.map(String) : []
-  const draft = Boolean(data.draft)
+  const draft =
+    relativePath.startsWith('posts/') || relativePath.startsWith('drafts/')
+      ? draftFlagFromRelativePath(relativePath)
+      : Boolean(data.draft)
   const createdAt = typeof data.createdAt === 'string' ? data.createdAt : ''
   const updatedAt = typeof data.updatedAt === 'string' ? data.updatedAt : fallbackUpdatedAt
 

@@ -1,0 +1,113 @@
+/* Landing intro overlay — prefix: __PREFIX__ (ep-column | ep-memoir) */
+
+.__PREFIX__-Site {
+  min-height: 100vh;
+}
+
+html.__PREFIX__-intro-active .__PREFIX__-Site {
+  visibility: hidden;
+}
+
+.__PREFIX__-LandingIntro {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  transition: opacity var(--__PREFIX__-intro-fade-ms, 750ms) ease;
+}
+
+.__PREFIX__-LandingIntro--fade {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.__PREFIX__-LandingIntro--done,
+html.__PREFIX__-intro-skip .__PREFIX__-LandingIntro {
+  display: none !important;
+}
+
+.__PREFIX__-LandingIntro-inner {
+  max-width: 36rem;
+  width: 100%;
+  text-align: center;
+}
+
+.__PREFIX__-LandingIntro-text {
+  margin: 0;
+  font-size: clamp(1.25rem, 4vw, 1.75rem);
+  line-height: 1.45;
+}
+
+/* --- Terminal variant --- */
+
+.__PREFIX__-LandingIntro[data-variant='terminal'] {
+  background: #0a0a0a;
+  color: #e8e8e8;
+}
+
+.__PREFIX__-LandingIntro[data-variant='terminal'] .__PREFIX__-LandingIntro-inner {
+  text-align: left;
+  font-family: var(--__PREFIX__-font-mono, ui-monospace, monospace);
+}
+
+.__PREFIX__-LandingIntro[data-variant='terminal'] .__PREFIX__-LandingIntro-text {
+  white-space: pre-wrap;
+  min-height: 1.5em;
+}
+
+.__PREFIX__-LandingIntro-cursor {
+  display: inline-block;
+  width: 0.55em;
+  height: 1.1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: #52b788;
+  animation: __PREFIX__-intro-blink 1s step-end infinite;
+}
+
+@keyframes __PREFIX__-intro-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* --- Script (handwriting) variant --- */
+
+.__PREFIX__-LandingIntro[data-variant='script'] {
+  background: #f7f4ec;
+  color: #1a1814;
+  overflow: visible;
+}
+
+.__PREFIX__-LandingIntro[data-variant='script'] .__PREFIX__-LandingIntro-inner {
+  overflow: visible;
+  max-width: min(42rem, 92vw);
+  padding: 0.75rem 1.25rem;
+}
+
+.__PREFIX__-LandingIntro[data-variant='script'] .__PREFIX__-LandingIntro-text {
+  display: inline-block;
+  max-width: 100%;
+  font-family: 'Caveat', 'Segoe Script', 'Apple Chancery', cursive;
+  font-size: clamp(2rem, 6vw, 3.25rem);
+  font-weight: 600;
+  line-height: 1.5;
+  overflow: visible;
+  padding: 0.35em 1rem;
+}
+
+/* Opacity-only reveal — avoids transform clipping on cursive glyphs */
+.__PREFIX__-LandingIntro-char {
+  display: inline;
+  opacity: 0;
+  animation: __PREFIX__-intro-char-in 0.38s ease forwards;
+}
+
+@keyframes __PREFIX__-intro-char-in {
+  to {
+    opacity: 1;
+  }
+}

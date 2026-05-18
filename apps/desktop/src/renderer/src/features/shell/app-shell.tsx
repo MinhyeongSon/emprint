@@ -11,11 +11,11 @@ import { PublishDialog } from './publish-dialog'
 import { WorkspaceSyncFooter } from './workspace-sync-footer'
 import { useAppStore, type SidebarSection } from '@renderer/state/app-store'
 import { PostsSurface } from '@renderer/features/posts/posts-surface'
+import { SectionsSurface } from '@renderer/features/sections/sections-surface'
 import { DesignSurface } from '@renderer/features/design/design-surface'
 import { AssetsSurface } from '@renderer/features/assets/assets-surface'
 import { ImprintSurface } from '@renderer/features/imprint/imprint-surface'
-
-const sectionOrder: SidebarSection[] = ['posts', 'drafts', 'assets', 'design', 'imprint', 'settings']
+import { sidebarSectionsForKind } from './workspace-sidebar-sections'
 
 export function AppShell() {
   const locale = useAppStore((state) => state.locale)
@@ -36,13 +36,20 @@ export function AppShell() {
   const [pullOverwriteOpen, setPullOverwriteOpen] = useState(false)
   const [pullBeforePublishBusy, setPullBeforePublishBusy] = useState(false)
   const [pendingBehind, setPendingBehind] = useState(0)
-  // Bumped after the publish dialog reports a successful publish so the
-  // sidebar button and the Imprint surface know to refetch.
-  const [gitRefreshToken, setGitRefreshToken] = useState(0)
+  const workspaceGitRefreshToken = useAppStore((state) => state.workspaceGitRefreshToken)
+  const bumpWorkspaceGitRefresh = useAppStore((state) => state.bumpWorkspaceGitRefresh)
+
+  const siteProjectKind =
+    workspaceConfig?.siteProjectKind ?? workspaceResult?.manifest.siteProjectKind ?? 'column'
 
   const handlePublished = useCallback(() => {
-    setGitRefreshToken((n) => n + 1)
-  }, [])
+    bumpWorkspaceGitRefresh()
+  }, [bumpWorkspaceGitRefresh])
+
+  const handleWorkingStateRestored = useCallback(() => {
+    useAppStore.getState().backToList()
+    bumpWorkspaceGitRefresh()
+  }, [bumpWorkspaceGitRefresh])
 
   const openPublishDialog = useCallback(() => {
     setPublishOpen(true)
@@ -78,14 +85,14 @@ export function AppShell() {
         if (result.pulled || result.skippedReason === 'nothing-to-pull') {
           setPullBeforePublishOpen(false)
           setPullOverwriteOpen(false)
-          setGitRefreshToken((n) => n + 1)
+          bumpWorkspaceGitRefresh()
           openPublishDialog()
         }
       } finally {
         setPullBeforePublishBusy(false)
       }
     },
-    [openPublishDialog]
+    [bumpWorkspaceGitRefresh, openPublishDialog]
   )
 
   const handlePullBeforePublishConfirm = useCallback(() => {
@@ -110,15 +117,17 @@ export function AppShell() {
       }
 
       const shortcutIndex = Number(event.key) - 1
+      const sections = sidebarSectionsForKind(siteProjectKind)
 
-      if (shortcutIndex >= 0 && shortcutIndex < sectionOrder.length) {
-        setActiveSection(sectionOrder[shortcutIndex] as SidebarSection)
+      if (shortcutIndex >= 0 && shortcutIndex < sections.length) {
+        const next = sections[shortcutIndex]
+        if (next) setActiveSection(next)
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [setActiveSection])
+  }, [setActiveSection, siteProjectKind])
 
   if (!workspaceConfig || !workspaceResult) {
     return null
@@ -132,21 +141,25 @@ export function AppShell() {
         locale={locale}
         onSelect={setActiveSection}
         {...(workspaceRootDir ? { workspaceRootDir } : {})}
+        siteProjectKind={siteProjectKind}
         {...(typeof githubConnected === 'boolean' ? { githubConnected } : {})}
         {...(githubLogin ? { githubLogin } : {})}
         footer={
           <WorkspaceSyncFooter
             locale={locale}
-            refreshToken={gitRefreshToken}
+            refreshToken={workspaceGitRefreshToken}
             blocked={activeDocumentDirty}
             onPublishClick={() => void handlePublishClick()}
-            onSyncChange={() => setGitRefreshToken((n) => n + 1)}
+            onSyncChange={bumpWorkspaceGitRefresh}
+            onWorkingStateRestored={handleWorkingStateRestored}
           />
         }
       />
 
       <main className="min-h-0 overflow-auto bg-base">
-        {activeSection === 'posts' ? (
+        {activeSection === 'sections' ? (
+          <SectionsSurface />
+        ) : activeSection === 'posts' ? (
           <PostsSurface locale={locale} section="posts" />
         ) : activeSection === 'drafts' ? (
           <PostsSurface locale={locale} section="drafts" />
@@ -155,7 +168,12 @@ export function AppShell() {
         ) : activeSection === 'design' ? (
           <DesignSurface locale={locale} />
         ) : activeSection === 'imprint' ? (
-          <ImprintSurface locale={locale} refreshToken={gitRefreshToken} />
+          <ImprintSurface
+            locale={locale}
+            refreshToken={workspaceGitRefreshToken}
+            onSyncChange={bumpWorkspaceGitRefresh}
+            onWorkingStateRestored={handleWorkingStateRestored}
+          />
         ) : (
           <div className="mx-auto w-full max-w-[980px] px-4 py-12 lg:px-10">
             <div className="space-y-6">

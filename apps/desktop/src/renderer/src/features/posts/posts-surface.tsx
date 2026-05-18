@@ -131,6 +131,7 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
   const activeDocumentPath = useAppStore((state) => state.activeDocumentPath)
   const setActiveDocumentTitle = useAppStore((state) => state.setActiveDocumentTitle)
   const setActiveDocumentDirty = useAppStore((state) => state.setActiveDocumentDirty)
+  const bumpWorkspaceGitRefresh = useAppStore((state) => state.bumpWorkspaceGitRefresh)
 
   // The single source of truth for publish state is the folder a file lives in.
   // `posts/` → published, `drafts/` → draft. The frontmatter `draft` flag is kept
@@ -350,6 +351,7 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
         body: editorBody
       })
       setActiveDocumentDirty(false)
+      bumpWorkspaceGitRefresh()
       setActiveSection(targetSection)
       openEditor(moved.path)
     } catch (caught) {
@@ -369,6 +371,7 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
     editorBody,
     editorTags,
     editorTitle,
+    bumpWorkspaceGitRefresh,
     isDraftSection,
     openEditor,
     setActiveDocumentDirty,
@@ -425,6 +428,7 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
 
       const refreshed = await window.emprint.posts.list({ section })
       if (refreshed) setItems(refreshed)
+      bumpWorkspaceGitRefresh()
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : String(caught)
       setSaveError(message)
@@ -437,6 +441,7 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
     backToList,
     pendingDelete,
     section,
+    bumpWorkspaceGitRefresh,
     setActiveDocumentDirty,
     setActiveDocumentTitle
   ])
@@ -487,6 +492,7 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
     if (errors.length > 0) {
       setImageNotice({ kind: 'error', message: errors.join(' · ') })
     } else if (inserted.length > 0) {
+      bumpWorkspaceGitRefresh()
       setImageNotice({
         kind: 'success',
         message: t(
@@ -501,7 +507,7 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
     }
 
     return inserted
-  }, [locale])
+  }, [bumpWorkspaceGitRefresh, locale])
 
   useEffect(() => {
     setTransitionKey((key) => key + 1)
@@ -675,6 +681,7 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
                       body: editorBody
                     })
                     setActiveDocumentDirty(false)
+                    bumpWorkspaceGitRefresh()
                     const refreshed = await window.emprint.posts.list({ section })
                     if (refreshed) setItems(refreshed)
                   } catch (caught) {
@@ -933,6 +940,7 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
             void (async () => {
               try {
                 await window.emprint.posts.save({ path, content: template })
+                bumpWorkspaceGitRefresh()
                 const refreshed = await window.emprint.posts.list({ section })
                 if (refreshed) setItems(refreshed)
                 openEditor(path)

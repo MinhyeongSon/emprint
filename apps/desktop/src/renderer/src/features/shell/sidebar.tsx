@@ -1,8 +1,10 @@
 import type { AppLocale } from '@emprint/shared'
 import { cn } from '@renderer/lib/cn'
 import { getLocaleMessages, getSectionLabel } from '@renderer/lib/i18n'
+import type { SiteProjectKind } from '@emprint/shared'
 import type { SidebarSection } from '@renderer/state/app-store'
 import type { ReactNode } from 'react'
+import { sidebarSectionsForKind } from './workspace-sidebar-sections'
 import { Badge } from '@renderer/components/ui/badge'
 import emprintLogo from '@renderer/asset/image/emprint-simple-logo.svg'
 
@@ -22,6 +24,7 @@ interface SidebarProps {
   locale: AppLocale
   onSelect?: (section: SidebarSection) => void
   workspaceRootDir?: string | undefined
+  siteProjectKind?: SiteProjectKind
   githubConnected?: boolean | undefined
   githubLogin?: string | undefined
   children?: ReactNode
@@ -29,7 +32,7 @@ interface SidebarProps {
   footer?: ReactNode
 }
 
-const sections: Array<{ id: SidebarSection; shortcut: string }> = [
+const columnSections: Array<{ id: SidebarSection; shortcut: string }> = [
   { id: 'posts', shortcut: '1' },
   { id: 'drafts', shortcut: '2' },
   { id: 'assets', shortcut: '3' },
@@ -38,18 +41,30 @@ const sections: Array<{ id: SidebarSection; shortcut: string }> = [
   { id: 'settings', shortcut: '6' }
 ]
 
+const memoirSections: Array<{ id: SidebarSection; shortcut: string }> = [
+  { id: 'sections', shortcut: '1' },
+  { id: 'assets', shortcut: '2' },
+  { id: 'design', shortcut: '3' },
+  { id: 'imprint', shortcut: '4' },
+  { id: 'settings', shortcut: '5' }
+]
+
+export { sidebarSectionsForKind } from './workspace-sidebar-sections'
+
 export function Sidebar({
   mode,
   activeSection,
   locale,
   onSelect,
   workspaceRootDir,
+  siteProjectKind = 'column',
   githubConnected,
   githubLogin,
   children,
   footer
 }: SidebarProps) {
   const m = getLocaleMessages(locale)
+  const visibleSections = siteProjectKind === 'memoir' ? memoirSections : columnSections
 
   return (
     <aside className="flex h-full flex-col border-r border-border bg-panel">
@@ -89,7 +104,7 @@ export function Sidebar({
             <div className="space-y-2">
               <div className="text-[11px] uppercase tracking-[0.16em] text-muted">{m.shell.sections}</div>
               <nav className="space-y-1.5">
-                {sections.map((section) => (
+                {visibleSections.map((section) => (
                   <button
                     key={section.id}
                     type="button"

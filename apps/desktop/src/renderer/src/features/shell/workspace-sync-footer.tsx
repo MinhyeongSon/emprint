@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowDownToLine, ArrowUpFromLine, Loader2, RefreshCw } from 'lucide-react'
 import type { AppLocale, GitPullSkipReason, GitWorkingTreeSummary } from '@emprint/shared'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { useAppStore } from '@renderer/state/app-store'
 import { PullOverwriteDialog } from './pull-overwrite-dialog'
+import { ResetDraftDialog } from './reset-draft-dialog'
 
 function t(locale: AppLocale, en: string, ko: string): string {
   return locale === 'ko' ? ko : en
@@ -33,6 +34,7 @@ interface WorkspaceSyncFooterProps {
   blocked?: boolean
   onPublishClick(): void
   onSyncChange?(): void
+  onWorkingStateRestored?(): void
 }
 
 const POLL_INTERVAL_MS = 60_000
@@ -42,15 +44,22 @@ export function WorkspaceSyncFooter({
   refreshToken,
   blocked = false,
   onPublishClick,
-  onSyncChange
+  onSyncChange,
+  onWorkingStateRestored
 }: WorkspaceSyncFooterProps) {
   const activeWorkspaceId = useAppStore((s) => s.activeWorkspaceId)
   const startWorkspaceRecovery = useAppStore((s) => s.startWorkspaceRecovery)
+  const workspaceGitRefreshToken = useAppStore((s) => s.workspaceGitRefreshToken)
+  const activeDocumentDirty = useAppStore((s) => s.activeDocumentDirty)
+  const bumpWorkspaceGitRefresh = useAppStore((s) => s.bumpWorkspaceGitRefresh)
+  const prevDocumentDirtyRef = useRef(activeDocumentDirty)
 
   const [summary, setSummary] = useState<GitWorkingTreeSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [pullBusy, setPullBusy] = useState(false)
   const [overwriteOpen, setOverwriteOpen] = useState(false)
+  const [resetDraftOpen, setResetDraftOpen] = useState(false)
+  const [resetDraftBusy, setResetDraftBusy] = useState(false)
   const [branchNoticeDismissed, setBranchNoticeDismissed] = useState(false)
 
   const refresh = useCallback(async () => {
@@ -97,7 +106,16 @@ export function WorkspaceSyncFooter({
       document.removeEventListener('visibilitychange', onVisibility)
       window.removeEventListener('focus', onFocus)
     }
-  }, [refresh, refreshToken])
+  }, [refresh, refreshToken, workspaceGitRefreshToken])
+
+  // After Save, git sees new changes but we only polled on focus — refresh when dirty clears.
+  useEffect(() => {
+    const wasDirty = prevDocumentDirtyRef.current
+    prevDocumentDirtyRef.current = activeDocumentDirty
+    if (wasDirty && !activeDocumentDirty) {
+      void refresh()
+    }
+  }, [activeDocumentDirty, refresh])
 
   const runPull = async (discardLocal: boolean) => {
     if (pullBusy) return
@@ -107,12 +125,28 @@ export function WorkspaceSyncFooter({
       if (result.pulled) {
         setOverwriteOpen(false)
         await refresh()
+        bumpWorkspaceGitRefresh()
         onSyncChange?.()
       } else if (result.skippedReason === 'conflict') {
         await refresh()
       }
     } finally {
       setPullBusy(false)
+    }
+  }
+
+  const handleResetDraftConfirm = async () => {
+    if (resetDraftBusy) return
+    setResetDraftBusy(true)
+    try {
+      await window.emprint.git.resetDraft()
+      setResetDraftOpen(false)
+      await refresh()
+      bumpWorkspaceGitRefresh()
+      onSyncChange?.()
+      onWorkingStateRestored?.()
+    } finally {
+      setResetDraftBusy(false)
     }
   }
 
@@ -129,7 +163,7 @@ export function WorkspaceSyncFooter({
 
   const handleRecover = () => {
     if (!activeWorkspaceId) return
-    startWorkspaceRecovery(activeWorkspaceId)
+    void startWorkspaceRecovery(activeWorkspaceId)
   }
 
   const pendingCount = summary?.pendingFiles.length ?? 0
@@ -270,6 +304,23 @@ export function WorkspaceSyncFooter({
         </Button>
       ) : null}
 
+      {pendingCount > 0 ? (
+        <Button
+          type="button"
+          variant="ghost"
+          disabled={blocked || resetDraftBusy}
+          className="h-8 w-full text-[11px] text-muted hover:text-ink"
+          title={
+            blocked
+              ? t(locale, 'Save your changes before resetting', '되돌리기 전에 먼저 저장하세요')
+              : t(locale, 'Discard uncommitted changes', '발행하지 않은 변경 버리기')
+          }
+          onClick={() => setResetDraftOpen(true)}
+        >
+          {t(locale, 'Reset draft', '초안 되돌리기')}
+        </Button>
+      ) : null}
+
       <Button
         type="button"
         onClick={onPublishClick}
@@ -305,6 +356,16 @@ export function WorkspaceSyncFooter({
           if (!pullBusy) setOverwriteOpen(false)
         }}
         onConfirm={() => void runPull(true)}
+      />
+
+      <ResetDraftDialog
+        open={resetDraftOpen}
+        locale={locale}
+        busy={resetDraftBusy}
+        onCancel={() => {
+          if (!resetDraftBusy) setResetDraftOpen(false)
+        }}
+        onConfirm={() => void handleResetDraftConfirm()}
       />
     </div>
   )

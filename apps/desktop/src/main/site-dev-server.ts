@@ -1,23 +1,30 @@
 import { existsSync } from 'node:fs'
 import path from 'node:path'
-import { spawn, type ChildProcess } from 'node:child_process'
+import { execFile, spawn, type ChildProcess } from 'node:child_process'
+import { promisify } from 'node:util'
 import { shell } from 'electron'
 import type { SiteDevServerPhase, SiteDevServerState, SiteDevServerStatus } from '@emprint/shared'
+import { ensureWorkspaceSyncThemeScript } from './workspace-theme-script'
 
 export const SITE_DEV_PREVIEW_URL = 'http://localhost:4321/'
+const DEFAULT_PREVIEW_PORT = 4321
+
+const execFileAsync = promisify(execFile)
 
 let child: ChildProcess | null = null
+let currentPreviewUrl = SITE_DEV_PREVIEW_URL
 let workspaceRoot: string | null = null
 let status: SiteDevServerStatus = 'stopped'
 let phase: SiteDevServerPhase = 'idle'
 let statusMessage: string | undefined
 let progress: number | undefined
 let startPromise: Promise<SiteDevServerState> | null = null
+let lastDevStderr = ''
 
 function snapshot(): SiteDevServerState {
   return {
     status,
-    url: SITE_DEV_PREVIEW_URL,
+    url: currentPreviewUrl,
     phase,
     ...(statusMessage ? { message: statusMessage } : {}),
     ...(typeof progress === 'number' ? { progress } : {})
@@ -33,13 +40,8 @@ function bumpInstallProgress(delta = 3) {
   progress = Math.min(88, (progress ?? 8) + delta)
 }
 
-async function runNpmInstall(cwd: string): Promise<void> {
-  phase = 'installing'
-  status = 'starting'
-  progress = 8
-  statusMessage = undefined
-
-  await new Promise<void>((resolve, reject) => {
+function spawnNpmInstall(cwd: string, onOutput?: () => void): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
     const proc = spawn(npmCommand(), ['install', '--no-fund', '--no-audit'], {
       cwd,
       shell: process.platform === 'win32',
@@ -48,7 +50,7 @@ async function runNpmInstall(cwd: string): Promise<void> {
     })
     let err = ''
     const onData = () => {
-      bumpInstallProgress(2)
+      onOutput?.()
     }
     proc.stdout?.on('data', onData)
     proc.stderr?.on('data', (chunk) => {
@@ -58,7 +60,6 @@ async function runNpmInstall(cwd: string): Promise<void> {
     proc.on('error', reject)
     proc.on('close', (code) => {
       if (code === 0) {
-        progress = 92
         resolve()
       } else {
         reject(new Error(err.trim() || `npm install failed (${code})`))
@@ -67,13 +68,111 @@ async function runNpmInstall(cwd: string): Promise<void> {
   })
 }
 
-async function waitForHttpReady(url: string, timeoutMs = 120_000): Promise<void> {
+async function runNpmInstall(cwd: string): Promise<void> {
+  phase = 'installing'
+  status = 'starting'
+  progress = 8
+  statusMessage = undefined
+
+  await spawnNpmInstall(cwd, () => {
+    bumpInstallProgress(2)
+  })
+  progress = 92
+}
+
+/** Install anthology site dependencies without starting the dev server. */
+export async function installSiteDependencies(root: string): Promise<void> {
+  const resolved = path.resolve(root)
+  if (!existsSync(path.join(resolved, 'package.json'))) {
+    throw new Error('package.json was not found in this anthology.')
+  }
+  await spawnNpmInstall(resolved)
+}
+
+function devStartFailureMessage(): string {
+  const tail = lastDevStderr.trim()
+  if (tail) {
+    const lines = tail.split('\n').filter(Boolean)
+    const snippet = lines.slice(-6).join('\n')
+    return `Dev server failed to start.\n${snippet}`
+  }
+  if (statusMessage) return statusMessage
+  return 'Dev server failed to start.'
+}
+
+const PREVIEW_PORT_RANGE = [4321, 4322, 4323, 4324, 4325] as const
+
+function capturePreviewUrlFromDevLog(chunk: string): void {
+  const localMatch = chunk.match(/Local\s+(https?:\/\/(?:localhost|127\.0\.0\.1):\d+\/?)/i)
+  if (localMatch?.[1]) {
+    const raw = localMatch[1]
+    currentPreviewUrl = raw.endsWith('/') ? raw : `${raw}/`
+    return
+  }
+  const all = [...chunk.matchAll(/https?:\/\/(?:localhost|127\.0\.0\.1):\d+\/?/gi)]
+  const last = all.at(-1)?.[0]
+  if (!last) return
+  currentPreviewUrl = last.endsWith('/') ? last : `${last}/`
+}
+
+/** Stop stray Astro/Vite listeners Emprint does not own (common when preview was left running). */
+async function releasePreviewPorts(ports: readonly number[] = PREVIEW_PORT_RANGE): Promise<void> {
+  const ourPid = child?.pid
+
+  if (process.platform === 'win32') {
+    try {
+      const { stdout } = await execFileAsync('netstat', ['-ano'], { encoding: 'utf8' })
+      for (const port of ports) {
+        const lines = stdout.split('\n').filter((line) => line.includes(`:${port}`) && line.includes('LISTENING'))
+        for (const line of lines) {
+          const pid = Number.parseInt(line.trim().split(/\s+/).pop() ?? '', 10)
+          if (pid > 0 && pid !== ourPid) {
+            try {
+              await execFileAsync('taskkill', ['/PID', String(pid), '/F', '/T'])
+            } catch {
+              /* ignore */
+            }
+          }
+        }
+      }
+    } catch {
+      /* ports likely free */
+    }
+    await new Promise((r) => setTimeout(r, 400))
+    return
+  }
+
+  for (const port of ports) {
+    try {
+      const { stdout } = await execFileAsync('lsof', ['-ti', `:${port}`], { encoding: 'utf8' })
+      for (const token of stdout.trim().split(/\s+/)) {
+        const pid = Number.parseInt(token, 10)
+        if (pid > 0 && pid !== ourPid) {
+          try {
+            process.kill(pid, 'SIGKILL')
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+    } catch {
+      /* port free */
+    }
+  }
+  await new Promise((r) => setTimeout(r, 500))
+}
+
+async function waitForHttpReady(getUrl: () => string, timeoutMs = 120_000): Promise<void> {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     if (status === 'stopped') {
-      throw new Error('Dev server was stopped while starting.')
+      throw new Error(devStartFailureMessage())
+    }
+    if (status === 'error') {
+      throw new Error(devStartFailureMessage())
     }
     progress = Math.min(98, (progress ?? 93) + 1)
+    const url = getUrl()
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(2_500) })
       if (res.ok || res.status < 500) return
@@ -82,16 +181,20 @@ async function waitForHttpReady(url: string, timeoutMs = 120_000): Promise<void>
     }
     await new Promise((r) => setTimeout(r, 600))
   }
-  throw new Error('Timed out waiting for the Astro dev server (localhost:4321).')
+  throw new Error(
+    `Timed out waiting for the Astro dev server (${getUrl()}). If another app uses port ${DEFAULT_PREVIEW_PORT}, quit it and try again.`
+  )
 }
 
 function attachChildLogging(proc: ChildProcess): void {
-  proc.stdout?.on('data', () => {
-    /* progress UI uses phase labels only */
-  })
-  proc.stderr?.on('data', () => {
-    /* progress UI uses phase labels only */
-  })
+  lastDevStderr = ''
+  const onChunk = (chunk: Buffer | string) => {
+    const text = String(chunk)
+    capturePreviewUrlFromDevLog(text)
+    lastDevStderr = appendDevLog(lastDevStderr, text)
+  }
+  proc.stdout?.on('data', onChunk)
+  proc.stderr?.on('data', onChunk)
   proc.on('exit', (code, signal) => {
     if (child === proc) {
       child = null
@@ -100,15 +203,22 @@ function attachChildLogging(proc: ChildProcess): void {
         status = 'error'
         phase = 'idle'
         progress = undefined
+        const tail = lastDevStderr.trim()
         statusMessage =
-          code != null
+          tail ||
+          (code != null
             ? `Dev server exited (code ${code}).`
             : signal
               ? `Dev server exited (${signal}).`
-              : 'Dev server exited.'
+              : 'Dev server exited.')
       }
     }
   })
+}
+
+function appendDevLog(prev: string, chunk: Buffer | string): string {
+  const next = prev + String(chunk)
+  return next.length > 12_000 ? next.slice(-12_000) : next
 }
 
 function killChildTree(proc: ChildProcess): Promise<void> {
@@ -140,6 +250,7 @@ export function getSiteDevServerState(): SiteDevServerState {
 
 export async function stopSiteDevServer(): Promise<SiteDevServerState> {
   startPromise = null
+  currentPreviewUrl = SITE_DEV_PREVIEW_URL
   status = 'stopped'
   phase = 'idle'
   progress = undefined
@@ -150,6 +261,7 @@ export async function stopSiteDevServer(): Promise<SiteDevServerState> {
   if (proc) {
     await killChildTree(proc)
   }
+  await releasePreviewPorts()
   return snapshot()
 }
 
@@ -183,6 +295,10 @@ async function startSiteDevServer(root: string): Promise<SiteDevServerState> {
   statusMessage = undefined
 
   await ensureDependencies(resolved)
+  await ensureWorkspaceSyncThemeScript(resolved)
+
+  currentPreviewUrl = SITE_DEV_PREVIEW_URL
+  await releasePreviewPorts()
 
   phase = 'starting-dev'
   progress = 94
@@ -209,9 +325,9 @@ async function startSiteDevServer(root: string): Promise<SiteDevServerState> {
     }
   })
 
-  await waitForHttpReady(SITE_DEV_PREVIEW_URL)
+  await waitForHttpReady(() => currentPreviewUrl)
   if (child !== proc) {
-    throw new Error('Dev server was stopped while starting.')
+    throw new Error(devStartFailureMessage())
   }
 
   status = 'running'
@@ -235,7 +351,7 @@ export async function openSiteDevPreview(root: string): Promise<SiteDevServerSta
   statusMessage = undefined
   const state = await startSiteDevServerForWorkspace(root)
   if (state.status === 'running') {
-    await shell.openExternal(SITE_DEV_PREVIEW_URL)
+    await shell.openExternal(state.url || SITE_DEV_PREVIEW_URL)
   }
   phase = 'idle'
   progress = undefined
