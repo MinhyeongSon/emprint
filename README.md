@@ -11,7 +11,7 @@
 
 [![Website](https://img.shields.io/badge/website-emprint--home-1a1a1a?style=flat-square&logo=githubpages&logoColor=white)](https://minhyeongson.github.io/emprint-home)
 [![Guide](https://img.shields.io/badge/guide-document-44403c?style=flat-square&logo=bookstack&logoColor=white)](https://minhyeongson.github.io/emprint-home/document/)
-[![Version](https://img.shields.io/badge/version-0.2.0-e85d04?style=flat-square)](https://github.com/MinhyeongSon/emprint/releases)
+[![Version](https://img.shields.io/badge/version-0.2.2-e85d04?style=flat-square)](https://github.com/MinhyeongSon/emprint/releases)
 [![macOS](https://img.shields.io/badge/macOS-arm64%20%7C%20x64-000000?style=flat-square&logo=apple&logoColor=white)](https://minhyeongson.github.io/emprint-home/#downloads)
 [![Windows](https://img.shields.io/badge/Windows-x64-0078D6?style=flat-square&logo=windows&logoColor=white)](https://minhyeongson.github.io/emprint-home/#downloads)
 [![License](https://img.shields.io/badge/license-Source--Available-6b7280?style=flat-square)](LICENSE)
@@ -99,6 +99,8 @@ Installers for **macOS (Apple Silicon · Intel)** and **Windows (x64)** are on t
 
 After install: **Wizard** (Git · GitHub · folder) → **Hub** → write, Design, **Publish** in a workspace.
 
+**macOS (unsigned build):** If the system says the app is damaged, it is usually Gatekeeper, not a broken file. Remove quarantine: `xattr -cr /Applications/Emprint.app`, then open via **Right-click → Open** once. Signed/notarized builds avoid this.
+
 See the **[user guide](https://minhyeongson.github.io/emprint-home/document/)** for how to use the app.
 
 ---
@@ -179,6 +181,8 @@ macOS(Apple Silicon · Intel) · Windows 설치 파일은 **홈페이지**에서
 👉 **[다운로드 · 설치](https://minhyeongson.github.io/emprint-home/#downloads)**
 
 설치 후 첫 실행 → **Wizard**(Git · GitHub · 작업 폴더) → **Hub** → 워크스페이스에서 글쓰기 · Design · Publish.
+
+**macOS(미서명 빌드):** “손상되어 열 수 없습니다”는 파일 손상이 아니라 Gatekeeper 차단인 경우가 많습니다. `xattr -cr /Applications/Emprint.app` 실행 후 **우클릭 → 열기**로 한 번 실행하세요.
 
 사용 방법은 **[사용 가이드](https://minhyeongson.github.io/emprint-home/document/)** 에서 확인할 수 있습니다.
 

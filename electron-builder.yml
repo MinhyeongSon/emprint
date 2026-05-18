@@ -42,11 +42,13 @@ extraMetadata:
 mac:
   category: public.app-category.productivity
   icon: build/icon.icns
-  hardenedRuntime: true
+  # Unsigned CI/release builds: ad-hoc sign only. hardenedRuntime without a real
+  # Developer ID makes macOS report the app as "damaged" (손상됨), not corruption.
+  hardenedRuntime: false
   gatekeeperAssess: false
-  # Unsigned local builds. To produce a signed/notarized DMG, set CSC_LINK +
-  # CSC_KEY_PASSWORD env vars (or replace `null` with your Developer ID).
-  identity: null
+  identity: '-'
+  # Signed + notarized release: set CSC_LINK + CSC_KEY_PASSWORD, use your
+  # "Developer ID Application" identity string, and enable hardenedRuntime + notarize.
   target:
     - target: dmg
       arch:

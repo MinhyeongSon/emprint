@@ -5,6 +5,14 @@ All notable changes to the Emprint desktop app are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2026-05-15
+
+### Fixed
+
+- **macOS**: Unsigned arm64/x64 builds no longer show Gatekeeper “damaged” on first open (ad-hoc sign, `hardenedRuntime` off until notarized).
+- **Design preview**: `scripts/sync-theme.mjs` no longer crashes with `normalizeClassPrefix is not defined` on `npm run dev`.
+- **Landing intro**: Default message text uses Emprint brand accent orange (`#e85d04`).
+
 ## [0.2.0] - 2026-05-15
 
 ### Added
@@ -32,5 +40,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial public release: Column anthology, Setup Wizard, Hub, Posts/Drafts editor, Design (Template + Code), Assets, Publish, Imprint timeline, and GitHub Pages deploy workflow.
 
+[0.2.2]: https://github.com/MinhyeongSon/emprint/releases/tag/v0.2.2
 [0.2.0]: https://github.com/MinhyeongSon/emprint/releases/tag/v0.2.0
 [0.1.0]: https://github.com/MinhyeongSon/emprint/releases/tag/v0.1.0
