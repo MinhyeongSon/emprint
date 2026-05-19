@@ -46,7 +46,8 @@ publish_tree() {
     )
   fi
 
-  rsync -a --delete "${source_dir}/" "${work}/repo/"
+  # --exclude .git: without it, --delete removes the clone's .git (not in source tree).
+  rsync -a --delete --exclude '.git' "${source_dir}/" "${work}/repo/"
 
   (
     cd "${work}/repo"
