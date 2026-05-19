@@ -11,7 +11,7 @@
 
 [![Website](https://img.shields.io/badge/website-emprint--home-1a1a1a?style=flat-square&logo=githubpages&logoColor=white)](https://minhyeongson.github.io/emprint-home)
 [![Guide](https://img.shields.io/badge/guide-document-44403c?style=flat-square&logo=bookstack&logoColor=white)](https://minhyeongson.github.io/emprint-home/document/)
-[![Version](https://img.shields.io/badge/version-0.2.3-e85d04?style=flat-square)](https://github.com/MinhyeongSon/emprint/releases)
+[![Version](https://img.shields.io/badge/version-0.2.3-e85d04?style=flat-square)](https://github.com/MinhyeongSon/emprint-release/releases)
 [![macOS](https://img.shields.io/badge/macOS-arm64%20%7C%20x64-000000?style=flat-square&logo=apple&logoColor=white)](https://minhyeongson.github.io/emprint-home/#downloads)
 [![Windows](https://img.shields.io/badge/Windows-x64-0078D6?style=flat-square&logo=windows&logoColor=white)](https://minhyeongson.github.io/emprint-home/#downloads)
 [![License](https://img.shields.io/badge/license-Source--Available-6b7280?style=flat-square)](LICENSE)

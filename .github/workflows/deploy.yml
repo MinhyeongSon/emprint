@@ -26,6 +26,8 @@ permissions:
 
 env:
   NODE_VERSION: '22'
+  # Public release assets only — source stays in the private emprint repo.
+  RELEASE_REPO: MinhyeongSon/emprint-release
 
 jobs:
   meta:
@@ -127,7 +129,7 @@ jobs:
           path: ${{ matrix.asset_paths }}
 
   release:
-    name: Publish GitHub Release
+    name: Publish to emprint-release
     needs:
       - meta
       - build
@@ -146,13 +148,20 @@ jobs:
       - name: Create or update release
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_REPO_KEY }}
+          RELEASE_REPO: ${{ env.RELEASE_REPO }}
           RELEASE_TAG: ${{ needs.meta.outputs.release_tag }}
           RELEASE_TITLE: ${{ needs.meta.outputs.release_title }}
+          APP_VERSION: ${{ needs.meta.outputs.app_version }}
           IS_DRAFT: ${{ needs.meta.outputs.is_draft }}
           IS_PRERELEASE: ${{ needs.meta.outputs.is_prerelease }}
         run: |
           set -euo pipefail
+
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "RELEASE_REPO_KEY secret is not set on this repository."
+            exit 1
+          fi
 
           # Collect only regular files (not directories) from the downloaded
           # artifacts tree. Artifacts are stored with their relative path
@@ -162,6 +171,21 @@ jobs:
           if [ "${#assets[@]}" -eq 0 ]; then
             echo "No release assets were downloaded."
             exit 1
+          fi
+
+          notes_file="$(mktemp)"
+          if awk -v ver="${APP_VERSION}" '
+            $0 ~ "^## \\[" ver "\\]" { print; capture=1; next }
+            capture && /^## \\[/ { exit }
+            capture { print }
+          ' CHANGELOG.md | grep -q .; then
+            awk -v ver="${APP_VERSION}" '
+              $0 ~ "^## \\[" ver "\\]" { print; capture=1; next }
+              capture && /^## \\[/ { exit }
+              capture { print }
+            ' CHANGELOG.md > "${notes_file}"
+          else
+            printf 'Emprint %s\n' "${APP_VERSION}" > "${notes_file}"
           fi
 
           draft_flag=()
@@ -175,14 +199,17 @@ jobs:
             prerelease_flag+=(--prerelease)
           fi
 
-          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
-            echo "Release ${RELEASE_TAG} already exists. Uploading refreshed assets."
-            gh release upload "${RELEASE_TAG}" "${assets[@]}" --clobber
+          repo_flag=(-R "${RELEASE_REPO}")
+
+          if gh release view "${RELEASE_TAG}" "${repo_flag[@]}" >/dev/null 2>&1; then
+            echo "Release ${RELEASE_TAG} already exists on ${RELEASE_REPO}. Uploading refreshed assets."
+            gh release upload "${RELEASE_TAG}" "${assets[@]}" --clobber "${repo_flag[@]}"
           else
             gh release create "${RELEASE_TAG}" "${assets[@]}" \
+              "${repo_flag[@]}" \
               --title "${RELEASE_TITLE}" \
-              --generate-notes \
-              --target "${GITHUB_SHA}" \
+              --notes-file "${notes_file}" \
+              --target main \
               "${draft_flag[@]}" \
               "${prerelease_flag[@]}"
           fi

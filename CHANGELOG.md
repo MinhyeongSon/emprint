@@ -54,7 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial public release: Column anthology, Setup Wizard, Hub, Posts/Drafts editor, Design (Template + Code), Assets, Publish, Imprint timeline, and GitHub Pages deploy workflow.
 
-[0.2.3]: https://github.com/MinhyeongSon/emprint/releases/tag/v0.2.3
-[0.2.2]: https://github.com/MinhyeongSon/emprint/releases/tag/v0.2.2
-[0.2.0]: https://github.com/MinhyeongSon/emprint/releases/tag/v0.2.0
-[0.1.0]: https://github.com/MinhyeongSon/emprint/releases/tag/v0.1.0
+[0.2.3]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.2.3
+[0.2.2]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.2.2
+[0.2.0]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.2.0
+[0.1.0]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.1.0
