@@ -1,10 +1,11 @@
 import { existsSync } from 'node:fs'
+import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { execFile, spawn, type ChildProcess } from 'node:child_process'
 import { promisify } from 'node:util'
 import { shell } from 'electron'
 import type { SiteDevServerPhase, SiteDevServerState, SiteDevServerStatus } from '@emprint/shared'
-import { spawnNpm } from './resolve-node-toolchain'
+import { resolveWindowsSystemExecutable, spawnNpm } from './resolve-node-toolchain'
 import { ensureWorkspaceSyncThemeScript } from './workspace-theme-script'
 
 export const SITE_DEV_PREVIEW_URL = 'http://localhost:4321/'
@@ -116,14 +117,22 @@ async function releasePreviewPorts(ports: readonly number[] = PREVIEW_PORT_RANGE
 
   if (process.platform === 'win32') {
     try {
-      const { stdout } = await execFileAsync('netstat', ['-ano'], { encoding: 'utf8' })
+      const { stdout } = await execFileAsync(resolveWindowsSystemExecutable('netstat'), ['-ano'], {
+        encoding: 'utf8',
+        windowsHide: true
+      })
       for (const port of ports) {
         const lines = stdout.split('\n').filter((line) => line.includes(`:${port}`) && line.includes('LISTENING'))
         for (const line of lines) {
           const pid = Number.parseInt(line.trim().split(/\s+/).pop() ?? '', 10)
           if (pid > 0 && pid !== ourPid) {
             try {
-              await execFileAsync('taskkill', ['/PID', String(pid), '/F', '/T'])
+              await execFileAsync(resolveWindowsSystemExecutable('taskkill'), [
+                '/PID',
+                String(pid),
+                '/F',
+                '/T'
+              ], { windowsHide: true })
             } catch {
               /* ignore */
             }
@@ -225,7 +234,11 @@ function killChildTree(proc: ChildProcess): Promise<void> {
     proc.once('exit', () => resolve())
     if (process.platform === 'win32') {
       try {
-        spawn('taskkill', ['/pid', String(proc.pid), '/f', '/t'], { shell: true, stdio: 'ignore' })
+        spawn(resolveWindowsSystemExecutable('taskkill'), ['/pid', String(proc.pid), '/f', '/t'], {
+          shell: false,
+          stdio: 'ignore',
+          windowsHide: true
+        })
       } catch {
         proc.kill()
       }
@@ -260,6 +273,30 @@ export async function stopSiteDevServer(): Promise<SiteDevServerState> {
   return snapshot()
 }
 
+/** Windows-friendly npm script hooks (npm run adds Node to PATH for lifecycle scripts). */
+async function ensureWorkspaceNpmScripts(root: string): Promise<void> {
+  const pkgPath = path.join(root, 'package.json')
+  if (!existsSync(pkgPath)) return
+
+  const raw = await readFile(pkgPath, 'utf8')
+  const pkg = JSON.parse(raw) as { scripts?: Record<string, string> }
+  const scripts = { ...(pkg.scripts ?? {}) }
+
+  if (!scripts.predev?.includes('node ./scripts/sync-theme.mjs')) {
+    return
+  }
+
+  scripts['sync:theme'] = 'node ./scripts/sync-theme.mjs'
+  scripts['sync:assets'] = scripts['sync:assets'] ?? 'node ./scripts/sync-assets.mjs'
+  scripts.predev = 'npm run sync:theme && npm run sync:assets'
+  if (scripts.prebuild?.includes('node ./scripts/sync-theme.mjs')) {
+    scripts.prebuild = 'npm run sync:theme && npm run sync:assets'
+  }
+  scripts['theme:sync'] = 'npm run sync:theme'
+
+  await writeFile(pkgPath, `${JSON.stringify({ ...pkg, scripts }, null, 2)}\n`, 'utf8')
+}
+
 async function ensureDependencies(root: string): Promise<void> {
   if (existsSync(path.join(root, 'node_modules'))) return
   await runNpmInstall(root)
@@ -289,6 +326,7 @@ async function startSiteDevServer(root: string): Promise<SiteDevServerState> {
   progress = existsSync(path.join(resolved, 'node_modules')) ? 90 : undefined
   statusMessage = undefined
 
+  await ensureWorkspaceNpmScripts(resolved)
   await ensureDependencies(resolved)
   await ensureWorkspaceSyncThemeScript(resolved)
 

@@ -1,7 +1,7 @@
 import { existsSync, readdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import path from 'node:path'
-import { execFile, spawn, type SpawnOptions } from 'node:child_process'
+import { execFile, execFileSync, spawn, type SpawnOptions } from 'node:child_process'
 import { promisify } from 'node:util'
 import type { NodeDetectResult } from '@emprint/shared'
 
@@ -57,13 +57,19 @@ export function nodeToolchainSearchDirs(): string[] {
     const programFiles = process.env.ProgramFiles ?? 'C:\\Program Files'
     const programFilesX86 = process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)'
     dirs.push(path.join(programFiles, 'nodejs'), path.join(programFilesX86, 'nodejs'))
-    if (process.env.APPDATA) dirs.push(path.join(process.env.APPDATA, 'npm'))
+    if (process.env.NVM_SYMLINK) dirs.push(process.env.NVM_SYMLINK)
+    if (process.env.NVM_HOME) dirs.push(process.env.NVM_HOME)
+    if (process.env.APPDATA) {
+      dirs.push(path.join(process.env.APPDATA, 'npm'))
+      dirs.push(path.join(process.env.APPDATA, 'nvm'))
+    }
     if (process.env.LOCALAPPDATA) {
       dirs.push(path.join(process.env.LOCALAPPDATA, 'Programs', 'node'))
     }
+    dirs.push(path.join(home, 'scoop', 'apps', 'nodejs', 'current', 'bin'))
+  } else {
+    dirs.push('/usr/local/bin', '/usr/bin')
   }
-
-  dirs.push('/usr/local/bin', '/usr/bin')
 
   dirs.push(
     path.join(home, '.volta', 'bin'),
@@ -91,7 +97,52 @@ export function augmentedProcessEnv(
     seen.add(entry)
     unique.push(entry)
   }
-  return { ...base, PATH: unique.join(path.delimiter) }
+  const mergedPath = unique.join(path.delimiter)
+  if (process.platform === 'win32') {
+    return { ...base, PATH: mergedPath, Path: mergedPath }
+  }
+  return { ...base, PATH: mergedPath }
+}
+
+/** Resolve a binary under %SystemRoot%\\System32 (packaged apps often lack System32 on PATH). */
+export function resolveWindowsSystemExecutable(name: string): string {
+  const root = process.env.SystemRoot ?? 'C:\\Windows'
+  const withExt = name.toLowerCase().endsWith('.exe') ? name : `${name}.exe`
+  return path.join(root, 'System32', withExt)
+}
+
+function resolveNpmCliJs(npmPath: string): string | null {
+  const cli = path.join(path.dirname(npmPath), 'node_modules', 'npm', 'bin', 'npm-cli.js')
+  return existsSync(cli) ? cli : null
+}
+
+function resolveNpmViaWhere(): string | null {
+  if (process.platform !== 'win32') return null
+  try {
+    const where = resolveWindowsSystemExecutable('where')
+    const stdout = execFileSync(where, ['npm.cmd'], {
+      env: augmentedProcessEnv(),
+      encoding: 'utf8',
+      windowsHide: true
+    })
+    const line = stdout
+      .split(/\r?\n/)
+      .map((entry) => entry.trim())
+      .find((entry) => entry.toLowerCase().endsWith('npm.cmd') && existsSync(entry))
+    return line ?? null
+  } catch {
+    return null
+  }
+}
+
+function prependDirToPath(env: NodeJS.ProcessEnv, dir: string): NodeJS.ProcessEnv {
+  const pathKey = process.platform === 'win32' ? 'Path' : 'PATH'
+  const existing = env[pathKey] ?? env.PATH ?? ''
+  const merged = existing ? `${dir}${path.delimiter}${existing}` : dir
+  if (process.platform === 'win32') {
+    return { ...env, PATH: merged, Path: merged }
+  }
+  return { ...env, PATH: merged }
 }
 
 function npmFileName(): string {
@@ -125,6 +176,14 @@ export function resolveNpmExecutable(): string | null {
         cachedNpmPath = unixNpm
         return unixNpm
       }
+    }
+  }
+
+  if (process.platform === 'win32') {
+    const viaWhere = resolveNpmViaWhere()
+    if (viaWhere) {
+      cachedNpmPath = viaWhere
+      return viaWhere
     }
   }
 
@@ -195,9 +254,37 @@ export async function detectNodeToolchain(): Promise<NodeDetectResult> {
 export function spawnNpm(npmArgs: string[], options: SpawnOptions & { cwd: string }): ReturnType<typeof spawn> {
   const npm = assertNpmExecutable()
   const { env: optionEnv, ...rest } = options
+  const npmDir = path.dirname(npm)
+  let env = augmentedProcessEnv({ ...process.env, ...optionEnv })
+  env = prependDirToPath(env, npmDir)
+
+  if (process.platform === 'win32') {
+    // Avoid spawning npm.cmd directly — Node 20+ throws EINVAL on Windows (CVE-2024-27980).
+    // Official Node installs ship npm-cli.js next to node.exe.
+    const nodePath = resolveNodeExecutable(npm)
+    const npmCli = resolveNpmCliJs(npm)
+    if (npmCli) {
+      return spawn(nodePath, [npmCli, ...npmArgs], {
+        ...rest,
+        env,
+        cwd: options.cwd,
+        windowsHide: true,
+        shell: false
+      })
+    }
+    // Fallback: npm.cmd via shell + augmented PATH (no manual cmd /c quoting).
+    return spawn('npm.cmd', npmArgs, {
+      ...rest,
+      env,
+      cwd: options.cwd,
+      windowsHide: true,
+      shell: true
+    })
+  }
+
   return spawn(npm, npmArgs, {
     ...rest,
-    env: augmentedProcessEnv({ ...process.env, ...optionEnv }),
-    shell: process.platform === 'win32'
+    env,
+    shell: false
   })
 }

@@ -116,9 +116,11 @@ export function astroSharedArtifacts(ctx: SiteGenerationContext): WorkspaceArtif
               // `public/assets/` so markdown references like /assets/foo.png
               // resolve at both dev and build time without copying images by
               // hand.
-              predev: 'node ./scripts/sync-theme.mjs && node ./scripts/sync-assets.mjs',
-              prebuild: 'node ./scripts/sync-theme.mjs && node ./scripts/sync-assets.mjs',
-              'theme:sync': 'node ./scripts/sync-theme.mjs',
+              'sync:theme': 'node ./scripts/sync-theme.mjs',
+              'sync:assets': 'node ./scripts/sync-assets.mjs',
+              predev: 'npm run sync:theme && npm run sync:assets',
+              prebuild: 'npm run sync:theme && npm run sync:assets',
+              'theme:sync': 'npm run sync:theme',
               dev: 'astro dev',
               build: 'astro build',
               preview: 'astro preview'
