@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag to create or update (example: v0.2.9)'
+        description: 'Release tag to create or update (example: v0.2.10)'
         required: true
         type: string
       draft:
@@ -27,9 +27,9 @@ permissions:
 env:
   NODE_VERSION: '22'
   # Public release assets only — source stays in the private emprint repo.
-  RELEASE_REPO: MinhyeongSon/emprint-release
-  HOMEBREW_TAP_REPO: MinhyeongSon/homebrew-emprint
-  SCOOP_BUCKET_REPO: MinhyeongSon/scoop-emprint
+  RELEASE_REPO: devminson/emprint-release
+  HOMEBREW_TAP_REPO: devminson/homebrew-emprint
+  SCOOP_BUCKET_REPO: devminson/scoop-emprint
 
 jobs:
   meta:
@@ -168,7 +168,7 @@ jobs:
 
           # Collect only regular files (not directories) from the downloaded
           # artifacts tree. Artifacts are stored with their relative path
-          # preserved (e.g. release-assets/0.2.9/Emprint-0.2.9-arm64.pkg),
+          # preserved (e.g. release-assets/0.2.10/Emprint-0.2.10-arm64.pkg),
           # so a flat glob like release-assets/* would pick up directories.
           mapfile -t assets < <(find release-assets -type f)
           if [ "${#assets[@]}" -eq 0 ]; then

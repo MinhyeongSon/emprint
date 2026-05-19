@@ -5,8 +5,8 @@
  *
  * Usage:
  *   node packaging/scripts/render-package-managers.mjs \
- *     --version 0.2.9 \
- *     --tag v0.2.9 \
+ *     --version 0.2.10 \
+ *     --tag v0.2.10 \
  *     --assets-dir release-assets \
  *     --out-dir packaging
  */
@@ -14,8 +14,8 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 
-const RELEASE_REPO = 'MinhyeongSon/emprint-release'
-const HOMEPAGE = 'https://minhyeongson.github.io/emprint-home/'
+const RELEASE_REPO = 'devminson/emprint-release'
+const HOMEPAGE = 'https://devminson.github.io/emprint-home/'
 
 function parseArgs(argv) {
   const args = { assetsDir: 'release-assets', outDir: 'packaging' }

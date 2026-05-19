@@ -1,7 +1,7 @@
-# MinhyeongSon/emprint — Homebrew tap
+# devminson/emprint — Homebrew tap
 
 ```bash
-brew tap MinhyeongSon/emprint
+brew tap devminson/emprint
 brew install --cask emprint
 ```
 

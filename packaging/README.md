@@ -1,11 +1,11 @@
 # Package manager distribution (Homebrew + Scoop)
 
-Release CI builds macOS/Linux/Windows installers, uploads them to [emprint-release](https://github.com/MinhyeongSon/emprint-release), then renders and publishes:
+Release CI builds macOS/Linux/Windows installers, uploads them to [emprint-release](https://github.com/devminson/emprint-release), then renders and publishes:
 
 | Channel | Public repo | Install |
 |---------|-------------|---------|
-| Homebrew tap | [MinhyeongSon/homebrew-emprint](https://github.com/MinhyeongSon/homebrew-emprint) | `brew tap MinhyeongSon/emprint` → `brew install --cask emprint` |
-| Scoop bucket | [MinhyeongSon/scoop-emprint](https://github.com/MinhyeongSon/scoop-emprint) | `scoop bucket add emprint https://github.com/MinhyeongSon/scoop-emprint` → `scoop install emprint` |
+| Homebrew tap | [devminson/homebrew-emprint](https://github.com/devminson/homebrew-emprint) | `brew tap devminson/emprint` → `brew install --cask emprint` |
+| Scoop bucket | [devminson/scoop-emprint](https://github.com/devminson/scoop-emprint) | `scoop bucket add emprint https://github.com/devminson/scoop-emprint` → `scoop install emprint` |
 
 ## One-time GitHub setup
 
@@ -16,8 +16,8 @@ Release CI builds macOS/Linux/Windows installers, uploads them to [emprint-relea
 
 Optional env overrides in the release workflow:
 
-- `HOMEBREW_TAP_REPO` (default `MinhyeongSon/homebrew-emprint`)
-- `SCOOP_BUCKET_REPO` (default `MinhyeongSon/scoop-emprint`)
+- `HOMEBREW_TAP_REPO` (default `devminson/homebrew-emprint`)
+- `SCOOP_BUCKET_REPO` (default `devminson/scoop-emprint`)
 
 ## Artifacts used
 

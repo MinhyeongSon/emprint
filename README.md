@@ -9,14 +9,14 @@
 
 *Just show you. Don't submit your result.*
 
-[![Website](https://img.shields.io/badge/website-emprint--home-1a1a1a?style=flat-square&logo=githubpages&logoColor=white)](https://minhyeongson.github.io/emprint-home)
-[![Guide](https://img.shields.io/badge/guide-document-44403c?style=flat-square&logo=bookstack&logoColor=white)](https://minhyeongson.github.io/emprint-home/document/)
-[![Version](https://img.shields.io/badge/version-0.2.9-e85d04?style=flat-square)](https://github.com/MinhyeongSon/emprint-release/releases)
-[![macOS](https://img.shields.io/badge/macOS-arm64%20%7C%20x64-000000?style=flat-square&logo=apple&logoColor=white)](https://minhyeongson.github.io/emprint-home/#downloads)
-[![Windows](https://img.shields.io/badge/Windows-x64-0078D6?style=flat-square&logo=windows&logoColor=white)](https://minhyeongson.github.io/emprint-home/#downloads)
+[![Website](https://img.shields.io/badge/website-emprint--home-1a1a1a?style=flat-square&logo=githubpages&logoColor=white)](https://devminson.github.io/emprint-home)
+[![Guide](https://img.shields.io/badge/guide-document-44403c?style=flat-square&logo=bookstack&logoColor=white)](https://devminson.github.io/emprint-home/document/)
+[![Version](https://img.shields.io/badge/version-0.2.10-e85d04?style=flat-square)](https://github.com/devminson/emprint-release/releases)
+[![macOS](https://img.shields.io/badge/macOS-arm64%20%7C%20x64-000000?style=flat-square&logo=apple&logoColor=white)](https://devminson.github.io/emprint-home/#downloads)
+[![Windows](https://img.shields.io/badge/Windows-x64-0078D6?style=flat-square&logo=windows&logoColor=white)](https://devminson.github.io/emprint-home/#downloads)
 [![License](https://img.shields.io/badge/license-Source--Available-6b7280?style=flat-square)](LICENSE)
 
-[Install](https://minhyeongson.github.io/emprint-home/#downloads) · [Homepage](https://minhyeongson.github.io/emprint-home) · [User guide](https://minhyeongson.github.io/emprint-home/document/)
+[Install](https://devminson.github.io/emprint-home/#downloads) · [Homepage](https://devminson.github.io/emprint-home) · [User guide](https://devminson.github.io/emprint-home/document/)
 
 </div>
 
@@ -97,13 +97,13 @@ Published sites include a header control so **readers** can switch System / Ligh
 
 ```bash
 # macOS
-brew tap MinhyeongSon/emprint
+brew tap devminson/emprint
 brew install --cask emprint
 ```
 
 ```powershell
 # Windows (Scoop)
-scoop bucket add emprint https://github.com/MinhyeongSon/scoop-emprint
+scoop bucket add emprint https://github.com/devminson/scoop-emprint
 scoop install emprint
 ```
 
@@ -111,7 +111,7 @@ Design preview needs **Node.js 22+** (`brew install node` or `scoop install node
 
 **Manual installers** (macOS `.pkg` / Windows Setup.exe) are on the homepage:
 
-👉 **[Download & install](https://minhyeongson.github.io/emprint-home/#downloads)**
+👉 **[Download & install](https://devminson.github.io/emprint-home/#downloads)**
 
 After install: **Wizard** (Git · GitHub · folder) → **Hub** → write, Design, **Publish** in a workspace.
 
@@ -119,7 +119,7 @@ After install: **Wizard** (Git · GitHub · folder) → **Hub** → write, Desig
 
 **Windows:** Installers use **NSIS** (electron-builder). **Inno Setup is not supported.** Reducing SmartScreen warnings long-term requires an **Authenticode** certificate (`CSC_LINK`); Scoop install is the lighter-weight option.
 
-See the **[user guide](https://minhyeongson.github.io/emprint-home/document/)** for how to use the app.
+See the **[user guide](https://devminson.github.io/emprint-home/document/)** for how to use the app.
 
 ---
 
@@ -198,13 +198,13 @@ Emprint는 **내 컴퓨터 안의 폴더**가 곧 작업실이 되는 데스크�
 
 ```bash
 # macOS
-brew tap MinhyeongSon/emprint
+brew tap devminson/emprint
 brew install --cask emprint
 ```
 
 ```powershell
 # Windows (Scoop)
-scoop bucket add emprint https://github.com/MinhyeongSon/scoop-emprint
+scoop bucket add emprint https://github.com/devminson/scoop-emprint
 scoop install emprint
 ```
 
@@ -212,7 +212,7 @@ Design 미리보기에는 **Node.js 22+** 가 필요합니다 (`brew install nod
 
 **수동 설치**(macOS `.pkg` · Windows Setup.exe)는 **홈페이지**에서 받을 수 있습니다.
 
-👉 **[다운로드 · 설치](https://minhyeongson.github.io/emprint-home/#downloads)**
+👉 **[다운로드 · 설치](https://devminson.github.io/emprint-home/#downloads)**
 
 설치 후 첫 실행 → **Wizard**(Git · GitHub · 작업 폴더) → **Hub** → 워크스페이스에서 글쓰기 · Design · Publish.
 
@@ -220,7 +220,7 @@ Design 미리보기에는 **Node.js 22+** 가 필요합니다 (`brew install nod
 
 **Windows:** 설치 파일은 **NSIS**(electron-builder)입니다. **Inno Setup은 지원하지 않습니다.** SmartScreen 완화에는 **Authenticode** 서명(`CSC_LINK`)이 필요하며, Scoop 설치가 대안입니다.
 
-사용 방법은 **[사용 가이드](https://minhyeongson.github.io/emprint-home/document/)** 에서 확인할 수 있습니다.
+사용 방법은 **[사용 가이드](https://devminson.github.io/emprint-home/document/)** 에서 확인할 수 있습니다.
 
 ---
 

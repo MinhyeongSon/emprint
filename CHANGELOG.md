@@ -5,6 +5,12 @@ All notable changes to the Emprint desktop app are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.10] - 2026-05-19
+
+### Changed
+
+- GitHub org/user URLs and package-manager defaults now use **devminson** (`emprint-release`, `homebrew-emprint`, `scoop-emprint`, Pages `devminson.github.io`).
+
 ## [0.2.9] - 2026-05-19
 
 ### Changed
@@ -21,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Homebrew** (`brew tap MinhyeongSon/emprint` → `brew install --cask emprint`) and **Scoop** (`scoop bucket add emprint` → `scoop install emprint`); release CI publishes cask/manifest and Windows ZIP artifacts for package managers.
+- **Homebrew** (`brew tap devminson/emprint` → `brew install --cask emprint`) and **Scoop** (`scoop bucket add emprint` → `scoop install emprint`); release CI publishes cask/manifest and Windows ZIP artifacts for package managers.
 - Windows **portable ZIP** (`Emprint-*-win-x64.zip`) alongside the NSIS installer.
 
 ### Fixed
@@ -33,7 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Homebrew** tap ([homebrew-emprint](https://github.com/MinhyeongSon/homebrew-emprint)) and **Scoop** bucket ([scoop-emprint](https://github.com/MinhyeongSon/scoop-emprint)); release CI publishes cask/manifest with checksums from mac/win ZIP artifacts.
+- **Homebrew** tap ([homebrew-emprint](https://github.com/devminson/homebrew-emprint)) and **Scoop** bucket ([scoop-emprint](https://github.com/devminson/scoop-emprint)); release CI publishes cask/manifest with checksums from mac/win ZIP artifacts.
 
 ### Fixed
 
@@ -55,7 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Setup Wizard**: Node.js 22+ detection step with OS-specific install commands.
-- **Release pipeline**: Installers publish to public [emprint-release](https://github.com/MinhyeongSon/emprint-release) (private source repo).
+- **Release pipeline**: Installers publish to public [emprint-release](https://github.com/devminson/emprint-release) (private source repo).
 
 ### Changed
 
@@ -116,12 +122,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial public release: Column anthology, Setup Wizard, Hub, Posts/Drafts editor, Design (Template + Code), Assets, Publish, Imprint timeline, and GitHub Pages deploy workflow.
 
-[0.2.9]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.2.9
-[0.2.8]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.2.8
-[0.2.7]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.2.7
-[0.2.6]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.2.6
-[0.2.5]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.2.5
-[0.2.3]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.2.3
-[0.2.2]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.2.2
-[0.2.0]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.2.0
-[0.1.0]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.1.0
+[0.2.10]: https://github.com/devminson/emprint-release/releases/tag/v0.2.10
+[0.2.9]: https://github.com/devminson/emprint-release/releases/tag/v0.2.9
+[0.2.8]: https://github.com/devminson/emprint-release/releases/tag/v0.2.8
+[0.2.7]: https://github.com/devminson/emprint-release/releases/tag/v0.2.7
+[0.2.6]: https://github.com/devminson/emprint-release/releases/tag/v0.2.6
+[0.2.5]: https://github.com/devminson/emprint-release/releases/tag/v0.2.5
+[0.2.3]: https://github.com/devminson/emprint-release/releases/tag/v0.2.3
+[0.2.2]: https://github.com/devminson/emprint-release/releases/tag/v0.2.2
+[0.2.0]: https://github.com/devminson/emprint-release/releases/tag/v0.2.0
+[0.1.0]: https://github.com/devminson/emprint-release/releases/tag/v0.1.0

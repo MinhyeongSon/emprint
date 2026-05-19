@@ -5,8 +5,8 @@ set -euo pipefail
 
 SOURCE_ROOT="${1:-packaging}"
 TOKEN="${PACKAGE_MANAGERS_KEY:-${RELEASE_REPO_KEY:-}}"
-HOMEBREW_TAP_REPO="${HOMEBREW_TAP_REPO:-MinhyeongSon/homebrew-emprint}"
-SCOOP_BUCKET_REPO="${SCOOP_BUCKET_REPO:-MinhyeongSon/scoop-emprint}"
+HOMEBREW_TAP_REPO="${HOMEBREW_TAP_REPO:-devminson/homebrew-emprint}"
+SCOOP_BUCKET_REPO="${SCOOP_BUCKET_REPO:-devminson/scoop-emprint}"
 APP_VERSION="${APP_VERSION:?APP_VERSION is required}"
 RELEASE_TAG="${RELEASE_TAG:?RELEASE_TAG is required}"
 

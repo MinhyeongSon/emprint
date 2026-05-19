@@ -1,7 +1,7 @@
-# MinhyeongSon/scoop-emprint — Scoop bucket
+# devminson/scoop-emprint — Scoop bucket
 
 ```powershell
-scoop bucket add emprint https://github.com/MinhyeongSon/scoop-emprint
+scoop bucket add emprint https://github.com/devminson/scoop-emprint
 scoop install emprint
 ```
 
