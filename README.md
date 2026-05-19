@@ -11,7 +11,7 @@
 
 [![Website](https://img.shields.io/badge/website-emprint--home-1a1a1a?style=flat-square&logo=githubpages&logoColor=white)](https://minhyeongson.github.io/emprint-home)
 [![Guide](https://img.shields.io/badge/guide-document-44403c?style=flat-square&logo=bookstack&logoColor=white)](https://minhyeongson.github.io/emprint-home/document/)
-[![Version](https://img.shields.io/badge/version-0.2.8-e85d04?style=flat-square)](https://github.com/MinhyeongSon/emprint-release/releases)
+[![Version](https://img.shields.io/badge/version-0.2.9-e85d04?style=flat-square)](https://github.com/MinhyeongSon/emprint-release/releases)
 [![macOS](https://img.shields.io/badge/macOS-arm64%20%7C%20x64-000000?style=flat-square&logo=apple&logoColor=white)](https://minhyeongson.github.io/emprint-home/#downloads)
 [![Windows](https://img.shields.io/badge/Windows-x64-0078D6?style=flat-square&logo=windows&logoColor=white)](https://minhyeongson.github.io/emprint-home/#downloads)
 [![License](https://img.shields.io/badge/license-Source--Available-6b7280?style=flat-square)](LICENSE)
@@ -109,13 +109,15 @@ scoop install emprint
 
 Design preview needs **Node.js 22+** (`brew install node` or `scoop install nodejs-lts`).
 
-**Manual installers** (DMG / Setup.exe) are on the homepage:
+**Manual installers** (macOS `.pkg` / Windows Setup.exe) are on the homepage:
 
 👉 **[Download & install](https://minhyeongson.github.io/emprint-home/#downloads)**
 
 After install: **Wizard** (Git · GitHub · folder) → **Hub** → write, Design, **Publish** in a workspace.
 
-**macOS (unsigned build):** If the system says the app is damaged, it is usually Gatekeeper, not a broken file. Remove quarantine: `xattr -cr /Applications/Emprint.app`, then open via **Right-click → Open** once. Signed/notarized builds avoid this.
+**macOS (unsigned build):** The `.pkg` installer runs a postinstall script (quarantine removal + ad-hoc sign). If Gatekeeper still blocks, try **Right-click → Open** once, or `xattr -dr com.apple.quarantine /Applications/Emprint.app`.
+
+**Windows:** Installers use **NSIS** (electron-builder). **Inno Setup is not supported.** Reducing SmartScreen warnings long-term requires an **Authenticode** certificate (`CSC_LINK`); Scoop install is the lighter-weight option.
 
 See the **[user guide](https://minhyeongson.github.io/emprint-home/document/)** for how to use the app.
 
@@ -208,13 +210,15 @@ scoop install emprint
 
 Design 미리보기에는 **Node.js 22+** 가 필요합니다 (`brew install node` 또는 `scoop install nodejs-lts`).
 
-**수동 설치**(DMG · Setup.exe)는 **홈페이지**에서 받을 수 있습니다.
+**수동 설치**(macOS `.pkg` · Windows Setup.exe)는 **홈페이지**에서 받을 수 있습니다.
 
 👉 **[다운로드 · 설치](https://minhyeongson.github.io/emprint-home/#downloads)**
 
 설치 후 첫 실행 → **Wizard**(Git · GitHub · 작업 폴더) → **Hub** → 워크스페이스에서 글쓰기 · Design · Publish.
 
-**macOS(미서명 빌드):** “손상되어 열 수 없습니다”는 파일 손상이 아니라 Gatekeeper 차단인 경우가 많습니다. `xattr -cr /Applications/Emprint.app` 실행 후 **우클릭 → 열기**로 한 번 실행하세요.
+**macOS(미서명 빌드):** `.pkg` 설치 시 postinstall에서 격리 해제·ad-hoc 서명을 시도합니다. 그래도 막히면 **우클릭 → 열기** 또는 `xattr -dr com.apple.quarantine /Applications/Emprint.app`.
+
+**Windows:** 설치 파일은 **NSIS**(electron-builder)입니다. **Inno Setup은 지원하지 않습니다.** SmartScreen 완화에는 **Authenticode** 서명(`CSC_LINK`)이 필요하며, Scoop 설치가 대안입니다.
 
 사용 방법은 **[사용 가이드](https://minhyeongson.github.io/emprint-home/document/)** 에서 확인할 수 있습니다.
 

@@ -13,7 +13,7 @@
  * `pack` / `dist` to keep packaging reproducible without committing
  * generated binaries.
  */
-import { mkdir, copyFile, writeFile, readFile } from 'node:fs/promises'
+import { chmod, mkdir, copyFile, writeFile, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import pngToIco from 'png-to-ico'
@@ -34,5 +34,12 @@ const icoSources = ['AppIcon16.png', 'AppIcon32.png', 'AppIcon64.png', 'AppIcon1
 const buffers = await Promise.all(icoSources.map((name) => readFile(path.join(iconsSrc, name))))
 const ico = await pngToIco(buffers)
 await writeFile(path.join(buildDir, 'icon.ico'), ico)
+
+const pkgPostinstall = path.join(buildDir, 'pkg-scripts/postinstall')
+try {
+  await chmod(pkgPostinstall, 0o755)
+} catch {
+  /* optional until build/pkg-scripts/postinstall is added */
+}
 
 console.log(`[emprint] Build icons written to ${path.relative(repoRoot, buildDir)}/`)

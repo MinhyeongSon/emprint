@@ -5,6 +5,18 @@ All notable changes to the Emprint desktop app are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.9] - 2026-05-19
+
+### Changed
+
+- **macOS**: Replace DMG with **PKG** installer; `postinstall` removes quarantine and re-applies ad-hoc signing (`build/pkg-scripts/postinstall`). Homebrew still uses ZIP.
+- **Windows**: NSIS installer options tightened (desktop/start-menu shortcuts). Inno Setup is not supported by electron-builder; SmartScreen still needs Authenticode (`CSC_LINK`) for best results.
+
+### Fixed
+
+- **Homebrew cask**: `postflight` quarantine removal + ad-hoc `codesign`; release CI hashes from live GitHub assets.
+- **Scoop**: ZIP layout without `win-unpacked`; `hash.url` for install-time checksum; publish script preserves `.git`.
+
 ## [0.2.8] - 2026-05-19
 
 ### Added
@@ -104,6 +116,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial public release: Column anthology, Setup Wizard, Hub, Posts/Drafts editor, Design (Template + Code), Assets, Publish, Imprint timeline, and GitHub Pages deploy workflow.
 
+[0.2.9]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.2.9
 [0.2.8]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.2.8
 [0.2.7]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.2.7
 [0.2.6]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.2.6

@@ -1,0 +1,19 @@
+#!/bin/bash
+# PKG postinstall — runs as root during install (electron-builder pkg target).
+set -e
+
+APP="/Applications/Emprint.app"
+
+if [ ! -d "${APP}" ]; then
+  HOME_APP="${HOME}/Applications/Emprint.app"
+  if [ -d "${HOME_APP}" ]; then
+    APP="${HOME_APP}"
+  else
+    exit 0
+  fi
+fi
+
+/usr/bin/xattr -dr com.apple.quarantine "${APP}" 2>/dev/null || true
+/usr/bin/codesign --force --deep --sign - "${APP}" 2>/dev/null || true
+
+exit 0

@@ -5,9 +5,9 @@
 # which is wired in as a `pre*` step on every dist script.
 #
 # Cross-compile notes:
-#   - macOS DMG: must be built ON macOS (uses hdiutil).
+#   - macOS PKG/ZIP: must be built ON macOS.
 #   - Windows NSIS: cross-builds from macOS/Linux via wine if installed,
-#     otherwise build on Windows.
+#     otherwise build on Windows. (Inno Setup is not supported by electron-builder.)
 #   - Linux AppImage/deb: cross-builds cleanly from any host.
 # CI should use a per-OS matrix to avoid these constraints.
 
@@ -38,7 +38,7 @@ files:
 extraMetadata:
   main: apps/desktop/out/main/index.cjs
 
-# Default artifact names (zip targets on mac/win). DMG/NSIS/AppImage/deb override below.
+# Default artifact names (zip targets on mac/win). PKG/NSIS/AppImage/deb override below.
 artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 
 # ---------------- macOS ----------------
@@ -53,7 +53,7 @@ mac:
   # Signed + notarized release: set CSC_LINK + CSC_KEY_PASSWORD, use your
   # "Developer ID Application" identity string, and enable hardenedRuntime + notarize.
   target:
-    - target: dmg
+    - target: pkg
       arch:
         - x64
         - arm64
@@ -62,9 +62,12 @@ mac:
         - x64
         - arm64
 
-dmg:
-  artifactName: ${productName}-${version}-${arch}.${ext}
-  writeUpdateInfo: false
+# PKG installer for manual installs; postinstall clears quarantine + ad-hoc re-signs.
+pkg:
+  artifactName: ${productName}-${version}-${arch}.pkg
+  scripts: pkg-scripts
+  installLocation: /Applications
+  isRelocatable: false
 
 # ---------------- Windows ----------------
 win:
@@ -77,12 +80,19 @@ win:
       arch:
         - x64
 
+# NSIS is the supported Windows installer (Inno Setup is not available in electron-builder).
+# SmartScreen reputation still needs Authenticode signing (CSC_LINK / CSC_KEY_PASSWORD).
 nsis:
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
+  allowElevation: true
   artifactName: ${productName}-Setup-${version}-${arch}.${ext}
   shortcutName: Emprint
+  uninstallDisplayName: Emprint
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  runAfterFinish: true
 
 # ---------------- Linux ----------------
 linux:
