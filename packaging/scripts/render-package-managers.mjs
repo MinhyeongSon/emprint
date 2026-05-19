@@ -121,7 +121,7 @@ function renderScoop({ version, tag, win }) {
     notes: 'Design preview requires Node.js 22+: scoop install nodejs-lts',
     url,
     hash: `sha256:${win.sha256}`,
-    extract_dir: 'win-unpacked',
+    // electron-builder 26+ zips win with withoutDir:true (exe at archive root, not win-unpacked/).
     bin: 'Emprint.exe',
     checkver: {
       github: `https://github.com/${RELEASE_REPO}`

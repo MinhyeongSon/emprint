@@ -25,7 +25,7 @@ Optional env overrides in the release workflow:
 |------|----------|
 | `Emprint-<version>-mac-arm64.zip` | Homebrew cask (`on_arm`) |
 | `Emprint-<version>-mac-x64.zip` | Homebrew cask (`on_intel`) |
-| `Emprint-<version>-win-x64.zip` | Scoop (`extract_dir`: `win-unpacked`) |
+| `Emprint-<version>-win-x64.zip` | Scoop (`Emprint.exe` at ZIP root) |
 | `Emprint-Setup-<version>-x64.exe` | Manual / website download (unchanged) |
 
 ZIP names come from `electron-builder.yml` (`zip.artifactName`).
