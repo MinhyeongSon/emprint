@@ -197,6 +197,11 @@ export function assertNpmExecutable(): string {
   return npm
 }
 
+/** Absolute path to node.exe / node (same install as resolved npm). */
+export function resolveNodeBinary(): string {
+  return resolveNodeExecutable(assertNpmExecutable())
+}
+
 function resolveNodeExecutable(npmPath: string): string {
   const nodeName = process.platform === 'win32' ? 'node.exe' : 'node'
   const sibling = path.join(path.dirname(npmPath), nodeName)
@@ -251,12 +256,33 @@ export async function detectNodeToolchain(): Promise<NodeDetectResult> {
   return result
 }
 
+function nodeToolchainEnv(optionEnv?: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const npm = assertNpmExecutable()
+  const npmDir = path.dirname(npm)
+  let env = augmentedProcessEnv({ ...process.env, ...optionEnv })
+  return prependDirToPath(env, npmDir)
+}
+
+/** Spawn Node with argv array (safe for paths containing spaces on Windows). */
+export function spawnNode(
+  nodeArgs: string[],
+  options: SpawnOptions & { cwd: string }
+): ReturnType<typeof spawn> {
+  const nodePath = resolveNodeBinary()
+  const { env: optionEnv, ...rest } = options
+  return spawn(nodePath, nodeArgs, {
+    ...rest,
+    env: nodeToolchainEnv(optionEnv),
+    cwd: options.cwd,
+    windowsHide: true,
+    shell: false
+  })
+}
+
 export function spawnNpm(npmArgs: string[], options: SpawnOptions & { cwd: string }): ReturnType<typeof spawn> {
   const npm = assertNpmExecutable()
   const { env: optionEnv, ...rest } = options
-  const npmDir = path.dirname(npm)
-  let env = augmentedProcessEnv({ ...process.env, ...optionEnv })
-  env = prependDirToPath(env, npmDir)
+  const env = nodeToolchainEnv(optionEnv)
 
   if (process.platform === 'win32') {
     // Avoid spawning npm.cmd directly — Node 20+ throws EINVAL on Windows (CVE-2024-27980).

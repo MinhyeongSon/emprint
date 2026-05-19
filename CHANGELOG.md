@@ -5,6 +5,15 @@ All notable changes to the Emprint desktop app are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.7] - 2026-05-19
+
+### Fixed
+
+- **Windows — Design preview**: Start Astro dev without `npm run dev` / nested `npm run` predev hooks (fixes `'C:\Program'` when Node lives under `C:\Program Files\...`).
+- **Windows — Design preview**: Run sync scripts and Astro via `node.exe` with argv arrays (`shell: false`); migrate workspace `predev`/`prebuild` to `node ./scripts/...`.
+- **Design preview**: Resolve Astro 6 CLI at `bin/astro.mjs` (fixes false “Astro is not installed” when `node_modules` exists).
+- **Design preview**: Run `npm install` when Astro is missing, not only when `node_modules` is absent.
+
 ## [0.2.6] - 2026-05-15
 
 ### Fixed
@@ -79,6 +88,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial public release: Column anthology, Setup Wizard, Hub, Posts/Drafts editor, Design (Template + Code), Assets, Publish, Imprint timeline, and GitHub Pages deploy workflow.
 
+[0.2.7]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.2.7
 [0.2.6]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.2.6
 [0.2.5]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.2.5
 [0.2.3]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.2.3

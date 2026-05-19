@@ -118,8 +118,8 @@ export function astroSharedArtifacts(ctx: SiteGenerationContext): WorkspaceArtif
               // hand.
               'sync:theme': 'node ./scripts/sync-theme.mjs',
               'sync:assets': 'node ./scripts/sync-assets.mjs',
-              predev: 'npm run sync:theme && npm run sync:assets',
-              prebuild: 'npm run sync:theme && npm run sync:assets',
+              predev: 'node ./scripts/sync-theme.mjs && node ./scripts/sync-assets.mjs',
+              prebuild: 'node ./scripts/sync-theme.mjs && node ./scripts/sync-assets.mjs',
               'theme:sync': 'npm run sync:theme',
               dev: 'astro dev',
               build: 'astro build',

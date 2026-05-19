@@ -1,11 +1,11 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { execFile, spawn, type ChildProcess } from 'node:child_process'
 import { promisify } from 'node:util'
 import { shell } from 'electron'
 import type { SiteDevServerPhase, SiteDevServerState, SiteDevServerStatus } from '@emprint/shared'
-import { resolveWindowsSystemExecutable, spawnNpm } from './resolve-node-toolchain'
+import { resolveWindowsSystemExecutable, spawnNode, spawnNpm } from './resolve-node-toolchain'
 import { ensureWorkspaceSyncThemeScript } from './workspace-theme-script'
 
 export const SITE_DEV_PREVIEW_URL = 'http://localhost:4321/'
@@ -273,7 +273,10 @@ export async function stopSiteDevServer(): Promise<SiteDevServerState> {
   return snapshot()
 }
 
-/** Windows-friendly npm script hooks (npm run adds Node to PATH for lifecycle scripts). */
+const WORKSPACE_PREDEV =
+  'node ./scripts/sync-theme.mjs && node ./scripts/sync-assets.mjs'
+
+/** Avoid nested `npm run` in lifecycle scripts (cmd.exe breaks on `C:\Program Files\...`). */
 async function ensureWorkspaceNpmScripts(root: string): Promise<void> {
   const pkgPath = path.join(root, 'package.json')
   if (!existsSync(pkgPath)) return
@@ -282,23 +285,97 @@ async function ensureWorkspaceNpmScripts(root: string): Promise<void> {
   const pkg = JSON.parse(raw) as { scripts?: Record<string, string> }
   const scripts = { ...(pkg.scripts ?? {}) }
 
-  if (!scripts.predev?.includes('node ./scripts/sync-theme.mjs')) {
+  const predevUsesNpmRun =
+    scripts.predev?.includes('npm run sync:theme') || scripts.predev?.includes('npm run sync:assets')
+  const prebuildUsesNpmRun =
+    scripts.prebuild?.includes('npm run sync:theme') ||
+    scripts.prebuild?.includes('npm run sync:assets')
+  const predevOnlyTheme =
+    scripts.predev === 'node ./scripts/sync-theme.mjs' ||
+    scripts.predev?.trim() === 'node ./scripts/sync-theme.mjs'
+
+  if (!predevUsesNpmRun && !prebuildUsesNpmRun && !predevOnlyTheme) {
     return
   }
 
-  scripts['sync:theme'] = 'node ./scripts/sync-theme.mjs'
+  scripts['sync:theme'] = scripts['sync:theme'] ?? 'node ./scripts/sync-theme.mjs'
   scripts['sync:assets'] = scripts['sync:assets'] ?? 'node ./scripts/sync-assets.mjs'
-  scripts.predev = 'npm run sync:theme && npm run sync:assets'
-  if (scripts.prebuild?.includes('node ./scripts/sync-theme.mjs')) {
-    scripts.prebuild = 'npm run sync:theme && npm run sync:assets'
+  if (predevUsesNpmRun || predevOnlyTheme) {
+    scripts.predev = WORKSPACE_PREDEV
   }
-  scripts['theme:sync'] = 'npm run sync:theme'
+  if (prebuildUsesNpmRun) {
+    scripts.prebuild = WORKSPACE_PREDEV
+  }
+  scripts['theme:sync'] = scripts['theme:sync'] ?? 'npm run sync:theme'
 
   await writeFile(pkgPath, `${JSON.stringify({ ...pkg, scripts }, null, 2)}\n`, 'utf8')
 }
 
+function runNodeScript(scriptPath: string, cwd: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const proc = spawnNode([scriptPath], {
+      cwd,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { BROWSER: 'none', CI: 'true' }
+    })
+    let err = ''
+    proc.stderr?.on('data', (chunk) => {
+      err += String(chunk)
+    })
+    proc.on('error', reject)
+    proc.on('close', (code) => {
+      if (code === 0) {
+        resolve()
+      } else {
+        reject(new Error(err.trim() || `${path.basename(scriptPath)} failed (${code})`))
+      }
+    })
+  })
+}
+
+async function runWorkspacePredev(root: string): Promise<void> {
+  const themeScript = path.join(root, 'scripts', 'sync-theme.mjs')
+  const assetsScript = path.join(root, 'scripts', 'sync-assets.mjs')
+  if (existsSync(themeScript)) {
+    await runNodeScript(themeScript, root)
+  }
+  if (existsSync(assetsScript)) {
+    await runNodeScript(assetsScript, root)
+  }
+}
+
+/** Astro 6+ ships CLI at `bin/astro.mjs` (not legacy `astro.js`). */
+function resolveAstroCli(root: string): string | null {
+  const astroDir = path.join(root, 'node_modules', 'astro')
+  const pkgPath = path.join(astroDir, 'package.json')
+  if (existsSync(pkgPath)) {
+    try {
+      const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as {
+        bin?: string | Record<string, string>
+      }
+      const binRel =
+        typeof pkg.bin === 'string'
+          ? pkg.bin
+          : pkg.bin && typeof pkg.bin === 'object'
+            ? pkg.bin.astro
+            : undefined
+      if (binRel) {
+        const cli = path.join(astroDir, binRel)
+        if (existsSync(cli)) return cli
+      }
+    } catch {
+      /* fall through to known paths */
+    }
+  }
+  for (const rel of ['bin/astro.mjs', 'astro.js']) {
+    const candidate = path.join(astroDir, rel)
+    if (existsSync(candidate)) return candidate
+  }
+  return null
+}
+
 async function ensureDependencies(root: string): Promise<void> {
-  if (existsSync(path.join(root, 'node_modules'))) return
+  if (resolveAstroCli(root)) return
   await runNpmInstall(root)
 }
 
@@ -323,7 +400,7 @@ async function startSiteDevServer(root: string): Promise<SiteDevServerState> {
   workspaceRoot = resolved
   status = 'starting'
   phase = 'starting-dev'
-  progress = existsSync(path.join(resolved, 'node_modules')) ? 90 : undefined
+  progress = resolveAstroCli(resolved) ? 90 : undefined
   statusMessage = undefined
 
   await ensureWorkspaceNpmScripts(resolved)
@@ -337,7 +414,18 @@ async function startSiteDevServer(root: string): Promise<SiteDevServerState> {
   progress = 94
   statusMessage = undefined
 
-  const proc = spawnNpm(['run', 'dev'], {
+  await runWorkspacePredev(resolved)
+
+  const astroCli = resolveAstroCli(resolved)
+  if (!astroCli) {
+    status = 'error'
+    phase = 'idle'
+    progress = undefined
+    statusMessage = 'Astro is not installed in this anthology. Try saving the workspace again or run npm install.'
+    return snapshot()
+  }
+
+  const proc = spawnNode([astroCli, 'dev'], {
     cwd: resolved,
     stdio: ['ignore', 'pipe', 'pipe'],
     env: { BROWSER: 'none', CI: 'true' }
