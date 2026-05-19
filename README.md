@@ -11,7 +11,7 @@
 
 [![Website](https://img.shields.io/badge/website-emprint--home-1a1a1a?style=flat-square&logo=githubpages&logoColor=white)](https://minhyeongson.github.io/emprint-home)
 [![Guide](https://img.shields.io/badge/guide-document-44403c?style=flat-square&logo=bookstack&logoColor=white)](https://minhyeongson.github.io/emprint-home/document/)
-[![Version](https://img.shields.io/badge/version-0.2.7-e85d04?style=flat-square)](https://github.com/MinhyeongSon/emprint-release/releases)
+[![Version](https://img.shields.io/badge/version-0.2.8-e85d04?style=flat-square)](https://github.com/MinhyeongSon/emprint-release/releases)
 [![macOS](https://img.shields.io/badge/macOS-arm64%20%7C%20x64-000000?style=flat-square&logo=apple&logoColor=white)](https://minhyeongson.github.io/emprint-home/#downloads)
 [![Windows](https://img.shields.io/badge/Windows-x64-0078D6?style=flat-square&logo=windows&logoColor=white)](https://minhyeongson.github.io/emprint-home/#downloads)
 [![License](https://img.shields.io/badge/license-Source--Available-6b7280?style=flat-square)](LICENSE)
@@ -93,7 +93,23 @@ Published sites include a header control so **readers** can switch System / Ligh
 
 ### Install
 
-Installers for **macOS (Apple Silicon · Intel)** and **Windows (x64)** are on the homepage:
+**Recommended (package managers)** — fewer download warnings than a raw installer from the browser:
+
+```bash
+# macOS
+brew tap MinhyeongSon/emprint
+brew install --cask emprint
+```
+
+```powershell
+# Windows (Scoop)
+scoop bucket add emprint https://github.com/MinhyeongSon/scoop-emprint
+scoop install emprint
+```
+
+Design preview needs **Node.js 22+** (`brew install node` or `scoop install nodejs-lts`).
+
+**Manual installers** (DMG / Setup.exe) are on the homepage:
 
 👉 **[Download & install](https://minhyeongson.github.io/emprint-home/#downloads)**
 
@@ -176,7 +192,23 @@ Emprint는 **내 컴퓨터 안의 폴더**가 곧 작업실이 되는 데스크�
 
 ### 설치
 
-macOS(Apple Silicon · Intel) · Windows 설치 파일은 **홈페이지**에서 받습니다.
+**권장(패키지 매니저)** — 브라우저에서 설치 파일을 직접 받는 것보다 경고가 적은 경우가 많습니다.
+
+```bash
+# macOS
+brew tap MinhyeongSon/emprint
+brew install --cask emprint
+```
+
+```powershell
+# Windows (Scoop)
+scoop bucket add emprint https://github.com/MinhyeongSon/scoop-emprint
+scoop install emprint
+```
+
+Design 미리보기에는 **Node.js 22+** 가 필요합니다 (`brew install node` 또는 `scoop install nodejs-lts`).
+
+**수동 설치**(DMG · Setup.exe)는 **홈페이지**에서 받을 수 있습니다.
 
 👉 **[다운로드 · 설치](https://minhyeongson.github.io/emprint-home/#downloads)**
 

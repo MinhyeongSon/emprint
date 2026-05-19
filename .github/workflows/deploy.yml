@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag to create or update (example: v0.2.7)'
+        description: 'Release tag to create or update (example: v0.2.8)'
         required: true
         type: string
       draft:
@@ -28,6 +28,8 @@ env:
   NODE_VERSION: '22'
   # Public release assets only — source stays in the private emprint repo.
   RELEASE_REPO: MinhyeongSon/emprint-release
+  HOMEBREW_TAP_REPO: MinhyeongSon/homebrew-emprint
+  SCOOP_BUCKET_REPO: MinhyeongSon/scoop-emprint
 
 jobs:
   meta:
@@ -95,6 +97,7 @@ jobs:
             artifact_name: emprint-windows-release
             asset_paths: |
               release/**/*.exe
+              release/**/*.zip
               release/**/*.blockmap
     steps:
       - name: Checkout
@@ -165,7 +168,7 @@ jobs:
 
           # Collect only regular files (not directories) from the downloaded
           # artifacts tree. Artifacts are stored with their relative path
-          # preserved (e.g. release-assets/0.2.7/Emprint-0.2.7-arm64.dmg),
+          # preserved (e.g. release-assets/0.2.8/Emprint-0.2.8-arm64.dmg),
           # so a flat glob like release-assets/* would pick up directories.
           mapfile -t assets < <(find release-assets -type f)
           if [ "${#assets[@]}" -eq 0 ]; then
@@ -213,3 +216,24 @@ jobs:
               "${draft_flag[@]}" \
               "${prerelease_flag[@]}"
           fi
+
+      - name: Render Homebrew cask and Scoop manifest
+        env:
+          APP_VERSION: ${{ needs.meta.outputs.app_version }}
+          RELEASE_TAG: ${{ needs.meta.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          node packaging/scripts/render-package-managers.mjs \
+            --version "${APP_VERSION}" \
+            --tag "${RELEASE_TAG}" \
+            --assets-dir release-assets
+
+      - name: Publish Homebrew tap and Scoop bucket
+        env:
+          APP_VERSION: ${{ needs.meta.outputs.app_version }}
+          RELEASE_TAG: ${{ needs.meta.outputs.release_tag }}
+          RELEASE_REPO_KEY: ${{ secrets.RELEASE_REPO_KEY }}
+          PACKAGE_MANAGERS_KEY: ${{ secrets.PACKAGE_MANAGERS_KEY }}
+          HOMEBREW_TAP_REPO: ${{ env.HOMEBREW_TAP_REPO }}
+          SCOOP_BUCKET_REPO: ${{ env.SCOOP_BUCKET_REPO }}
+        run: bash packaging/scripts/publish-package-managers.sh packaging

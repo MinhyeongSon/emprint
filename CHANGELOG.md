@@ -5,7 +5,23 @@ All notable changes to the Emprint desktop app are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.8] - 2026-05-19
+
+### Added
+
+- **Homebrew** (`brew tap MinhyeongSon/emprint` → `brew install --cask emprint`) and **Scoop** (`scoop bucket add emprint` → `scoop install emprint`); release CI publishes cask/manifest and Windows ZIP artifacts for package managers.
+- Windows **portable ZIP** (`Emprint-*-win-x64.zip`) alongside the NSIS installer.
+
+### Fixed
+
+- **Windows — Design preview**: Run sync scripts and Astro via `node.exe` (avoids `'C:\Program'` path splitting under `C:\Program Files\...`).
+- **Design preview**: Astro 6 CLI at `bin/astro.mjs`; install dependencies when Astro is missing even if `node_modules` exists.
+
 ## [0.2.7] - 2026-05-19
+
+### Added
+
+- **Homebrew** tap ([homebrew-emprint](https://github.com/MinhyeongSon/homebrew-emprint)) and **Scoop** bucket ([scoop-emprint](https://github.com/MinhyeongSon/scoop-emprint)); release CI publishes cask/manifest with checksums from mac/win ZIP artifacts.
 
 ### Fixed
 
@@ -88,6 +104,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial public release: Column anthology, Setup Wizard, Hub, Posts/Drafts editor, Design (Template + Code), Assets, Publish, Imprint timeline, and GitHub Pages deploy workflow.
 
+[0.2.8]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.2.8
 [0.2.7]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.2.7
 [0.2.6]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.2.6
 [0.2.5]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.2.5

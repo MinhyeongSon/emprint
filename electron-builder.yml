@@ -63,11 +63,18 @@ dmg:
   artifactName: ${productName}-${version}-${arch}.${ext}
   writeUpdateInfo: false
 
+# ZIP archives for Homebrew cask (mac) and Scoop (win). ${os} → mac | win.
+zip:
+  artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+
 # ---------------- Windows ----------------
 win:
   icon: build/icon.ico
   target:
     - target: nsis
+      arch:
+        - x64
+    - target: zip
       arch:
         - x64
 
