@@ -38,6 +38,9 @@ files:
 extraMetadata:
   main: apps/desktop/out/main/index.cjs
 
+# Default artifact names (zip targets on mac/win). DMG/NSIS/AppImage/deb override below.
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+
 # ---------------- macOS ----------------
 mac:
   category: public.app-category.productivity
@@ -62,10 +65,6 @@ mac:
 dmg:
   artifactName: ${productName}-${version}-${arch}.${ext}
   writeUpdateInfo: false
-
-# ZIP archives for Homebrew cask (mac) and Scoop (win). ${os} → mac | win.
-zip:
-  artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 
 # ---------------- Windows ----------------
 win:
