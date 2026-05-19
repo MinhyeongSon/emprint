@@ -5,6 +5,23 @@ All notable changes to the Emprint desktop app are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.5] - 2026-05-15
+
+### Added
+
+- **Setup Wizard**: Node.js 22+ detection step with OS-specific install commands.
+- **Release pipeline**: Installers publish to public [emprint-release](https://github.com/MinhyeongSon/emprint-release) (private source repo).
+
+### Changed
+
+- Default desktop UI theme is **Warm**.
+
+### Fixed
+
+- **macOS**: Gatekeeper “damaged” on unsigned builds (ad-hoc sign).
+- **Design preview**: `sync-theme.mjs` / packaged app `spawn npm ENOENT` (Node toolchain path resolution).
+- **Landing intro**: Message text uses brand accent orange (`#e85d04`).
+
 ## [0.2.3] - 2026-05-15
 
 ### Added
@@ -54,6 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Initial public release: Column anthology, Setup Wizard, Hub, Posts/Drafts editor, Design (Template + Code), Assets, Publish, Imprint timeline, and GitHub Pages deploy workflow.
 
+[0.2.5]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.2.5
 [0.2.3]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.2.3
 [0.2.2]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.2.2
 [0.2.0]: https://github.com/MinhyeongSon/emprint-release/releases/tag/v0.2.0
