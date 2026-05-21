@@ -1,6 +1,6 @@
-import type { WorkspaceArtifact } from '../../workspace/workspace-template'
+import type { WorkspaceArtifact } from '@emprint/core'
 import type { SiteGenerationContext } from '../site-project-generator'
-import { EP } from './contract'
+import { EpColumnClasses } from './contract'
 import {
   createColumnGlobalCss,
   createColumnThemeJson,
@@ -128,19 +128,19 @@ const defaultMode =
 ---
 
 <div
-  class="${EP.ThemeToggle}"
+  class="${EpColumnClasses.ThemeToggle}"
   role="group"
   aria-label="${label}"
   data-ep-theme-toggle
   data-default-mode={defaultMode}
 >
-  <button type="button" class="${EP.ThemeToggleBtn}" data-ep-theme-mode="system" aria-pressed="false">
+  <button type="button" class="${EpColumnClasses.ThemeToggleBtn}" data-ep-theme-mode="system" aria-pressed="false">
     ${system}
   </button>
-  <button type="button" class="${EP.ThemeToggleBtn}" data-ep-theme-mode="light" aria-pressed="false">
+  <button type="button" class="${EpColumnClasses.ThemeToggleBtn}" data-ep-theme-mode="light" aria-pressed="false">
     ${light}
   </button>
-  <button type="button" class="${EP.ThemeToggleBtn}" data-ep-theme-mode="dark" aria-pressed="false">
+  <button type="button" class="${EpColumnClasses.ThemeToggleBtn}" data-ep-theme-mode="dark" aria-pressed="false">
     ${dark}
   </button>
 </div>
@@ -201,15 +201,15 @@ interface Props {
 const { current } = Astro.props
 ---
 
-<header class="${EP.Header}">
-  <div class="${EP.HeaderInner} ${EP.Wide}">
+<header class="${EpColumnClasses.Header}">
+  <div class="${EpColumnClasses.HeaderInner} ${EpColumnClasses.Wide}">
     <div>
-      <a class="${EP.HeaderBrand}" href={\`\${import.meta.env.BASE_URL}\`}>{SITE_TITLE}</a>
-      <p class="${EP.HeaderTagline}">{SITE_DESCRIPTION}</p>
+      <a class="${EpColumnClasses.HeaderBrand}" href={\`\${import.meta.env.BASE_URL}\`}>{SITE_TITLE}</a>
+      <p class="${EpColumnClasses.HeaderTagline}">{SITE_DESCRIPTION}</p>
     </div>
-    <div class="${EP.HeaderTools}">
+    <div class="${EpColumnClasses.HeaderTools}">
       <ThemeToggle />
-      <nav class="${EP.HeaderNav}" aria-label="${lang === 'ko' ? '주요 메뉴' : 'Primary'}">
+      <nav class="${EpColumnClasses.HeaderNav}" aria-label="${lang === 'ko' ? '주요 메뉴' : 'Primary'}">
       <a href={\`\${import.meta.env.BASE_URL}\`} aria-current={current === 'home' ? 'page' : undefined}>
         ${lang === 'ko' ? '홈' : 'Home'}
       </a>
@@ -232,8 +232,8 @@ import { SITE_TITLE } from '../lib/site'
 const year = new Date().getFullYear()
 ---
 
-<footer class="${EP.Footer}">
-  <div class="${EP.FooterInner} ${EP.Wide}">
+<footer class="${EpColumnClasses.Footer}">
+  <div class="${EpColumnClasses.FooterInner} ${EpColumnClasses.Wide}">
     <span>© {year} {SITE_TITLE}</span>
     <span>${lang === 'ko' ? 'Emprint로 발행됨' : 'Published with Emprint'}</span>
   </div>
@@ -256,32 +256,32 @@ const date = post.data.updatedAt ?? post.data.createdAt
 const href = \`\${import.meta.env.BASE_URL}posts/\${post.id}/\`
 const cardClass =
   variant === 'featured'
-    ? \`${EP.PostCard} ${EP.PostCardFeatured}\`
+    ? \`${EpColumnClasses.PostCard} ${EpColumnClasses.PostCardFeatured}\`
     : variant === 'compact'
-      ? \`${EP.PostCard} ${EP.PostCardCompact}\`
-      : '${EP.PostCard}'
+      ? \`${EpColumnClasses.PostCard} ${EpColumnClasses.PostCardCompact}\`
+      : '${EpColumnClasses.PostCard}'
 const showTags = variant !== 'compact'
 const showDesc = variant === 'featured' || variant === 'default'
 ---
 
 <li>
   <a class={cardClass} href={href}>
-    <h3 class="${EP.PostCardTitle}">{post.data.title}</h3>
-    <div class="${EP.PostCardMeta}">
+    <h3 class="${EpColumnClasses.PostCardTitle}">{post.data.title}</h3>
+    <div class="${EpColumnClasses.PostCardMeta}">
       {date ? <span>{formatDate(date)}</span> : null}
       {showTags && post.data.tags.length > 0 ? (
         <>
           <span aria-hidden> · </span>
-          <ul class="${EP.TagRow}" style="display:inline-flex;">
+          <ul class="${EpColumnClasses.TagRow}" style="display:inline-flex;">
             {post.data.tags.slice(0, 4).map((t: string) => (
-              <li><span class="${EP.Tag}">{t}</span></li>
+              <li><span class="${EpColumnClasses.Tag}">{t}</span></li>
             ))}
           </ul>
         </>
       ) : null}
     </div>
     {showDesc && post.data.description ? (
-      <p class="${EP.PostCardDesc}">{post.data.description}</p>
+      <p class="${EpColumnClasses.PostCardDesc}">{post.data.description}</p>
     ) : null}
   </a>
 </li>
@@ -370,7 +370,7 @@ const gridPosts = sorted.slice(1)
 ---
 
 {composition === 'readingRoom' ? (
-  <ul class="${EP.PostList}">
+  <ul class="${EpColumnClasses.PostList}">
     {sorted.map((post) => (
       <PostCard post={post} />
     ))}
@@ -378,30 +378,30 @@ const gridPosts = sorted.slice(1)
 ) : null}
 
 {composition === 'magazine' ? (
-  <div class="${EP.PostFeed}">
-    <div class="${EP.PostFeedMain}">
+  <div class="${EpColumnClasses.PostFeed}">
+    <div class="${EpColumnClasses.PostFeedMain}">
       {featured ? (
-        <div class="${EP.MagazineFeatured}">
+        <div class="${EpColumnClasses.MagazineFeatured}">
           <PostCard post={featured} variant="featured" />
         </div>
       ) : null}
       {gridPosts.length > 0 ? (
-        <ul class="${EP.PostList} ${EP.PostListGrid}">
+        <ul class="${EpColumnClasses.PostList} ${EpColumnClasses.PostListGrid}">
           {gridPosts.map((post) => (
             <PostCard post={post} />
           ))}
         </ul>
       ) : null}
     </div>
-    <aside class="${EP.PostFeedAside} ${EP.MagazineSidebar}" aria-label="Sidebar">
-      <section class="${EP.MagazineSidebarBlock}">
-        <h3 class="${EP.MagazineSidebarTitle}">Trending</h3>
-        <ol class="${EP.MagazineTrendingList}">
+    <aside class="${EpColumnClasses.PostFeedAside} ${EpColumnClasses.MagazineSidebar}" aria-label="Sidebar">
+      <section class="${EpColumnClasses.MagazineSidebarBlock}">
+        <h3 class="${EpColumnClasses.MagazineSidebarTitle}">Trending</h3>
+        <ol class="${EpColumnClasses.MagazineTrendingList}">
           {trending.map((post) => {
             const date = post.data.updatedAt ?? post.data.createdAt
             const href = \`\${import.meta.env.BASE_URL}posts/\${post.id}/\`
             return (
-              <li class="${EP.MagazineTrendingItem}">
+              <li class="${EpColumnClasses.MagazineTrendingItem}">
                 <a href={href}>
                   <span>{post.data.title}</span>
                   {date ? <time datetime={date.toISOString()}>{formatDate(date)}</time> : null}
@@ -412,13 +412,13 @@ const gridPosts = sorted.slice(1)
         </ol>
       </section>
       {topTags.length > 0 ? (
-        <section class="${EP.MagazineSidebarBlock}">
-          <h3 class="${EP.MagazineSidebarTitle}">Tags</h3>
-          <ul class="${EP.TagRow}">
+        <section class="${EpColumnClasses.MagazineSidebarBlock}">
+          <h3 class="${EpColumnClasses.MagazineSidebarTitle}">Tags</h3>
+          <ul class="${EpColumnClasses.TagRow}">
             {topTags.map(([tag, count]) => (
               <li>
                 <a
-                  class="${EP.Tag}"
+                  class="${EpColumnClasses.Tag}"
                   href={\`\${import.meta.env.BASE_URL}tags/\${encodeURIComponent(tag)}/\`}
                 >
                   {tag} · {count}
@@ -433,14 +433,14 @@ const gridPosts = sorted.slice(1)
 ) : null}
 
 {composition === 'journal' ? (
-  <div class="${EP.Journal}">
+  <div class="${EpColumnClasses.Journal}">
     {journalYears.map(({ year, months }) => (
-      <section class="${EP.JournalYear}">
-        <h2 class="${EP.JournalYearLabel}">{year}</h2>
+      <section class="${EpColumnClasses.JournalYear}">
+        <h2 class="${EpColumnClasses.JournalYearLabel}">{year}</h2>
         {months.map((month) => (
-          <div class="${EP.JournalMonth}">
-            <h3 class="${EP.JournalMonthLabel}">{month.label}</h3>
-            <ul class="${EP.JournalEntries}">
+          <div class="${EpColumnClasses.JournalMonth}">
+            <h3 class="${EpColumnClasses.JournalMonthLabel}">{month.label}</h3>
+            <ul class="${EpColumnClasses.JournalEntries}">
               {month.posts.map((post) => (
                 <PostCard post={post} variant="compact" />
               ))}
@@ -507,7 +507,7 @@ const layoutComposition =
   </head>
   <body>
     <LandingIntro />
-    <div class="${EP.Site}">
+    <div class="${EpColumnClasses.Site}">
       <Header current={current} />
       <main>
         <slot />
@@ -537,25 +537,25 @@ const date = updatedAt ?? createdAt
 ---
 
 <Layout title={title} description={description}>
-  <article class="${EP.Container}">
-    <header class="${EP.PostHeader}">
-      <div class="${EP.PostHeaderMeta}">
+  <article class="${EpColumnClasses.Container}">
+    <header class="${EpColumnClasses.PostHeader}">
+      <div class="${EpColumnClasses.PostHeaderMeta}">
         {date ? <span>{formatDate(date)}</span> : null}
         {tags.length > 0 ? (
-          <ul class="${EP.TagRow}" style="display:inline-flex;">
+          <ul class="${EpColumnClasses.TagRow}" style="display:inline-flex;">
             {tags.map((t: string) => (
               <li>
-                <a class="${EP.Tag}" href={\`\${import.meta.env.BASE_URL}tags/\${encodeURIComponent(t)}/\`}>{t}</a>
+                <a class="${EpColumnClasses.Tag}" href={\`\${import.meta.env.BASE_URL}tags/\${encodeURIComponent(t)}/\`}>{t}</a>
               </li>
             ))}
           </ul>
         ) : null}
       </div>
-      <h1 class="${EP.PostHeaderTitle}">{title}</h1>
-      {description ? <p class="${EP.PostHeaderDesc}">{description}</p> : null}
+      <h1 class="${EpColumnClasses.PostHeaderTitle}">{title}</h1>
+      {description ? <p class="${EpColumnClasses.PostHeaderDesc}">{description}</p> : null}
     </header>
 
-    <div class="${EP.Prose}">
+    <div class="${EpColumnClasses.Prose}">
       <slot />
     </div>
   </article>

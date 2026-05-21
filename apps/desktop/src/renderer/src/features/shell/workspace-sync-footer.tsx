@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowDownToLine, ArrowUpFromLine, Loader2, RefreshCw } from 'lucide-react'
+import { pick } from '@renderer/lib/i18n'
 import type { AppLocale, GitPullSkipReason, GitWorkingTreeSummary } from '@emprint/shared'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
@@ -7,24 +8,21 @@ import { useAppStore } from '@renderer/state/app-store'
 import { PullOverwriteDialog } from './pull-overwrite-dialog'
 import { ResetDraftDialog } from './reset-draft-dialog'
 
-function t(locale: AppLocale, en: string, ko: string): string {
-  return locale === 'ko' ? ko : en
-}
 
 function pullBlockedLabel(locale: AppLocale, reason: GitPullSkipReason | undefined): string {
   switch (reason) {
     case 'no-session':
-      return t(locale, 'Sign in with GitHub to update', '업데이트하려면 GitHub 로그인')
+      return pick(locale, 'Sign in with GitHub to update', '업데이트하려면 GitHub 로그인')
     case 'dirty-tree':
-      return t(locale, 'Save local changes first', '먼저 로컬 변경을 저장하세요')
+      return pick(locale, 'Save local changes first', '먼저 로컬 변경을 저장하세요')
     case 'diverged':
-      return t(locale, 'Publish or resolve local commits first', '먼저 발행하거나 로컬 커밋을 정리하세요')
+      return pick(locale, 'Publish or resolve local commits first', '먼저 발행하거나 로컬 커밋을 정리하세요')
     case 'off-branch':
-      return t(locale, 'Switch to main first', '먼저 main 브랜치로 이동하세요')
+      return pick(locale, 'Switch to main first', '먼저 main 브랜치로 이동하세요')
     case 'conflict':
-      return t(locale, 'Resolve conflicts first', '먼저 충돌을 해결하세요')
+      return pick(locale, 'Resolve conflicts first', '먼저 충돌을 해결하세요')
     default:
-      return t(locale, 'Cannot update yet', '아직 업데이트할 수 없습니다')
+      return pick(locale, 'Cannot update yet', '아직 업데이트할 수 없습니다')
   }
 }
 
@@ -181,13 +179,13 @@ export function WorkspaceSyncFooter({
 
   const publishSubtitle = () => {
     if (blocked) {
-      return t(locale, 'Unsaved changes', '저장되지 않은 변경')
+      return pick(locale, 'Unsaved changes', '저장되지 않은 변경')
     }
     if (showConflict) {
-      return t(locale, 'Needs recovery', '복구 필요')
+      return pick(locale, 'Needs recovery', '복구 필요')
     }
     if (behindCount > 0) {
-      return t(
+      return pick(
         locale,
         `${behindCount} update${behindCount === 1 ? '' : 's'} on live site`,
         `배포본에 업데이트 ${behindCount}건`
@@ -199,18 +197,18 @@ export function WorkspaceSyncFooter({
           ? `${pendingCount}개의 변경${aheadCount > 0 ? ' · 미발행 있음' : ''}`
           : `${pendingCount} change${pendingCount === 1 ? '' : 's'}${aheadCount > 0 ? ' · unpublished' : ''}`
       }
-      return t(locale, 'Unpublished updates', '아직 발행되지 않음')
+      return pick(locale, 'Unpublished updates', '아직 발행되지 않음')
     }
-    return t(locale, 'All caught up', '모두 발행됨')
+    return pick(locale, 'All caught up', '모두 발행됨')
   }
 
   const publishTooltip = blocked
-    ? t(locale, 'Save your changes before publishing', '발행 전에 먼저 저장해주세요')
+    ? pick(locale, 'Save your changes before publishing', '발행 전에 먼저 저장해주세요')
     : showConflict
-      ? t(locale, 'Restore the workspace before publishing', '발행 전에 워크스페이스를 복구하세요')
+      ? pick(locale, 'Restore the workspace before publishing', '발행 전에 워크스페이스를 복구하세요')
       : behindCount > 0
-        ? t(locale, 'Remote updates available — update or publish', '원격 업데이트 있음 — 가져오기 또는 발행')
-        : t(locale, 'Publish your changes', '변경사항 발행')
+        ? pick(locale, 'Remote updates available — update or publish', '원격 업데이트 있음 — 가져오기 또는 발행')
+        : pick(locale, 'Publish your changes', '변경사항 발행')
 
   return (
     <div className="space-y-2">
@@ -218,7 +216,7 @@ export function WorkspaceSyncFooter({
         <div className="rounded-md border border-border bg-surface px-3 py-2 text-[10px] leading-relaxed text-muted">
           {summary.branchCorrected ? (
             <p>
-              {t(
+              {pick(
                 locale,
                 'External changes to this repository were detected. Emprint switched you back to the main line.',
                 '클라이언트 외부에서 변경된 것이 감지되어 main 브랜치로 자동 복구했습니다.'
@@ -226,7 +224,7 @@ export function WorkspaceSyncFooter({
             </p>
           ) : (
             <p>
-              {t(
+              {pick(
                 locale,
                 'This folder is not on the main line Emprint uses. Save or discard local changes, then reopen the workspace.',
                 'Emprint가 사용하는 main 브랜치가 아닙니다. 로컬 변경을 정리한 뒤 다시 열어주세요.'
@@ -239,7 +237,7 @@ export function WorkspaceSyncFooter({
               className="mt-1 text-[10px] text-ink underline opacity-80"
               onClick={() => setBranchNoticeDismissed(true)}
             >
-              {t(locale, 'Dismiss', '닫기')}
+              {pick(locale, 'Dismiss', '닫기')}
             </button>
           ) : null}
         </div>
@@ -248,7 +246,7 @@ export function WorkspaceSyncFooter({
       {showConflict ? (
         <div className="rounded-md border border-[#e85d04]/40 bg-[#e85d04]/10 px-3 py-2.5">
           <p className="text-[10px] leading-relaxed text-ink">
-            {t(
+            {pick(
               locale,
               'A conflict occurred between your live site and this workspace. Differences between the deployed page and Imprint can cause this. Work you had in progress may be lost.',
               '배포된 웹페이지와 Imprint 사이의 차이로 충돌이 발생했습니다. 진행 중이던 작업 내용이 사라질 수 있습니다.'
@@ -261,7 +259,7 @@ export function WorkspaceSyncFooter({
             onClick={handleRecover}
           >
             <RefreshCw className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-            {t(locale, 'Restore from remote', '원격에서 복구')}
+            {pick(locale, 'Restore from remote', '원격에서 복구')}
           </Button>
         </div>
       ) : null}
@@ -274,7 +272,7 @@ export function WorkspaceSyncFooter({
           className="h-auto w-full justify-between gap-2 border-[#e85d04]/50 px-3 py-2 text-left text-[12px]"
           title={
             updateEnabled
-              ? t(locale, 'Pull updates from the live site', '배포본에서 업데이트 가져오기')
+              ? pick(locale, 'Pull updates from the live site', '배포본에서 업데이트 가져오기')
               : pullBlockedLabel(locale, summary?.pullBlockedReason)
           }
           onClick={handlePullClick}
@@ -286,12 +284,12 @@ export function WorkspaceSyncFooter({
               <ArrowDownToLine className="h-3.5 w-3.5 shrink-0 text-[#e85d04]" strokeWidth={2} aria-hidden />
             )}
             <span className="flex min-w-0 flex-col leading-tight">
-              <span className="text-[12px] font-semibold text-ink">{t(locale, 'Update', '업데이트')}</span>
+              <span className="text-[12px] font-semibold text-ink">{pick(locale, 'Update', '업데이트')}</span>
               <span className="truncate text-[10px] font-normal text-muted">
                 {updateEnabled
                   ? summary?.canPullOverwrite && !summary.canPull
-                    ? t(locale, 'May replace local edits', '로컬 변경을 덮어씁니다')
-                    : t(
+                    ? pick(locale, 'May replace local edits', '로컬 변경을 덮어씁니다')
+                    : pick(
                         locale,
                         `${behindCount} update${behindCount === 1 ? '' : 's'} from the live site`,
                         `배포본에서 ${behindCount}건 가져오기`
@@ -312,12 +310,12 @@ export function WorkspaceSyncFooter({
           className="h-8 w-full text-[11px] text-muted hover:text-ink"
           title={
             blocked
-              ? t(locale, 'Save your changes before resetting', '되돌리기 전에 먼저 저장하세요')
-              : t(locale, 'Discard uncommitted changes', '발행하지 않은 변경 버리기')
+              ? pick(locale, 'Save your changes before resetting', '되돌리기 전에 먼저 저장하세요')
+              : pick(locale, 'Discard uncommitted changes', '발행하지 않은 변경 버리기')
           }
           onClick={() => setResetDraftOpen(true)}
         >
-          {t(locale, 'Reset draft', '초안 되돌리기')}
+          {pick(locale, 'Reset draft', '초안 되돌리기')}
         </Button>
       ) : null}
 
@@ -337,7 +335,7 @@ export function WorkspaceSyncFooter({
             <ArrowUpFromLine className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
           )}
           <span className="flex min-w-0 flex-col leading-tight">
-            <span className="text-[12px] font-semibold">{t(locale, 'Publish', '발행')}</span>
+            <span className="text-[12px] font-semibold">{pick(locale, 'Publish', '발행')}</span>
             <span className="truncate text-[10px] font-normal opacity-80">{publishSubtitle()}</span>
           </span>
         </span>

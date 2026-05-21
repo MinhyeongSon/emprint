@@ -1,11 +1,9 @@
 import { createPortal } from 'react-dom'
 import { AlertTriangle, Loader2 } from 'lucide-react'
+import { pick } from '@renderer/lib/i18n'
 import type { AppLocale } from '@emprint/shared'
 import { Button } from '@renderer/components/ui/button'
 
-function t(locale: AppLocale, en: string, ko: string): string {
-  return locale === 'ko' ? ko : en
-}
 
 interface PullOverwriteDialogProps {
   open: boolean
@@ -46,17 +44,17 @@ export function PullOverwriteDialog({
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-[#e85d04]" aria-hidden />
           <div className="min-w-0 space-y-2">
             <h2 className="text-sm font-semibold text-ink">
-              {t(locale, 'Replace local copy with the live site?', '로컬을 배포본으로 맞출까요?')}
+              {pick(locale, 'Replace local copy with the live site?', '로컬을 배포본으로 맞출까요?')}
             </h2>
             <p className="text-sm leading-relaxed text-muted">
-              {t(
+              {pick(
                 locale,
                 `There ${behind === 1 ? 'is' : 'are'} ${behind} update${behind === 1 ? '' : 's'} on the live site that your local copy does not have yet. If you changed the same files locally, a normal merge might fail — Emprint will match your folder to the live site instead.`,
                 `배포된 사이트에 로컬에 없는 변경이 ${behind}건 있습니다. 같은 파일을 로컬에서 수정했다면 일반 병합이 어려울 수 있어, 폴더를 배포본과 동일하게 맞춥니다.`
               )}
             </p>
             <p className="text-sm leading-relaxed text-[#a34e00]">
-              {t(
+              {pick(
                 locale,
                 'Unpublished edits and staged changes in this workspace may be lost.',
                 '아직 발행하지 않은 글의 작업 내용과 스테이징된 변경이 사라질 수 있습니다.'
@@ -66,18 +64,18 @@ export function PullOverwriteDialog({
         </div>
         <div className="mt-5 flex justify-end gap-2">
           <Button type="button" variant="outline" disabled={busy} onClick={onCancel}>
-            {t(locale, 'Cancel', '취소')}
+            {pick(locale, 'Cancel', '취소')}
           </Button>
           <Button type="button" variant="primary" disabled={busy} onClick={onConfirm}>
             {busy ? (
               <>
                 <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                {t(locale, 'Updating…', '가져오는 중…')}
+                {pick(locale, 'Updating…', '가져오는 중…')}
               </>
             ) : continueToPublish ? (
-              t(locale, 'Update and continue', '가져온 뒤 계속')
+              pick(locale, 'Update and continue', '가져온 뒤 계속')
             ) : (
-              t(locale, 'Use live site copy', '배포본으로 맞추기')
+              pick(locale, 'Use live site copy', '배포본으로 맞추기')
             )}
           </Button>
         </div>

@@ -1,3 +1,4 @@
+import { pick } from '@renderer/lib/i18n'
 import type { AppLocale, SiteProjectKind, WorkspaceConfig } from '@emprint/shared'
 
 export interface DesignAiPromptInput {
@@ -7,12 +8,9 @@ export interface DesignAiPromptInput {
   requirements: string
 }
 
-function t(locale: AppLocale, en: string, ko: string) {
-  return locale === 'ko' ? ko : en
-}
 
 function projectKindLabel(locale: AppLocale, _kind?: SiteProjectKind): string {
-  return t(locale, 'column / editorial blog', '칼럼 · 글 중심 블로그')
+  return pick(locale, 'column / editorial blog', '칼럼 · 글 중심 블로그')
 }
 
 /** Static context bundled into every generated prompt (bilingual sections). */
@@ -128,7 +126,7 @@ export function buildDesignAiPrompt(input: DesignAiPromptInput): string {
 
   const anthologySection = workspaceConfig
     ? [
-        t(locale, '## This anthology', '## 이 앤솔로지'),
+        pick(locale, '## This anthology', '## 이 앤솔로지'),
         '',
         `- **Title**: ${workspaceConfig.title}`,
         `- **Description**: ${workspaceConfig.description}`,
@@ -148,19 +146,19 @@ export function buildDesignAiPrompt(input: DesignAiPromptInput): string {
     : ''
 
   const userSection = [
-    t(locale, '## User vision (fill in by the anthology owner)', '## 사용자 비전'),
+    pick(locale, '## User vision (fill in by the anthology owner)', '## 사용자 비전'),
     '',
-    t(locale, '### Mood, theme, and visual direction', '### 분위기·테마·시각적 방향'),
+    pick(locale, '### Mood, theme, and visual direction', '### 분위기·테마·시각적 방향'),
     moodAndTheme.trim() ||
-      t(
+      pick(
         locale,
         '(No extra mood/theme notes — use a calm editorial blog aesthetic aligned with existing CSS variables.)',
         '(추가 분위기 메모 없음 — 기존 CSS 변수와 어울리는 차분한 에디토리얼 블로그 톤을 사용하세요.)'
       ),
     '',
-    t(locale, '### Functional and layout requirements', '### 기능·레이아웃 요구사항'),
+    pick(locale, '### Functional and layout requirements', '### 기능·레이아웃 요구사항'),
     requirements.trim() ||
-      t(
+      pick(
         locale,
         '(No extra requirements — improve typography, spacing, and header/footer polish without changing data sources.)',
         '(추가 요구 없음 — 데이터 소스는 유지한 채 타이포·여백·헤더/푸터만 다듬으세요.)'
@@ -168,9 +166,9 @@ export function buildDesignAiPrompt(input: DesignAiPromptInput): string {
   ].join('\n')
 
   const taskSection = [
-    t(locale, '## Your task', '## 수행할 작업'),
+    pick(locale, '## Your task', '## 수행할 작업'),
     '',
-    t(
+    pick(
       locale,
       'Using the structure and constraints above, produce a **step-by-step implementation** for this anthology. Assume the user will paste your reply into ChatGPT, Claude, or Cursor and apply each file manually in Emprint Design → Code (or by editing files on disk). Be exhaustive: include every line of every file you change. If you touch `global.css`, show the full file after your edits. Suggest 1–2 optional enhancements only after the required changes.',
       '위 구조와 제약을 바탕으로 이 앤솔로지에 대한 **단계별 구현안**을 작성하세요. 사용자가 답변을 AI 챗에 붙여넣은 뒤 Emprint 디자인 → 코드(또는 디스크)에서 파일별로 적용한다고 가정하세요. 변경하는 모든 파일은 **줄 단위까지 전부** 포함하세요. `global.css`를 수정하면 수정 후 **파일 전체**를 보여주세요. 필수 변경 후에만 선택 개선 1–2개를 제안하세요.'

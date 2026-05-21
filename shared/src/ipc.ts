@@ -29,11 +29,23 @@ import type {
   PostSummary,
   RuntimeDiagnostics,
   WorkspaceCatalogEntry,
+  CatalogReconcileInput,
+  CatalogReconcileResult,
+  TistoryMigrationRunInput,
+  TistoryMigrationRunResult,
+  TistoryMigrationScanInput,
+  TistoryMigrationScanResult,
   SiteDevServerState,
   WorkspaceConfig,
   WorkspaceMonacoTypescriptPayload,
   WorkspaceSrcTreeNode,
 } from './types'
+import type {
+  MarkdownMigrationRunInput,
+  MarkdownMigrationRunResult,
+  MarkdownMigrationScanInput,
+  MarkdownMigrationScanResult
+} from './cross/markdown-migration'
 
 export const ipcChannels = {
   systemGetRuntimeInfo: 'system:get-runtime-info',
@@ -82,8 +94,13 @@ export const ipcChannels = {
   assetsListImages: 'assets:list-images',
   assetsDeleteImage: 'assets:delete-image',
   catalogList: 'catalog:list',
+  catalogReconcile: 'catalog:reconcile',
   catalogAdd: 'catalog:add',
   catalogRemove: 'catalog:remove',
+  migrationTistoryScan: 'migration:tistory:scan',
+  migrationTistoryRun: 'migration:tistory:run',
+  migrationMarkdownScan: 'migration:markdown:scan',
+  migrationMarkdownRun: 'migration:markdown:run',
   windowMinimize: 'window:minimize',
   windowToggleMaximize: 'window:toggle-maximize',
   windowClose: 'window:close',
@@ -101,6 +118,8 @@ export interface EmprintDesktopApi {
   /** Sync OS/platform from the main process (preload); avoids titlebar flicker before `getRuntimeInfo` resolves */
   env: {
     platform: string
+    /** Set when launched with EMPRINT_QA_MODE=1 (emprint-qa). */
+    qaMode?: boolean
   }
   system: {
     getRuntimeInfo(): Promise<RuntimeDiagnostics>
@@ -166,6 +185,7 @@ export interface EmprintDesktopApi {
   }
   catalog: {
     list(): Promise<WorkspaceCatalogEntry[]>
+    reconcile(input: CatalogReconcileInput): Promise<CatalogReconcileResult>
     add(input: Omit<WorkspaceCatalogEntry, 'createdAt' | 'updatedAt'> & { createdAt?: string; updatedAt?: string }): Promise<WorkspaceCatalogEntry>
     remove(input: { id: string; deleteRemote?: boolean }): Promise<void>
   }
@@ -210,6 +230,16 @@ export interface EmprintDesktopApi {
     stopSitePreview(): Promise<SiteDevServerState>
     /** Resolved `tsconfig.json` + Astro typings for Monaco in Design → Code. */
     getMonacoTypescript(): Promise<WorkspaceMonacoTypescriptPayload | null>
+  }
+  migration: {
+    tistory: {
+      scan(input: TistoryMigrationScanInput): Promise<TistoryMigrationScanResult>
+      run(input: TistoryMigrationRunInput): Promise<TistoryMigrationRunResult>
+    }
+    markdown: {
+      scan(input: MarkdownMigrationScanInput): Promise<MarkdownMigrationScanResult>
+      run(input: MarkdownMigrationRunInput): Promise<MarkdownMigrationRunResult>
+    }
   }
   assets: {
     /**

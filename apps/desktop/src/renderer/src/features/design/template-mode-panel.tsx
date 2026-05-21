@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type {
   AppLocale,
   ColorPaletteId,
@@ -35,10 +35,8 @@ import { cn } from '@renderer/lib/cn'
 import { LandingIntroPanel } from './landing-intro-panel'
 import { THEME_JSON_PATH } from './design-workspace-paths'
 import { useAppStore } from '@renderer/state/app-store'
+import { pick } from '@renderer/lib/i18n'
 
-function t(locale: AppLocale, en: string, ko: string) {
-  return locale === 'ko' ? ko : en
-}
 
 const COLUMN_COLOR_PRESETS: {
   id: ColumnThemePresetId
@@ -154,7 +152,7 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
     if (!columnDirty) return
     const api = window.emprint?.workspaceSrc
     if (!api?.save) {
-      setError(t(locale, 'Workspace source API unavailable.', '워크스페이스 소스 API를 사용할 수 없습니다.'))
+      setError(pick(locale, 'Workspace source API unavailable.', '워크스페이스 소스 API를 사용할 수 없습니다.'))
       return
     }
     setBusy(true)
@@ -189,7 +187,7 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
     if (!memoirDirty) return
     const api = window.emprint?.workspaceSrc
     if (!api?.save) {
-      setError(t(locale, 'Workspace source API unavailable.', '워크스페이스 소스 API를 사용할 수 없습니다.'))
+      setError(pick(locale, 'Workspace source API unavailable.', '워크스페이스 소스 API를 사용할 수 없습니다.'))
       return
     }
     setBusy(true)
@@ -224,16 +222,16 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
     <div className="space-y-6">
       <div>
         <div className="text-[11px] uppercase tracking-[0.16em] text-muted">
-          {t(locale, 'Template', '템플릿')}
+          {pick(locale, 'Template', '템플릿')}
         </div>
         <p className="mt-1 text-sm text-muted">
           {siteKind === 'memoir'
-            ? t(
+            ? pick(
                 locale,
                 'Choose how sections are composed on the page, then pick a color palette. Both are stored in config/theme.json.',
                 '페이지에서 섹션을 어떻게 배치할지(레이아웃 컴포지션)와 색감(팔레트)을 고릅니다. 둘 다 config/theme.json에 저장됩니다.'
               )
-            : t(
+            : pick(
                 locale,
                 'Choose how posts are laid out on the homepage and archive, then pick a color palette. Both are stored in config/theme.json.',
                 '홈·아카이브에서 글 목록을 어떻게 배치할지(레이아웃 컴포지션)와 색감(팔레트)을 고릅니다. 둘 다 config/theme.json에 저장됩니다.'
@@ -249,7 +247,7 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
         <>
           <section className="space-y-3">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">
-              {t(locale, 'Layout composition', '레이아웃 컴포지션')}
+              {pick(locale, 'Layout composition', '레이아웃 컴포지션')}
             </h2>
             <div className="grid gap-3 sm:grid-cols-3">
               {LAYOUT_COMPOSITIONS.map((item) => {
@@ -285,7 +283,7 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
 
           <section className="space-y-3">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">
-              {t(locale, 'Color palette', '색감')}
+              {pick(locale, 'Color palette', '색감')}
             </h2>
             <div className="grid gap-3 sm:grid-cols-2">
               {COLOR_PALETTES.map((item) => {
@@ -326,17 +324,17 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
             onClick={() => void applyMemoirTheme()}
           >
             {busy
-              ? t(locale, 'Applying…', '적용 중…')
+              ? pick(locale, 'Applying…', '적용 중…')
               : memoirDirty
-                ? t(locale, 'Apply layout & palette', '레이아웃·색감 적용')
-                : t(locale, 'Applied', '적용됨')}
+                ? pick(locale, 'Apply layout & palette', '레이아웃·색감 적용')
+                : pick(locale, 'Applied', '적용됨')}
           </Button>
         </>
       ) : (
         <>
           <section className="space-y-3">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">
-              {t(locale, 'Layout composition', '레이아웃 컴포지션')}
+              {pick(locale, 'Layout composition', '레이아웃 컴포지션')}
             </h2>
             <div className="grid gap-3 sm:grid-cols-3">
               {COLUMN_LAYOUT_COMPOSITIONS.map((item) => {
@@ -372,7 +370,7 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
 
           <section className="space-y-3">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">
-              {t(locale, 'Color palette', '색감')}
+              {pick(locale, 'Color palette', '색감')}
             </h2>
             <div className="grid gap-3 sm:grid-cols-2">
               {COLUMN_COLOR_PRESETS.map((item) => {
@@ -413,10 +411,10 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
             onClick={() => void applyColumnTheme()}
           >
             {busy
-              ? t(locale, 'Applying…', '적용 중…')
+              ? pick(locale, 'Applying…', '적용 중…')
               : columnDirty
-                ? t(locale, 'Apply layout & palette', '레이아웃·색감 적용')
-                : t(locale, 'Applied', '적용됨')}
+                ? pick(locale, 'Apply layout & palette', '레이아웃·색감 적용')
+                : pick(locale, 'Applied', '적용됨')}
           </Button>
         </>
       )}

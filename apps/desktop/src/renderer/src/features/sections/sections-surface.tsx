@@ -10,7 +10,8 @@ import {
   SquarePen,
   Trash2
 } from 'lucide-react'
-import type { AppLocale, MemoirSectionFile, MemoirSectionSummary, MemoirSectionType } from '@emprint/shared'
+import { pick } from '@renderer/lib/i18n'
+import type { MemoirSectionFile, MemoirSectionSummary, MemoirSectionType } from '@emprint/shared'
 import {
   defaultPropsForMemoirSectionType,
   isMemoirContainerSectionType,
@@ -26,9 +27,6 @@ import { SectionComposerForm } from './section-composer-form'
 import { SectionCreateDialog } from './section-create-dialog'
 import { SectionDeleteDialog } from './section-delete-dialog'
 
-function t(locale: AppLocale, en: string, ko: string) {
-  return locale === 'ko' ? ko : en
-}
 
 async function loadAllSectionFiles(summaries: MemoirSectionSummary[]): Promise<MemoirSectionFile[]> {
   const files = await Promise.all(
@@ -229,7 +227,7 @@ export function SectionsSurface() {
         <div className="flex items-center gap-2 border-b border-border px-4 py-3">
           <Button type="button" variant="ghost" className="h-8 px-2" onClick={backToList}>
             <ArrowLeft className="h-4 w-4" aria-hidden />
-            {t(locale, 'Sections', '섹션')}
+            {pick(locale, 'Sections', '섹션')}
           </Button>
           <span className="truncate text-sm font-medium text-ink">{title}</span>
           <div className="ml-auto flex items-center gap-2">
@@ -239,11 +237,11 @@ export function SectionsSurface() {
               className="h-8 px-2 text-xs text-muted"
               onClick={() => setShowJson((v) => !v)}
             >
-              {showJson ? t(locale, 'Form', '폼') : t(locale, 'JSON', 'JSON')}
+              {showJson ? pick(locale, 'Form', '폼') : pick(locale, 'JSON', 'JSON')}
             </Button>
             <Button type="button" className="h-8" disabled={saving} onClick={() => void handleSave()}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              {t(locale, 'Save', '저장')}
+              {pick(locale, 'Save', '저장')}
             </Button>
           </div>
         </div>
@@ -280,9 +278,9 @@ export function SectionsSurface() {
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
         <div>
-          <h1 className="text-sm font-semibold text-ink">{t(locale, 'Sections', '섹션')}</h1>
+          <h1 className="text-sm font-semibold text-ink">{pick(locale, 'Sections', '섹션')}</h1>
           <p className="mt-1 text-xs text-muted">
-            {t(
+            {pick(
               locale,
               'Compose semantic sections — themes change presentation, not structure.',
               '시맨틱 섹션을 구성합니다. 테마는 표현만 바꾸고 구조는 유지됩니다.'
@@ -298,20 +296,20 @@ export function SectionsSurface() {
           }}
         >
           <Plus className="h-3.5 w-3.5" />
-          {t(locale, 'Add', '추가')}
+          {pick(locale, 'Add', '추가')}
         </Button>
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-4">
         {loading ? (
           <div className="flex items-center gap-2 text-sm text-muted">
             <Loader2 className="h-4 w-4 animate-spin" />
-            {t(locale, 'Loading…', '불러오는 중…')}
+            {pick(locale, 'Loading…', '불러오는 중…')}
           </div>
         ) : error ? (
           <p className="text-sm text-red-600">{error}</p>
         ) : items.length === 0 ? (
           <div className="space-y-3">
-            <p className="text-sm text-muted">{t(locale, 'No sections yet.', '섹션이 없습니다.')}</p>
+            <p className="text-sm text-muted">{pick(locale, 'No sections yet.', '섹션이 없습니다.')}</p>
             <Button
               type="button"
               variant="outline"
@@ -322,7 +320,7 @@ export function SectionsSurface() {
               }}
             >
               <Plus className="h-3.5 w-3.5" />
-              {t(locale, 'Add your first section', '첫 섹션 추가')}
+              {pick(locale, 'Add your first section', '첫 섹션 추가')}
             </Button>
           </div>
         ) : (
@@ -351,7 +349,7 @@ export function SectionsSurface() {
                       <div className="text-sm font-medium text-ink">{item.title}</div>
                       <div className="mt-0.5 font-mono text-[10px] text-muted">
                         {item.type} · order {item.order}
-                        {!item.published ? ` · ${t(locale, 'hidden', '비공개')}` : ''}
+                        {!item.published ? ` · ${pick(locale, 'hidden', '비공개')}` : ''}
                       </div>
                     </button>
                     <div className="flex shrink-0 items-center gap-0.5">
@@ -367,7 +365,7 @@ export function SectionsSurface() {
                           }}
                         >
                           <Plus className="h-3 w-3" />
-                          {t(locale, 'Child', '하위')}
+                          {pick(locale, 'Child', '하위')}
                         </Button>
                       ) : null}
                       {!item.parentId ? (
@@ -377,7 +375,7 @@ export function SectionsSurface() {
                             variant="ghost"
                             className="h-8 w-8 p-0"
                             disabled={rootItems[0]?.id === item.id}
-                            aria-label={t(locale, 'Move up', '위로')}
+                            aria-label={pick(locale, 'Move up', '위로')}
                             onClick={() => void moveRoot(item.id, -1)}
                           >
                             <ArrowUp className="h-3.5 w-3.5" />
@@ -387,7 +385,7 @@ export function SectionsSurface() {
                             variant="ghost"
                             className="h-8 w-8 p-0"
                             disabled={rootItems[rootItems.length - 1]?.id === item.id}
-                            aria-label={t(locale, 'Move down', '아래로')}
+                            aria-label={pick(locale, 'Move down', '아래로')}
                             onClick={() => void moveRoot(item.id, 1)}
                           >
                             <ArrowDown className="h-3.5 w-3.5" />

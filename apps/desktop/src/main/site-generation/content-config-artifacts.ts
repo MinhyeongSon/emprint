@@ -1,4 +1,4 @@
-import type { WorkspaceArtifact } from '../workspace/workspace-template'
+import type { WorkspaceArtifact } from '@emprint/core'
 import { getAnthologyContentLayout, type AnthologyKind } from '@emprint/shared'
 
 /** Astro v5 content collection definition per anthology kind. */

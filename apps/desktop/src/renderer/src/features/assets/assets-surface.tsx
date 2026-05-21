@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ImageOff, Loader2, RefreshCw, Trash2 } from 'lucide-react'
+import { pick } from '@renderer/lib/i18n'
 import type { AppLocale, AssetImageInfo, AssetReference } from '@emprint/shared'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
@@ -10,9 +11,6 @@ import { useAppStore } from '@renderer/state/app-store'
 import { cn } from '@renderer/lib/cn'
 import { AssetDeleteDialog } from './asset-delete-dialog'
 
-function t(locale: AppLocale, en: string, ko: string) {
-  return locale === 'ko' ? ko : en
-}
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -44,7 +42,7 @@ export function AssetsSurface({ locale }: { locale: AppLocale }) {
 
   const load = useCallback(async () => {
     if (!window.emprint?.assets?.listImages) {
-      setError(t(locale, 'Asset API unavailable.', '에셋 API를 사용할 수 없습니다.'))
+      setError(pick(locale, 'Asset API unavailable.', '에셋 API를 사용할 수 없습니다.'))
       setLoading(false)
       return
     }
@@ -113,10 +111,10 @@ export function AssetsSurface({ locale }: { locale: AppLocale }) {
         <div>
           <div className="text-[11px] uppercase tracking-[0.16em] text-muted">Assets</div>
           <div className="mt-2 text-[22px] font-semibold tracking-[-0.03em] text-ink">
-            {t(locale, 'Media library', '미디어 라이브러리')}
+            {pick(locale, 'Media library', '미디어 라이브러리')}
           </div>
           <div className="mt-1 text-xs text-muted">
-            {t(
+            {pick(
               locale,
               `${images.length} image${images.length === 1 ? '' : 's'} · ${formatBytes(totalSize)}${
                 orphanCount ? ` · ${orphanCount} unused` : ''
@@ -129,8 +127,8 @@ export function AssetsSurface({ locale }: { locale: AppLocale }) {
           variant="outline"
           type="button"
           className="h-8 w-8 shrink-0 p-0"
-          aria-label={t(locale, 'Refresh', '새로고침')}
-          title={t(locale, 'Refresh', '새로고침')}
+          aria-label={pick(locale, 'Refresh', '새로고침')}
+          title={pick(locale, 'Refresh', '새로고침')}
           onClick={() => void load()}
           disabled={loading}
         >
@@ -150,13 +148,13 @@ export function AssetsSurface({ locale }: { locale: AppLocale }) {
         <div>
           {loading ? (
             <Card className="px-4 py-12 text-center text-sm text-muted">
-              {t(locale, 'Loading…', '불러오는 중…')}
+              {pick(locale, 'Loading…', '불러오는 중…')}
             </Card>
           ) : images.length === 0 ? (
             <Card className="flex flex-col items-center gap-3 px-4 py-14 text-center text-sm text-muted">
               <ImageOff className="h-5 w-5" strokeWidth={2} aria-hidden />
               <div>
-                {t(
+                {pick(
                   locale,
                   'No images yet. Drag and drop an image into a post or draft to add it here.',
                   '아직 이미지가 없습니다. 글 작성 화면에 이미지를 드래그&드롭으로 넣으면 여기에 추가됩니다.'
@@ -198,19 +196,19 @@ export function AssetsSurface({ locale }: { locale: AppLocale }) {
                       />
                       {orphan ? (
                         <span className="absolute left-1.5 top-1.5 rounded-sm border border-border/60 bg-panel/85 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted backdrop-blur-sm">
-                          {t(locale, 'Unused', '미사용')}
+                          {pick(locale, 'Unused', '미사용')}
                         </span>
                       ) : null}
                       {referenceCount > 0 ? (
                         <span
                           className="absolute right-1.5 top-1.5 rounded-sm border border-border/60 bg-panel/85 px-1.5 py-0.5 text-[10px] tracking-wide text-ink backdrop-blur-sm"
-                          title={t(
+                          title={pick(
                             locale,
                             `Used by ${referenceCount} post${referenceCount === 1 ? '' : 's'}`,
                             `${referenceCount}개의 글에서 사용 중`
                           )}
                         >
-                          {referenceCount} {t(locale, 'in use', '사용 중')}
+                          {referenceCount} {pick(locale, 'in use', '사용 중')}
                         </span>
                       ) : null}
                       <button
@@ -220,15 +218,15 @@ export function AssetsSurface({ locale }: { locale: AppLocale }) {
                           requestDelete(image)
                         }}
                         disabled={deleting === image.path}
-                        aria-label={t(locale, `Delete ${image.name}`, `${image.name} 삭제`)}
+                        aria-label={pick(locale, `Delete ${image.name}`, `${image.name} 삭제`)}
                         title={
                           referenceCount > 0
-                            ? t(
+                            ? pick(
                                 locale,
                                 `Delete (used by ${referenceCount} post${referenceCount === 1 ? '' : 's'})`,
                                 `삭제 (${referenceCount}개 글에서 사용 중)`
                               )
-                            : t(locale, 'Delete', '삭제')
+                            : pick(locale, 'Delete', '삭제')
                         }
                         className={cn(
                           'absolute bottom-1.5 right-1.5 inline-flex h-7 w-7 items-center justify-center rounded-sm border bg-panel/90 text-muted opacity-0 shadow-panel backdrop-blur-sm transition focus:opacity-100 focus:outline-none focus:ring-1 focus:ring-accent/40 group-hover:opacity-100',
@@ -250,7 +248,7 @@ export function AssetsSurface({ locale }: { locale: AppLocale }) {
                         <span>{formatBytes(image.size)}</span>
                         <span>
                           {referenceCount}{' '}
-                          {t(locale, 'ref', '참조')}
+                          {pick(locale, 'ref', '참조')}
                         </span>
                       </div>
                     </div>
@@ -286,11 +284,11 @@ export function AssetsSurface({ locale }: { locale: AppLocale }) {
 
               <div>
                 <div className="mb-1.5 text-[11px] uppercase tracking-[0.16em] text-muted">
-                  {t(locale, 'Referenced in', '참조하는 글')}
+                  {pick(locale, 'Referenced in', '참조하는 글')}
                 </div>
                 {selectedImage.references.length === 0 ? (
                   <div className="rounded-md border border-dashed border-border/70 bg-panel/40 px-3 py-3 text-xs text-muted">
-                    {t(
+                    {pick(
                       locale,
                       'Not referenced by any post. Safe to delete if unused.',
                       '아직 어떤 글에서도 참조하지 않습니다. 사용하지 않는다면 삭제해도 안전합니다.'
@@ -306,7 +304,7 @@ export function AssetsSurface({ locale }: { locale: AppLocale }) {
                         className="flex w-full items-center justify-between gap-2 rounded-md border border-border bg-panel px-2.5 py-1.5 text-left text-xs text-ink transition hover:border-accent/40 hover:bg-panel2/60"
                       >
                         <span className="truncate">{ref.postTitle}</span>
-                        <Badge>{ref.section === 'posts' ? t(locale, 'Posts', '글') : t(locale, 'Drafts', '드래프트')}</Badge>
+                        <Badge>{ref.section === 'posts' ? pick(locale, 'Posts', '글') : pick(locale, 'Drafts', '드래프트')}</Badge>
                       </button>
                     ))}
                   </div>
@@ -314,7 +312,7 @@ export function AssetsSurface({ locale }: { locale: AppLocale }) {
               </div>
 
               <div className="flex justify-end pt-1">
-                <Tooltip label={t(locale, 'Delete image', '이미지 삭제')}>
+                <Tooltip label={pick(locale, 'Delete image', '이미지 삭제')}>
                   <Button
                     variant="outline"
                     type="button"
@@ -331,14 +329,14 @@ export function AssetsSurface({ locale }: { locale: AppLocale }) {
                     ) : (
                       <Trash2 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
                     )}
-                    {t(locale, 'Delete', '삭제')}
+                    {pick(locale, 'Delete', '삭제')}
                   </Button>
                 </Tooltip>
               </div>
             </Card>
           ) : (
             <Card className="px-4 py-8 text-center text-xs text-muted">
-              {t(locale, 'Select an image to see references and details.', '이미지를 선택하면 참조 정보와 상세를 볼 수 있습니다.')}
+              {pick(locale, 'Select an image to see references and details.', '이미지를 선택하면 참조 정보와 상세를 볼 수 있습니다.')}
             </Card>
           )}
         </aside>

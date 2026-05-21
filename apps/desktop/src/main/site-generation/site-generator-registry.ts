@@ -1,3 +1,4 @@
+import type { SiteProjectGeneratorRegistry } from '@emprint/core'
 import type { SiteProjectKind } from '@emprint/shared'
 import { ColumnSiteProjectGenerator } from './column-site-generator'
 import { MemoirSiteProjectGenerator } from './memoir-site-generator'
@@ -18,4 +19,6 @@ export function getSiteProjectGenerator(kind: SiteProjectKind): SiteProjectGener
   return found
 }
 
-export type { SiteGenerationContext, SiteProjectGenerator } from './site-project-generator'
+export const siteProjectGeneratorRegistry: SiteProjectGeneratorRegistry = {
+  get: getSiteProjectGenerator
+}

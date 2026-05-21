@@ -1,4 +1,4 @@
-import type { MemoirSectionSummary } from './memoir-sections'
+import type { MemoirSectionSummary } from './memoir/sections'
 
 export type AppLocale = 'ko' | 'en'
 
@@ -115,8 +115,8 @@ export interface InitializeWorkspaceResult {
   starterSectionContent?: string
 }
 
-export type { MemoirSectionFile, MemoirSectionType } from './memoir-sections'
-export type { MemoirSectionSummary } from './memoir-sections'
+export type { MemoirSectionFile, MemoirSectionType } from './memoir/sections'
+export type { MemoirSectionSummary } from './memoir/sections'
 
 /**
  * Snapshot of the workspace's git state used by the publish dialog and the
@@ -306,6 +306,59 @@ export interface WorkspaceCatalogEntry {
   remoteUrl?: string
   createdAt: string
   updatedAt: string
+}
+
+export interface CatalogReconcileInput {
+  workspaceRootDir: string
+}
+
+export interface CatalogReconcileResult {
+  entries: WorkspaceCatalogEntry[]
+  /** Newly registered anthologies found on disk. */
+  added: number
+  /** Removed catalog rows (missing on disk or outside current root). */
+  removed: number
+  /** Existing rows refreshed from manifest / git remote. */
+  updated: number
+}
+
+export type MigrationPlatformId = 'tistory'
+
+export interface TistoryMigrationScanInput {
+  backupDir: string
+}
+
+export interface TistoryMigrationPostPreview {
+  postId: string
+  title: string
+  date: string
+  category?: string
+  htmlFileName: string
+}
+
+export interface TistoryMigrationScanResult {
+  posts: TistoryMigrationPostPreview[]
+}
+
+export interface TistoryMigrationRunInput {
+  backupDir: string
+  /** When true, write under `drafts/` instead of `posts/`. Default true. */
+  importAsDraft?: boolean
+  /** Skip when the target markdown path already exists. Default true. */
+  skipExisting?: boolean
+}
+
+export interface TistoryMigrationFailure {
+  postId: string
+  title: string
+  message: string
+}
+
+export interface TistoryMigrationRunResult {
+  imported: number
+  skipped: number
+  failed: number
+  failures: TistoryMigrationFailure[]
 }
 
 export interface MonacoExtraLib {

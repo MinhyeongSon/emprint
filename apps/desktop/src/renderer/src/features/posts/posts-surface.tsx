@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { pick } from '@renderer/lib/i18n'
 import type { AppLocale, PostSummary } from '@emprint/shared'
 import matter from 'gray-matter'
 import { Badge } from '@renderer/components/ui/badge'
@@ -40,9 +41,6 @@ function inferTitleFromPath(relativePath: string): string {
   return name.replace(/\.md$/i, '').replace(/^\d{4}-\d{2}-\d{2}-/, '').replace(/-/g, ' ') || ''
 }
 
-function t(locale: AppLocale, en: string, ko: string) {
-  return locale === 'ko' ? ko : en
-}
 
 function formatDate(value: string): string {
   if (!value) {
@@ -386,7 +384,7 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
         const dirty = useAppStore.getState().activeDocumentDirty
         if (dirty) {
           setSaveError(
-            t(
+            pick(
               locale,
               'Save or discard your unsaved changes before deleting this post.',
               '삭제하기 전에 저장하지 않은 변경사항을 먼저 저장하거나 취소해 주세요.'
@@ -458,13 +456,13 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
       const mime = file.type
       if (!isSupportedImageMime(mime)) {
         errors.push(
-          t(locale, `Unsupported image type: ${file.name}`, `지원하지 않는 이미지 형식: ${file.name}`)
+          pick(locale, `Unsupported image type: ${file.name}`, `지원하지 않는 이미지 형식: ${file.name}`)
         )
         continue
       }
       if (file.size > MAX_ASSET_IMAGE_BYTES) {
         errors.push(
-          t(
+          pick(
             locale,
             `"${file.name}" exceeds the 20MB upload limit (${(file.size / (1024 * 1024)).toFixed(1)}MB). GitHub push could break with large images.`,
             `"${file.name}"이(가) 20MB 업로드 제한을 초과합니다 (${(file.size / (1024 * 1024)).toFixed(1)}MB). 큰 이미지는 GitHub push가 실패할 수 있어요.`
@@ -495,7 +493,7 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
       bumpWorkspaceGitRefresh()
       setImageNotice({
         kind: 'success',
-        message: t(
+        message: pick(
           locale,
           `${inserted.length} image${inserted.length === 1 ? '' : 's'} added to assets/images/.`,
           `${inserted.length}개의 이미지를 assets/images/에 추가했습니다.`
@@ -541,30 +539,30 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
             variant="ghost"
             type="button"
             className="h-8 w-8 shrink-0 p-0"
-            aria-label={t(locale, 'Back to list', '목록으로')}
-            title={t(locale, 'Back', '목록')}
+            aria-label={pick(locale, 'Back to list', '목록으로')}
+            title={pick(locale, 'Back', '목록')}
             onClick={backToList}
           >
             <ArrowLeft className="h-4 w-4" strokeWidth={2} />
           </Button>
           <div className="flex items-center gap-2">
-            <Tooltip label={t(locale, 'Edit', '편집')}>
+            <Tooltip label={pick(locale, 'Edit', '편집')}>
               <Button
                 variant="outline"
                 type="button"
                 className="h-8 w-8 shrink-0 p-0"
-                aria-label={t(locale, 'Edit', '편집')}
+                aria-label={pick(locale, 'Edit', '편집')}
                 onClick={() => openEditor(activeDocumentPath)}
               >
                 <SquarePen className="h-4 w-4" strokeWidth={2} />
               </Button>
             </Tooltip>
-            <Tooltip label={t(locale, 'Delete', '삭제')}>
+            <Tooltip label={pick(locale, 'Delete', '삭제')}>
               <Button
                 variant="outline"
                 type="button"
                 className="h-8 w-8 shrink-0 border-danger/40 p-0 text-dangerInk hover:border-danger hover:bg-dangerBg/40"
-                aria-label={t(locale, 'Delete', '삭제')}
+                aria-label={pick(locale, 'Delete', '삭제')}
                 onClick={() =>
                   requestDelete(
                     activeSummary?.title
@@ -633,23 +631,23 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
         className="mx-auto w-full max-w-[1100px] px-4 py-8 opacity-100 transition duration-300 ease-out lg:px-10"
       >
         <div className="mb-4 flex items-center justify-between gap-3">
-          <Tooltip label={t(locale, 'Back', '뒤로가기')}>
+          <Tooltip label={pick(locale, 'Back', '뒤로가기')}>
             <Button
               variant="ghost"
               type="button"
               className="h-8 w-8 shrink-0 p-0"
-              aria-label={t(locale, 'Back', '뒤로가기')}
+              aria-label={pick(locale, 'Back', '뒤로가기')}
               onClick={() => openDocument(activeDocumentPath)}
             >
               <ArrowLeft className="h-4 w-4" strokeWidth={2} />
             </Button>
           </Tooltip>
           <div className="flex items-center gap-2">
-            <Tooltip label={t(locale, saving ? 'Saving…' : 'Save', saving ? '저장 중…' : '저장')}>
+            <Tooltip label={pick(locale, saving ? 'Saving…' : 'Save', saving ? '저장 중…' : '저장')}>
               <Button
                 type="button"
                 className="h-8 w-8 shrink-0 p-0"
-                aria-label={t(locale, 'Save', '저장')}
+                aria-label={pick(locale, 'Save', '저장')}
                 onClick={() => {
                 setSaving(true)
                 setSaveError(null)
@@ -702,12 +700,12 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
                 )}
               </Button>
             </Tooltip>
-            <Tooltip label={t(locale, 'Delete', '삭제')}>
+            <Tooltip label={pick(locale, 'Delete', '삭제')}>
               <Button
                 variant="outline"
                 type="button"
                 className="h-8 w-8 shrink-0 border-danger/40 p-0 text-dangerInk hover:border-danger hover:bg-dangerBg/40"
-                aria-label={t(locale, 'Delete', '삭제')}
+                aria-label={pick(locale, 'Delete', '삭제')}
                 onClick={() =>
                   requestDelete(
                     activeSummary?.title
@@ -798,8 +796,8 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
               <Tooltip
                 label={
                   isDraftSection
-                    ? t(locale, 'Publish to Posts', '발행하기 (Posts로 이동)')
-                    : t(locale, 'Move to Drafts', '드래프트로 되돌리기')
+                    ? pick(locale, 'Publish to Posts', '발행하기 (Posts로 이동)')
+                    : pick(locale, 'Move to Drafts', '드래프트로 되돌리기')
                 }
               >
                 <Button
@@ -840,7 +838,7 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
                 <div className="min-w-0 flex-1">
                   <div className="font-medium">
-                    {t(locale, 'Save failed', '저장 실패')}
+                    {pick(locale, 'Save failed', '저장 실패')}
                   </div>
                   <div className="mt-0.5 break-words font-mono text-[11px]">{saveError}</div>
                 </div>
@@ -866,7 +864,7 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
                 ) : null}
                 <div className="min-w-0 flex-1">
                   {imageNotice.kind === 'uploading'
-                    ? t(
+                    ? pick(
                         locale,
                         `Uploading ${imageNotice.current ?? 'image'} (${imageNotice.count} remaining)…`,
                         `이미지 업로드 중: ${imageNotice.current ?? ''} (남은 ${imageNotice.count}개)`
@@ -1006,8 +1004,8 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
                     requestDelete({ path: item.path, title: item.title })
                   }}
                   disabled={deletingPath === item.path}
-                  aria-label={t(locale, `Delete ${item.title || item.path}`, `${item.title || item.path} 삭제`)}
-                  title={t(locale, 'Delete', '삭제')}
+                  aria-label={pick(locale, `Delete ${item.title || item.path}`, `${item.title || item.path} 삭제`)}
+                  title={pick(locale, 'Delete', '삭제')}
                   className={cn(
                     'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm border border-transparent text-muted opacity-0 transition focus:opacity-100 focus:outline-none focus:ring-1 focus:ring-accent/40 group-hover:opacity-100',
                     'hover:border-danger/40 hover:bg-dangerBg/40 hover:text-dangerInk'

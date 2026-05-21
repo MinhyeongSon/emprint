@@ -11,7 +11,7 @@ function utilityClass(name: string): string {
   return `${MEMOIR_CLASS_PREFIX}-u-${name}`
 }
 
-export const EP = {
+export const EpMemoirClasses = {
   Header: componentClass('Header'),
   HeaderInner: componentClass('Header', 'inner'),
   HeaderBrand: componentClass('Header', 'brand'),
@@ -85,3 +85,8 @@ export const EP = {
   Eyebrow: utilityClass('Eyebrow'),
   Title: utilityClass('Title')
 } as const
+
+export type EpMemoirClass = (typeof EpMemoirClasses)[keyof typeof EpMemoirClasses]
+
+/** @deprecated Use `EpMemoirClasses`. */
+export const EP = EpMemoirClasses

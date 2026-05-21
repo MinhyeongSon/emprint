@@ -1,9 +1,22 @@
+import path from 'node:path'
 import { app, BrowserWindow } from 'electron'
 import { createMainWindow } from './window'
 import { registerAppCloseGuard, setupIpcHandlers } from './ipc'
 import { registerAssetProtocolHandler, registerAssetProtocolPrivilege } from './asset-protocol'
 
 let mainWindow: BrowserWindow | null = null
+
+/** Isolated userData for emprint-qa (Electron 40+ rejects --user-data-dir on CLI). */
+const qaUserDataDir = process.env.EMPRINT_QA_USER_DATA?.trim()
+if (qaUserDataDir) {
+  app.setPath('userData', path.resolve(qaUserDataDir))
+}
+
+/** CDP for Playwright QA (CLI --remote-debugging-port is rejected on Electron 30+). */
+const qaCdpPort = process.env.EMPRINT_QA_CDP_PORT?.trim()
+if (qaCdpPort) {
+  app.commandLine.appendSwitch('remote-debugging-port', qaCdpPort)
+}
 
 // Must run before app `ready` to register the scheme as standard/secure.
 registerAssetProtocolPrivilege()

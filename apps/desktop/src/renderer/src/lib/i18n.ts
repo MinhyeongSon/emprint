@@ -494,3 +494,8 @@ export function getLayoutStyleLabel(locale: AppLocale, style: WorkspaceLayoutSty
 export function getLayoutStyleDescription(locale: AppLocale, style: WorkspaceLayoutStyle): string {
   return messages[locale].layoutDescriptions[style]
 }
+
+/** Locale-specific string without a full i18n catalog entry. */
+export function pick(locale: AppLocale, en: string, ko: string): string {
+  return locale === 'ko' ? ko : en
+}

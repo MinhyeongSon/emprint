@@ -5,6 +5,7 @@ import type {
   SiteProjectKind,
   WorkspaceConfig,
   WorkspaceLayoutStyle,
+  WorkspaceManifest,
   WorkspaceType,
   WorkspaceTemplateId
 } from './types'
@@ -33,25 +34,65 @@ const providerIds = new Set<GitRemoteProviderId>([
 ])
 const repositoryModes = new Set<RepositorySetupMode>(['create', 'clone'])
 
+/** Lenient parse for on-disk `.workspace/manifest.json` (catalog reconcile, open). */
+export function parseWorkspaceManifest(input: unknown): WorkspaceManifest | null {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null
+  const record = input as Record<string, unknown>
+
+  const name = parseNonEmptyString(record.name)
+  const title = parseNonEmptyString(record.title)
+  const description = parseNonEmptyString(record.description)
+  if (!name || !title || !description) return null
+
+  const locale = coerceAppLocale(record.locale)
+  const workspaceType = parseWorkspaceType(record.workspaceType)
+  const templateId = parseWorkspaceTemplateId(record.templateId)
+  const themeColor = parseNonEmptyString(record.themeColor)
+  const layoutStyle = parseWorkspaceLayoutStyle(record.layoutStyle)
+  if (!workspaceType || !templateId || !themeColor || !layoutStyle) return null
+
+  const siteProjectKind = parseSiteProjectKind(record.siteProjectKind)
+  const manifest: WorkspaceManifest = {
+    name,
+    title,
+    description,
+    locale,
+    workspaceType,
+    templateId,
+    themeColor,
+    layoutStyle
+  }
+  if (siteProjectKind) manifest.siteProjectKind = siteProjectKind
+  return manifest
+}
+
+export function parseWorkspaceManifestJson(raw: string): WorkspaceManifest | null {
+  try {
+    return parseWorkspaceManifest(JSON.parse(raw))
+  } catch {
+    return null
+  }
+}
+
 export function parseWorkspaceConfig(input: unknown): WorkspaceConfig {
-  const record = asRecord(input, 'workspace config', 'ko')
-  const locale = asAppLocale(record.locale)
-  const repository = asRecord(record.repository, 'workspace repository', locale)
+  const record = assertRecord(input, 'workspace config', 'ko')
+  const locale = coerceAppLocale(record.locale)
+  const repository = assertRecord(record.repository, 'workspace repository', locale)
 
   const config: WorkspaceConfig = {
-    authProvider: asGitHubAuthProvider(record.authProvider, locale),
+    authProvider: assertGitHubAuthProvider(record.authProvider, locale),
     locale,
-    workspaceType: asWorkspaceType(record.workspaceType, locale),
-    siteProjectKind: parseSiteProjectKind(record.siteProjectKind, locale),
-    templateId: asWorkspaceTemplateId(record.templateId, locale),
-    title: asNonEmptyString(record.title, 'title', locale),
-    description: asNonEmptyString(record.description, 'description', locale),
-    themeColor: asNonEmptyString(record.themeColor, 'themeColor', locale),
-    layoutStyle: asWorkspaceLayoutStyle(record.layoutStyle, locale),
-    localDirectory: asNonEmptyString(record.localDirectory, 'localDirectory', locale),
+    workspaceType: assertWorkspaceType(record.workspaceType, locale),
+    siteProjectKind: coerceSiteProjectKind(record.siteProjectKind, locale),
+    templateId: assertWorkspaceTemplateId(record.templateId, locale),
+    title: assertNonEmptyString(record.title, 'title', locale),
+    description: assertNonEmptyString(record.description, 'description', locale),
+    themeColor: assertNonEmptyString(record.themeColor, 'themeColor', locale),
+    layoutStyle: assertWorkspaceLayoutStyle(record.layoutStyle, locale),
+    localDirectory: assertNonEmptyString(record.localDirectory, 'localDirectory', locale),
     repository: {
-      mode: asRepositoryMode(repository.mode, locale),
-      providerId: asGitRemoteProviderId(repository.providerId, locale)
+      mode: assertRepositoryMode(repository.mode, locale),
+      providerId: assertGitRemoteProviderId(repository.providerId, locale)
     }
   }
 
@@ -76,7 +117,7 @@ export function parseWorkspaceConfig(input: unknown): WorkspaceConfig {
   return config
 }
 
-function asRecord(value: unknown, label: string, locale: AppLocale): Record<string, unknown> {
+function assertRecord(value: unknown, label: string, locale: AppLocale): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error(
       locale === 'ko'
@@ -88,7 +129,7 @@ function asRecord(value: unknown, label: string, locale: AppLocale): Record<stri
   return value as Record<string, unknown>
 }
 
-function asNonEmptyString(value: unknown, label: string, locale: AppLocale): string {
+function assertNonEmptyString(value: unknown, label: string, locale: AppLocale): string {
   if (typeof value !== 'string' || !value.trim()) {
     throw new Error(
       locale === 'ko'
@@ -100,7 +141,7 @@ function asNonEmptyString(value: unknown, label: string, locale: AppLocale): str
   return value.trim()
 }
 
-function asGitHubAuthProvider(value: unknown, locale: AppLocale): 'github' {
+function assertGitHubAuthProvider(value: unknown, locale: AppLocale): 'github' {
   if (value !== 'github') {
     throw new Error(locale === 'ko' ? '지원하지 않는 인증 제공자입니다.' : 'Unsupported authProvider.')
   }
@@ -108,15 +149,14 @@ function asGitHubAuthProvider(value: unknown, locale: AppLocale): 'github' {
   return value
 }
 
-function asAppLocale(value: unknown): AppLocale {
-  if (typeof value !== 'string' || !locales.has(value as AppLocale)) {
-    return 'ko'
+function coerceAppLocale(value: unknown): AppLocale {
+  if (typeof value === 'string' && locales.has(value as AppLocale)) {
+    return value as AppLocale
   }
-
-  return value as AppLocale
+  return 'ko'
 }
 
-function asWorkspaceType(value: unknown, locale: AppLocale): WorkspaceType {
+function assertWorkspaceType(value: unknown, locale: AppLocale): WorkspaceType {
   if (typeof value !== 'string' || !workspaceTypes.has(value as WorkspaceType)) {
     throw new Error(locale === 'ko' ? '지원하지 않는 워크스페이스 유형입니다.' : 'Unsupported workspaceType.')
   }
@@ -124,7 +164,7 @@ function asWorkspaceType(value: unknown, locale: AppLocale): WorkspaceType {
   return value as WorkspaceType
 }
 
-function asWorkspaceTemplateId(value: unknown, locale: AppLocale): WorkspaceTemplateId {
+function assertWorkspaceTemplateId(value: unknown, locale: AppLocale): WorkspaceTemplateId {
   if (typeof value !== 'string' || !knownTemplateIdStrings.has(value)) {
     throw new Error(locale === 'ko' ? '지원하지 않는 템플릿입니다.' : 'Unsupported templateId.')
   }
@@ -132,18 +172,22 @@ function asWorkspaceTemplateId(value: unknown, locale: AppLocale): WorkspaceTemp
   return 'blog'
 }
 
-function parseSiteProjectKind(value: unknown, locale: AppLocale): SiteProjectKind {
+/** Empty/missing → `column`; invalid values throw when `locale` is provided. */
+function coerceSiteProjectKind(value: unknown, locale?: AppLocale): SiteProjectKind {
   if (value === undefined || value === null || value === '') {
     return 'column'
   }
   if (typeof value !== 'string' || !siteProjectKinds.has(value as SiteProjectKind)) {
-    throw new Error(locale === 'ko' ? '지원하지 않는 사이트 유형입니다.' : 'Unsupported siteProjectKind.')
+    if (locale) {
+      throw new Error(locale === 'ko' ? '지원하지 않는 사이트 유형입니다.' : 'Unsupported siteProjectKind.')
+    }
+    return null as never
   }
 
   return value as SiteProjectKind
 }
 
-function asWorkspaceLayoutStyle(value: unknown, locale: AppLocale): WorkspaceLayoutStyle {
+function assertWorkspaceLayoutStyle(value: unknown, locale: AppLocale): WorkspaceLayoutStyle {
   if (typeof value !== 'string' || !layoutStyles.has(value as WorkspaceLayoutStyle)) {
     throw new Error(locale === 'ko' ? '지원하지 않는 레이아웃입니다.' : 'Unsupported layoutStyle.')
   }
@@ -151,7 +195,7 @@ function asWorkspaceLayoutStyle(value: unknown, locale: AppLocale): WorkspaceLay
   return value as WorkspaceLayoutStyle
 }
 
-function asGitRemoteProviderId(value: unknown, locale: AppLocale): GitRemoteProviderId {
+function assertGitRemoteProviderId(value: unknown, locale: AppLocale): GitRemoteProviderId {
   if (typeof value !== 'string' || !providerIds.has(value as GitRemoteProviderId)) {
     throw new Error(locale === 'ko' ? '지원하지 않는 저장소 제공자입니다.' : 'Unsupported repository provider.')
   }
@@ -159,12 +203,46 @@ function asGitRemoteProviderId(value: unknown, locale: AppLocale): GitRemoteProv
   return value as GitRemoteProviderId
 }
 
-function asRepositoryMode(value: unknown, locale: AppLocale): RepositorySetupMode {
+function assertRepositoryMode(value: unknown, locale: AppLocale): RepositorySetupMode {
   if (typeof value !== 'string' || !repositoryModes.has(value as RepositorySetupMode)) {
     throw new Error(locale === 'ko' ? '지원하지 않는 저장소 모드입니다.' : 'Unsupported repository mode.')
   }
 
   return value as RepositorySetupMode
+}
+
+function parseNonEmptyString(value: unknown): string | null {
+  if (typeof value !== 'string' || !value.trim()) return null
+  return value.trim()
+}
+
+function parseWorkspaceType(value: unknown): WorkspaceType | null {
+  if (typeof value === 'string' && workspaceTypes.has(value as WorkspaceType)) {
+    return value as WorkspaceType
+  }
+  return null
+}
+
+function parseWorkspaceTemplateId(value: unknown): WorkspaceTemplateId | null {
+  if (typeof value === 'string' && knownTemplateIdStrings.has(value)) {
+    return 'blog'
+  }
+  return null
+}
+
+function parseSiteProjectKind(value: unknown): SiteProjectKind | null {
+  if (value === undefined || value === null || value === '') return null
+  if (typeof value === 'string' && siteProjectKinds.has(value as SiteProjectKind)) {
+    return value as SiteProjectKind
+  }
+  return null
+}
+
+function parseWorkspaceLayoutStyle(value: unknown): WorkspaceLayoutStyle | null {
+  if (typeof value === 'string' && layoutStyles.has(value as WorkspaceLayoutStyle)) {
+    return value as WorkspaceLayoutStyle
+  }
+  return null
 }
 
 function translateLabel(label: string, locale: AppLocale): string {

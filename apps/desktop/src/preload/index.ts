@@ -9,7 +9,10 @@ const siteDevApi = {
 }
 
 const api: EmprintDesktopApi = {
-  env: { platform: process.platform },
+  env: {
+    platform: process.platform,
+    ...(process.env.EMPRINT_QA_MODE === '1' ? { qaMode: true } : {})
+  },
   system: {
     getRuntimeInfo: () => ipcRenderer.invoke(ipcChannels.systemGetRuntimeInfo),
     selectDirectory: () => ipcRenderer.invoke(ipcChannels.systemSelectDirectory)
@@ -52,6 +55,7 @@ const api: EmprintDesktopApi = {
   },
   catalog: {
     list: () => ipcRenderer.invoke(ipcChannels.catalogList),
+    reconcile: (input) => ipcRenderer.invoke(ipcChannels.catalogReconcile, input),
     add: (input) => ipcRenderer.invoke(ipcChannels.catalogAdd, input),
     remove: (input) => ipcRenderer.invoke(ipcChannels.catalogRemove, input)
   },
@@ -81,6 +85,16 @@ const api: EmprintDesktopApi = {
     openSitePreview: siteDevApi.openPreview,
     stopSitePreview: siteDevApi.stop,
     getMonacoTypescript: () => ipcRenderer.invoke(ipcChannels.workspaceMonacoTypescript)
+  },
+  migration: {
+    tistory: {
+      scan: (input) => ipcRenderer.invoke(ipcChannels.migrationTistoryScan, input),
+      run: (input) => ipcRenderer.invoke(ipcChannels.migrationTistoryRun, input)
+    },
+    markdown: {
+      scan: (input) => ipcRenderer.invoke(ipcChannels.migrationMarkdownScan, input),
+      run: (input) => ipcRenderer.invoke(ipcChannels.migrationMarkdownRun, input)
+    }
   },
   assets: {
     saveImage: (input) => ipcRenderer.invoke(ipcChannels.assetsSaveImage, input),

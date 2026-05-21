@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import Editor, { loader, type EditorProps } from '@monaco-editor/react'
+import Editor, { type EditorProps } from '@monaco-editor/react'
+import { monaco } from './monaco-workers'
 import {
   ChevronDown,
   ChevronRight,
@@ -29,11 +30,9 @@ import {
 import { Button } from '@renderer/components/ui/button'
 import { Tooltip } from '@renderer/components/ui/tooltip'
 import { useAppStore } from '@renderer/state/app-store'
+import { pick } from '@renderer/lib/i18n'
 import { ContextMenu, type ContextMenuItem } from '@renderer/components/ui/context-menu'
 
-function t(locale: AppLocale, en: string, ko: string) {
-  return locale === 'ko' ? ko : en
-}
 
 function languageForPath(filePath: string): string {
   const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
@@ -360,14 +359,12 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
   const dirty = content !== committed
 
   const refreshMonacoTypescript = useCallback(async () => {
-    const monaco = await loader.init().catch(() => null)
-    if (!monaco) return
     const payload = await configureMonacoForWorkspace(monaco)
     if (!payload) return
     setMonacoWorkspaceRoot(payload.workspaceRoot)
     if (payload.nodeModulesMissing) {
       setMonacoTsHint(
-        t(
+        pick(
           locale,
           'Run “Install code snippets” for full TypeScript checks (Astro types).',
           'Astro 타입 검사를 위해 “코드 조각 설치”를 실행하세요.'
@@ -381,7 +378,7 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
   const handleInstallDependencies = useCallback(async () => {
     const install = window.emprint?.siteDev?.installDependencies
     if (!install) {
-      setInstallError(t(locale, 'Install API unavailable.', '설치 API를 사용할 수 없습니다.'))
+      setInstallError(pick(locale, 'Install API unavailable.', '설치 API를 사용할 수 없습니다.'))
       return
     }
     setInstallBusy(true)
@@ -399,23 +396,20 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
   useEffect(() => {
     let cancelled = false
     resetMonacoWorkspaceConfig()
-    void loader.init().then((monaco) => {
-      if (cancelled) return
-      return configureMonacoForWorkspace(monaco).then((payload) => {
-        if (cancelled || !payload) return
-        setMonacoWorkspaceRoot(payload.workspaceRoot)
-        if (payload.nodeModulesMissing) {
-          setMonacoTsHint(
-            t(
-              locale,
-              'Run “Install code snippets” for full TypeScript checks (Astro types).',
-              'Astro 타입 검사를 위해 “코드 조각 설치”를 실행하세요.'
-            )
+    void configureMonacoForWorkspace(monaco).then((payload) => {
+      if (cancelled || !payload) return
+      setMonacoWorkspaceRoot(payload.workspaceRoot)
+      if (payload.nodeModulesMissing) {
+        setMonacoTsHint(
+          pick(
+            locale,
+            'Run “Install code snippets” for full TypeScript checks (Astro types).',
+            'Astro 타입 검사를 위해 “코드 조각 설치”를 실행하세요.'
           )
-        } else {
-          setMonacoTsHint(null)
-        }
-      })
+        )
+      } else {
+        setMonacoTsHint(null)
+      }
     })
     return () => {
       cancelled = true
@@ -425,7 +419,7 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
 
   const loadTree = useCallback(async () => {
     if (!api?.listTree) {
-      setTreeError(t(locale, 'Workspace source API unavailable.', '워크스페이스 소스 API를 사용할 수 없습니다.'))
+      setTreeError(pick(locale, 'Workspace source API unavailable.', '워크스페이스 소스 API를 사용할 수 없습니다.'))
       setTreeLoading(false)
       return null
     }
@@ -473,7 +467,7 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
       if (!api?.read) return
       if (dirty && selectedPath && selectedPath !== path) {
         const ok = window.confirm(
-          t(locale, 'You have unsaved changes. Switch files anyway?', '저장하지 않은 변경이 있습니다. 다른 파일로 이동할까요?')
+          pick(locale, 'You have unsaved changes. Switch files anyway?', '저장하지 않은 변경이 있습니다. 다른 파일로 이동할까요?')
         )
         if (!ok) return
       }
@@ -609,12 +603,12 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
       if (!api?.delete) return
       const message =
         node.kind === 'directory'
-          ? t(
+          ? pick(
               locale,
               `Delete folder "${node.name}" and all of its contents? This cannot be undone.`,
               `폴더 "${node.name}"와 그 안의 모든 내용을 삭제할까요? 되돌릴 수 없습니다.`
             )
-          : t(locale, `Delete file "${node.name}"? This cannot be undone.`, `파일 "${node.name}"을(를) 삭제할까요? 되돌릴 수 없습니다.`)
+          : pick(locale, `Delete file "${node.name}"? This cannot be undone.`, `파일 "${node.name}"을(를) 삭제할까요? 되돌릴 수 없습니다.`)
       if (!window.confirm(message)) return
 
       try {
@@ -656,13 +650,13 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
       const items: ContextMenuItem[] = [
         {
           id: 'new-file',
-          label: t(locale, 'New File', '새 파일'),
+          label: pick(locale, 'New File', '새 파일'),
           icon: <FilePlus className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />,
           onSelect: () => beginCreate(parentPath, 'file')
         },
         {
           id: 'new-folder',
-          label: t(locale, 'New Folder', '새 폴더'),
+          label: pick(locale, 'New Folder', '새 폴더'),
           icon: <FolderPlus className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />,
           onSelect: () => beginCreate(parentPath, 'directory')
         }
@@ -671,13 +665,13 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
         items.push(
           {
             id: 'rename',
-            label: t(locale, 'Rename', '이름 바꾸기'),
+            label: pick(locale, 'Rename', '이름 바꾸기'),
             icon: <Pencil className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />,
             onSelect: () => beginRename(target)
           },
           {
             id: 'delete',
-            label: t(locale, 'Delete', '삭제'),
+            label: pick(locale, 'Delete', '삭제'),
             icon: <Trash2 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />,
             onSelect: () => void handleDelete(target)
           }
@@ -685,7 +679,7 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
       } else {
         items.push({
           id: 'refresh',
-          label: t(locale, 'Refresh', '새로고침'),
+          label: pick(locale, 'Refresh', '새로고침'),
           icon: <RefreshCw className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />,
           onSelect: () => void loadTree()
         })
@@ -697,13 +691,13 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
     return [
       {
         id: 'rename',
-        label: t(locale, 'Rename', '이름 바꾸기'),
+        label: pick(locale, 'Rename', '이름 바꾸기'),
         icon: <Pencil className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />,
         onSelect: () => beginRename(target)
       },
       {
         id: 'delete',
-        label: t(locale, 'Delete', '삭제'),
+        label: pick(locale, 'Delete', '삭제'),
         icon: <Trash2 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />,
         onSelect: () => void handleDelete(target)
       }
@@ -741,17 +735,17 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
         <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
           <div className="min-w-0">
             <div className="text-[11px] uppercase tracking-[0.16em] text-muted">
-              {t(locale, 'Site project', '사이트 프로젝트')}
+              {pick(locale, 'Site project', '사이트 프로젝트')}
             </div>
             <div className="truncate text-sm font-semibold text-ink">
-              {t(locale, 'Code', '코드')}
+              {pick(locale, 'Code', '코드')}
             </div>
           </div>
           <Button
             variant="outline"
             type="button"
             className="h-8 w-8 shrink-0 p-0"
-            title={t(locale, 'Refresh tree', '트리 새로고침')}
+            title={pick(locale, 'Refresh tree', '트리 새로고침')}
             disabled={treeLoading}
             onClick={() => void loadTree()}
           >
@@ -776,7 +770,7 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
               ) : (
                 <Package className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
               )}
-              {t(locale, 'Install code snippets', '코드 조각 설치')}
+              {pick(locale, 'Install code snippets', '코드 조각 설치')}
             </Button>
             <Tooltip
               multiline
@@ -835,7 +829,7 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
           {treeLoading ? (
             <div className="flex items-center gap-2 px-2 py-4 text-xs text-muted">
               <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} aria-hidden />
-              {t(locale, 'Loading…', '불러오는 중…')}
+              {pick(locale, 'Loading…', '불러오는 중…')}
             </div>
           ) : null}
         </div>
@@ -844,12 +838,12 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
       <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-panel px-3 py-2">
           <div className="min-w-0 font-mono text-[11px] text-muted">
-            {selectedPath ?? t(locale, 'Select a file', '파일을 선택하세요')}
+            {selectedPath ?? pick(locale, 'Select a file', '파일을 선택하세요')}
           </div>
           <div className="flex items-center gap-2">
             {dirty ? (
               <span className="text-[10px] uppercase tracking-wide text-accent">
-                {t(locale, 'Unsaved', '저장 안 됨')}
+                {pick(locale, 'Unsaved', '저장 안 됨')}
               </span>
             ) : null}
             <Button
@@ -861,7 +855,7 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
             >
               {saveBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} aria-hidden /> : null}
               <Save className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-              {t(locale, 'Save', '저장')}
+              {pick(locale, 'Save', '저장')}
             </Button>
           </div>
         </div>
@@ -872,7 +866,7 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
         ) : null}
         {contentConfigLocked ? (
           <div className="border-b border-border bg-panel2/40 px-3 py-1.5 text-xs text-muted">
-            {t(
+            {pick(
               locale,
               `${WORKSPACE_CONTENT_CONFIG_PATH} is locked: the site must load posts from ./posts. Edit writing in Posts/Drafts.`,
               `${WORKSPACE_CONTENT_CONFIG_PATH}는 잠겨 있습니다. 사이트는 ./posts만 읽습니다. 글은 Posts/Drafts에서 편집하세요.`
@@ -908,7 +902,7 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
             </div>
           ) : (
             <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted">
-              {t(
+              {pick(
                 locale,
                 'Pick a file from the tree. Right-click to create, rename, or delete entries.',
                 '왼쪽 트리에서 파일을 선택하세요. 우클릭으로 항목을 만들고 이름을 바꾸거나 삭제할 수 있습니다.'

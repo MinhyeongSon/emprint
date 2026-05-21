@@ -1,7 +1,6 @@
 import {
   hasPathTraversalSegment,
   isWorkspaceDesignEditablePath,
-  normalizeWorkspaceRelativePath,
   WORKSPACE_CONTENT_CONFIG_PATH
 } from '@emprint/shared'
 
@@ -22,9 +21,4 @@ export function normalizeWorkspaceDesignPath(inputPath: string): string {
     throw new Error('Path is outside the site design workspace.')
   }
   return normalized
-}
-
-/** @deprecated Use `normalizeWorkspaceDesignPath`. Kept for call sites during migration. */
-export function normalizeWorkspaceSrcPath(inputPath: string): string {
-  return normalizeWorkspaceDesignPath(inputPath)
 }

@@ -116,7 +116,7 @@ jobs:
         run: npm run build:icons
 
       - name: Build Electron bundles
-        # Root `npm run build` runs scripts/run-electron-vite.mjs so the child
+        # Root `npm run build` runs apps/desktop/scripts/run-electron-vite.mjs so the child
         # process never sees ELECTRON_RUN_AS_NODE (empty string still enables
         # Node mode in Electron and breaks protocol registration).
         run: npm run build

@@ -1,71 +1,62 @@
 import path from 'node:path'
-import { createRequire } from 'node:module'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
+import { createLogger } from 'vite'
 
-const require = createRequire(import.meta.url)
-const monacoMod = require('vite-plugin-monaco-editor') as { default?: (opts?: Record<string, unknown>) => import('vite').Plugin }
-const monacoEditorPlugin = typeof monacoMod === 'function' ? (monacoMod as unknown as (o?: Record<string, unknown>) => import('vite').Plugin) : monacoMod.default
-if (!monacoEditorPlugin) {
-  throw new Error('vite-plugin-monaco-editor failed to load')
+/** Suppress known-benign Monaco dev noise (dynamic import + missing upstream source maps). */
+const rendererLogger = createLogger()
+const rendererWarn = rendererLogger.warn.bind(rendererLogger)
+rendererLogger.warn = (msg, options) => {
+  if (typeof msg === 'string') {
+    if (msg.includes('dynamic import cannot be analyzed')) return
+    if (msg.includes('Failed to load source map') && msg.includes('monaco-editor')) return
+  }
+  rendererWarn(msg, options)
 }
+
+const repoRoot = path.resolve(__dirname, '../..')
+const desktopOutDir = path.resolve(__dirname, './out')
+const viteCacheDir = path.resolve(repoRoot, '.cache/vite/desktop')
 
 const workspaceAliases = {
-  '@emprint/shared': path.resolve(__dirname, '../../shared/src')
+  '@emprint/shared': path.resolve(repoRoot, 'shared/src'),
+  '@emprint/core': path.resolve(repoRoot, 'core/src')
 }
+
+const nodeProcessBuild = (subdir: 'main' | 'preload', entry: string) => ({
+  outDir: path.join(desktopOutDir, subdir),
+  rollupOptions: {
+    output: {
+      format: 'cjs' as const,
+      entryFileNames: '[name].cjs'
+    }
+  },
+  lib: {
+    entry: path.resolve(__dirname, entry),
+    formats: ['cjs' as const]
+  }
+})
 
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
-    build: {
-      lib: {
-        entry: path.resolve(__dirname, './src/main/index.ts'),
-        formats: ['cjs']
-      },
-      rollupOptions: {
-        output: {
-          format: 'cjs',
-          entryFileNames: '[name].cjs'
-        }
-      }
-    },
+    build: nodeProcessBuild('main', './src/main/index.ts'),
     resolve: {
       alias: workspaceAliases
     }
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
-    build: {
-      lib: {
-        entry: path.resolve(__dirname, './src/preload/index.ts'),
-        formats: ['cjs']
-      },
-      rollupOptions: {
-        output: {
-          format: 'cjs',
-          entryFileNames: '[name].cjs'
-        }
-      }
-    },
+    build: nodeProcessBuild('preload', './src/preload/index.ts'),
     resolve: {
       alias: workspaceAliases
     }
   },
   renderer: {
     root: path.resolve(__dirname),
-    plugins: [
-      react(),
-      monacoEditorPlugin({
-        // Workaround for vite-plugin-monaco-editor@1.1.0:
-        //   the default distPath is computed via `path.join(root, outDir, base, publicPath)`,
-        //   but electron-vite passes `outDir` as an ABSOLUTE path. `path.join` then
-        //   concatenates the second absolute path verbatim (only stripping its leading `/`),
-        //   producing a stray `apps/desktop/Users/<full-abs-path>/monacoeditorwork/` tree.
-        //   `path.resolve(outDir, ...)` discards earlier absolute segments correctly.
-        customDistPath: (_root: string, outDir: string, _base: string) =>
-          path.resolve(outDir, 'monacoeditorwork')
-      })
-    ],
+    cacheDir: viteCacheDir,
+    customLogger: rendererLogger,
+    plugins: [react()],
     resolve: {
       alias: {
         ...workspaceAliases,
@@ -73,9 +64,13 @@ export default defineConfig({
       }
     },
     optimizeDeps: {
-      include: ['monaco-editor', '@monaco-editor/react']
+      // Workers are registered in `monaco-workers.ts` via `?worker`; pre-bundling
+      // monaco-editor triggers benign "dynamic import cannot be analyzed" warnings.
+      include: ['@monaco-editor/react'],
+      exclude: ['monaco-editor']
     },
     build: {
+      outDir: path.join(desktopOutDir, 'renderer'),
       rollupOptions: {
         input: path.resolve(__dirname, './index.html')
       }

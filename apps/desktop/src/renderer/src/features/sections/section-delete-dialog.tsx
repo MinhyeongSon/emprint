@@ -1,12 +1,10 @@
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { AlertTriangle, Loader2, Trash2, X } from 'lucide-react'
+import { pick } from '@renderer/lib/i18n'
 import type { AppLocale } from '@emprint/shared'
 import { Button } from '@renderer/components/ui/button'
 
-function t(locale: AppLocale, en: string, ko: string) {
-  return locale === 'ko' ? ko : en
-}
 
 interface SectionDeleteDialogProps {
   open: boolean
@@ -65,7 +63,7 @@ export function SectionDeleteDialog({
               </div>
               <div className="min-w-0">
                 <div id="section-delete-title" className="text-sm font-semibold text-ink">
-                  {t(locale, 'Delete this section?', '이 섹션을 삭제할까요?')}
+                  {pick(locale, 'Delete this section?', '이 섹션을 삭제할까요?')}
                 </div>
                 <div className="mt-1 break-words text-[12px] text-ink/85">{title || path}</div>
                 <div className="mt-0.5 break-all font-mono text-[10.5px] text-muted">{path}</div>
@@ -75,14 +73,14 @@ export function SectionDeleteDialog({
               type="button"
               onClick={onCancel}
               disabled={deleting}
-              aria-label={t(locale, 'Close', '닫기')}
+              aria-label={pick(locale, 'Close', '닫기')}
               className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm text-muted hover:text-ink disabled:opacity-50"
             >
               <X className="h-4 w-4" aria-hidden />
             </button>
           </div>
           <div className="rounded-md border border-border bg-panel px-3 py-2.5 text-[12px] leading-relaxed text-muted">
-            {t(
+            {pick(
               locale,
               'The section file is removed. Container parents drop this id from their children list. Publish to update the live site.',
               '섹션 파일이 삭제됩니다. 컨테이너 부모는 children 목록에서 이 ID를 제거합니다. 라이브 사이트 반영은 발행 후입니다.'
@@ -97,7 +95,7 @@ export function SectionDeleteDialog({
               onClick={onCancel}
               disabled={deleting}
             >
-              {t(locale, 'Cancel', '취소')}
+              {pick(locale, 'Cancel', '취소')}
             </Button>
             <Button
               type="button"
@@ -111,7 +109,7 @@ export function SectionDeleteDialog({
               ) : (
                 <Trash2 className="h-3.5 w-3.5" aria-hidden />
               )}
-              {t(locale, 'Delete', '삭제')}
+              {pick(locale, 'Delete', '삭제')}
             </Button>
           </div>
         </div>

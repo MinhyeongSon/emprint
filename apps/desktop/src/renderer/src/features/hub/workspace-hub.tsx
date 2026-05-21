@@ -84,11 +84,20 @@ export function WorkspaceHub() {
       }
     }
 
-    void catalog.list()
-      .then((entries) => {
+    const loadCatalog = async () => {
+      const root = workspaceRootDir?.trim()
+      if (root && catalog.reconcile) {
+        const result = await catalog.reconcile({ workspaceRootDir: root })
         if (!alive) return
-        setWorkspaces(entries)
-      })
+        setWorkspaces(result.entries)
+        return
+      }
+      const entries = await catalog.list()
+      if (!alive) return
+      setWorkspaces(entries)
+    }
+
+    void loadCatalog()
       .catch((caught) => {
         if (!alive) return
         setError(caught instanceof Error ? caught.message : locale === 'ko' ? '앤솔로지 목록을 불러오지 못했습니다.' : 'Failed to load anthologies.')
@@ -100,7 +109,7 @@ export function WorkspaceHub() {
     return () => {
       alive = false
     }
-  }, [hubCatalogRefreshToken, locale, setWorkspaces])
+  }, [hubCatalogRefreshToken, locale, setWorkspaces, workspaceRootDir])
 
   useEffect(() => {
     if (!window.emprint?.github?.authStatus) return

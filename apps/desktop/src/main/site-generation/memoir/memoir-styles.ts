@@ -1,5 +1,4 @@
 import { memoirThemeToTokensCss } from '@emprint/shared'
-import type { MemoirThemeFile } from '@emprint/shared'
 import type { SiteGenerationContext } from '../site-project-generator'
 import { createDefaultMemoirTheme } from './default-theme'
 import componentsCssSource from './components.css?raw'

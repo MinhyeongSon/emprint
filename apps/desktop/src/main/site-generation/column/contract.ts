@@ -16,7 +16,7 @@ function utilityClass(name: string): string {
   return `${COLUMN_CLASS_PREFIX}-u-${name}`
 }
 
-export const EP = {
+export const EpColumnClasses = {
   Header: componentClass('Header'),
   HeaderInner: componentClass('Header', 'inner'),
   HeaderBrand: componentClass('Header', 'brand'),
@@ -86,4 +86,7 @@ export const EP = {
   Title: utilityClass('Title')
 } as const
 
-export type EpClass = (typeof EP)[keyof typeof EP]
+export type EpColumnClass = (typeof EpColumnClasses)[keyof typeof EpColumnClasses]
+
+/** @deprecated Use `EpColumnClasses`. */
+export const EP = EpColumnClasses

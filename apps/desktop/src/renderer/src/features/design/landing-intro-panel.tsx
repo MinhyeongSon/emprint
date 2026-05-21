@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { pick } from '@renderer/lib/i18n'
 import type { AppLocale, LandingIntroConfig, LandingIntroVariant, SiteProjectKind } from '@emprint/shared'
 import {
   DEFAULT_LANDING_INTRO,
@@ -16,9 +17,6 @@ import { cn } from '@renderer/lib/cn'
 import { THEME_JSON_PATH } from './design-workspace-paths'
 import { useAppStore } from '@renderer/state/app-store'
 
-function t(locale: AppLocale, en: string, ko: string) {
-  return locale === 'ko' ? ko : en
-}
 
 /** Design-editable fields; timing values are preserved from theme.json on save. */
 function designLandingIntroPatch(
@@ -83,7 +81,7 @@ export function LandingIntroPanel({ locale }: { locale: AppLocale }) {
   async function apply() {
     const api = window.emprint?.workspaceSrc
     if (!api?.read || !api?.save) {
-      setError(t(locale, 'Workspace source API unavailable.', '워크스페이스 소스 API를 사용할 수 없습니다.'))
+      setError(pick(locale, 'Workspace source API unavailable.', '워크스페이스 소스 API를 사용할 수 없습니다.'))
       return
     }
     setBusy(true)
@@ -122,10 +120,10 @@ export function LandingIntroPanel({ locale }: { locale: AppLocale }) {
     <section className="space-y-4 border-t border-border pt-6">
       <div>
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">
-          {t(locale, 'Landing intro', '랜딩 인트로')}
+          {pick(locale, 'Landing intro', '랜딩 인트로')}
         </h2>
         <p className="mt-1 text-sm text-muted">
-          {t(
+          {pick(
             locale,
             'Optional opening sequence before your site content. Applies to all anthology types.',
             '사이트 본문 전에 보여줄 오프닝 시퀀스입니다. 모든 앤솔로지 타입에 적용됩니다.'
@@ -144,7 +142,7 @@ export function LandingIntroPanel({ locale }: { locale: AppLocale }) {
           checked={draft.enabled}
           onChange={(e) => setDraft({ ...draft, enabled: e.target.checked })}
         />
-        <span className="text-sm text-ink">{t(locale, 'Show landing intro', '랜딩 인트로 사용')}</span>
+        <span className="text-sm text-ink">{pick(locale, 'Show landing intro', '랜딩 인트로 사용')}</span>
       </label>
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -176,7 +174,7 @@ export function LandingIntroPanel({ locale }: { locale: AppLocale }) {
       </div>
 
       <label className="block space-y-1.5">
-        <span className="text-xs font-medium text-ink">{t(locale, 'Message', '메시지')}</span>
+        <span className="text-xs font-medium text-ink">{pick(locale, 'Message', '메시지')}</span>
         <Textarea
           rows={2}
           value={draft.message}
@@ -194,16 +192,16 @@ export function LandingIntroPanel({ locale }: { locale: AppLocale }) {
           onChange={(e) => setDraft({ ...draft, showOnce: e.target.checked })}
         />
         <span className="text-sm text-muted">
-          {t(locale, 'Show only once per browser', '브라우저당 한 번만 표시')}
+          {pick(locale, 'Show only once per browser', '브라우저당 한 번만 표시')}
         </span>
       </label>
 
       <Button type="button" disabled={loading || busy || !dirty} onClick={() => void apply()}>
         {busy
-          ? t(locale, 'Saving…', '저장 중…')
+          ? pick(locale, 'Saving…', '저장 중…')
           : dirty
-            ? t(locale, 'Save landing intro', '랜딩 인트로 저장')
-            : t(locale, 'Saved', '저장됨')}
+            ? pick(locale, 'Save landing intro', '랜딩 인트로 저장')
+            : pick(locale, 'Saved', '저장됨')}
       </Button>
     </section>
   )

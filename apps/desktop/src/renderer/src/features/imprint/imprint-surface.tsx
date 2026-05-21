@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, History, Loader2, RefreshCw } from 'lucide-react'
+import { pick } from '@renderer/lib/i18n'
 import type { AppLocale, GitCommitNode } from '@emprint/shared'
 import { Button } from '@renderer/components/ui/button'
 import { cn } from '@renderer/lib/cn'
 import { ImprintRollbackDialog } from './imprint-rollback-dialog'
 
-function t(locale: AppLocale, en: string, ko: string): string {
-  return locale === 'ko' ? ko : en
-}
 
 interface ImprintSurfaceProps {
   locale: AppLocale
@@ -90,10 +88,10 @@ export function ImprintSurface({ locale, refreshToken, onSyncChange, onWorkingSt
         <div className="min-w-0">
           <div className="text-[11px] uppercase tracking-[0.16em] text-muted">Imprint</div>
           <div className="mt-2 text-[22px] font-semibold tracking-[-0.03em] text-ink">
-            {t(locale, 'Publish history', '발행 기록')}
+            {pick(locale, 'Publish history', '발행 기록')}
           </div>
           <div className="mt-1 text-xs text-muted">
-            {t(
+            {pick(
               locale,
               'Every publish leaves a mark here, newest at the top.',
               '발행할 때마다 흔적이 쌓입니다. 최신 발행이 가장 위에 보여요.'
@@ -104,8 +102,8 @@ export function ImprintSurface({ locale, refreshToken, onSyncChange, onWorkingSt
           variant="outline"
           type="button"
           className="h-8 w-8 shrink-0 p-0"
-          aria-label={t(locale, 'Refresh', '새로고침')}
-          title={t(locale, 'Refresh', '새로고침')}
+          aria-label={pick(locale, 'Refresh', '새로고침')}
+          title={pick(locale, 'Refresh', '새로고침')}
           disabled={loading}
           onClick={() => setReloadTick((n) => n + 1)}
         >
@@ -125,7 +123,7 @@ export function ImprintSurface({ locale, refreshToken, onSyncChange, onWorkingSt
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
           <div className="min-w-0">
             <div className="font-medium">
-              {t(locale, 'Could not load history', '발행 기록을 불러오지 못했습니다')}
+              {pick(locale, 'Could not load history', '발행 기록을 불러오지 못했습니다')}
             </div>
             <div className="mt-0.5 break-words text-[11px] leading-5">{error}</div>
           </div>
@@ -134,11 +132,11 @@ export function ImprintSurface({ locale, refreshToken, onSyncChange, onWorkingSt
 
       {loading && commits.length === 0 ? (
         <div className="rounded-lg border border-border bg-surface px-4 py-6 text-sm text-muted">
-          {t(locale, 'Loading…', '불러오는 중…')}
+          {pick(locale, 'Loading…', '불러오는 중…')}
         </div>
       ) : commits.length === 0 ? (
         <div className="rounded-lg border border-border bg-surface px-4 py-10 text-center text-sm text-muted">
-          {t(
+          {pick(
             locale,
             'No publishes yet. Use the Publish button to leave your first mark.',
             '아직 발행 기록이 없어요. 사이드바의 발행 버튼으로 첫 흔적을 남겨보세요.'
@@ -182,7 +180,7 @@ export function ImprintSurface({ locale, refreshToken, onSyncChange, onWorkingSt
         <ImprintRollbackDialog
           open={rollbackOpen}
           locale={locale}
-          imprintTitle={focused.summary || t(locale, 'this publish', '이 발행')}
+          imprintTitle={focused.summary || pick(locale, 'this publish', '이 발행')}
           busy={rollbackBusy}
           onCancel={() => {
             if (!rollbackBusy) setRollbackOpen(false)
@@ -269,7 +267,7 @@ function Detail({
   if (!commit) {
     return (
       <div className="text-sm text-muted">
-        {t(locale, 'Select an entry to read the full note.', '항목을 선택하면 메모를 읽을 수 있어요.')}
+        {pick(locale, 'Select an entry to read the full note.', '항목을 선택하면 메모를 읽을 수 있어요.')}
       </div>
     )
   }
@@ -283,7 +281,7 @@ function Detail({
     <div className="space-y-3">
       <div>
         <div className="text-[11px] uppercase tracking-[0.16em] text-muted">
-          {t(locale, 'Note', '메모')}
+          {pick(locale, 'Note', '메모')}
         </div>
         <div className="mt-1 text-sm font-medium leading-6 text-ink">{headline}</div>
         {body ? (
@@ -293,12 +291,12 @@ function Detail({
 
       <div className="grid gap-1 border-t border-border pt-3 text-[12px] text-muted">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] uppercase tracking-[0.16em]">{t(locale, 'Published', '발행 시각')}</span>
+          <span className="text-[11px] uppercase tracking-[0.16em]">{pick(locale, 'Published', '발행 시각')}</span>
           <span className="text-ink">{formatAbsolute(locale, commit.authoredAt)}</span>
         </div>
         {commit.authorName ? (
           <div className="flex items-center justify-between">
-            <span className="text-[11px] uppercase tracking-[0.16em]">{t(locale, 'By', '작성자')}</span>
+            <span className="text-[11px] uppercase tracking-[0.16em]">{pick(locale, 'By', '작성자')}</span>
             <span className="truncate text-ink">{commit.authorName}</span>
           </div>
         ) : null}
@@ -306,7 +304,7 @@ function Detail({
 
       <Button type="button" variant="outline" className="mt-4 h-9 w-full gap-1.5 text-[12px]" onClick={onRestore}>
         <History className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-        {t(locale, 'Restore as draft', '초안으로 되돌리기')}
+        {pick(locale, 'Restore as draft', '초안으로 되돌리기')}
       </Button>
     </div>
   )
@@ -318,7 +316,7 @@ function formatRelative(locale: AppLocale, isoDate: string): string {
   const now = Date.now()
   const diff = now - d.getTime()
   const sec = Math.round(diff / 1000)
-  if (sec < 60) return t(locale, 'just now', '방금 전')
+  if (sec < 60) return pick(locale, 'just now', '방금 전')
   const min = Math.round(sec / 60)
   if (min < 60) return locale === 'ko' ? `${min}분 전` : `${min} min ago`
   const hr = Math.round(min / 60)

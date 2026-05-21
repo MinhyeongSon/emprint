@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ExternalLink, Loader2, Sparkles } from 'lucide-react'
+import { pick } from '@renderer/lib/i18n'
 import type { AppLocale, SiteDevServerState } from '@emprint/shared'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
@@ -17,9 +18,6 @@ import { DesignAiPromptDialog } from './design-ai-prompt-dialog'
 import { TemplateModePanel } from './template-mode-panel'
 import { useAppStore } from '@renderer/state/app-store'
 
-function t(locale: AppLocale, en: string, ko: string) {
-  return locale === 'ko' ? ko : en
-}
 
 export type DesignUiMode = 'template' | 'code'
 
@@ -94,7 +92,7 @@ export function DesignSurface({ locale }: { locale: AppLocale }) {
       setPreviewState(state)
       if (state.status === 'error') {
         setPreviewError(
-          state.message ?? t(locale, 'Failed to start dev server.', '개발 서버를 시작하지 못했습니다.')
+          state.message ?? pick(locale, 'Failed to start dev server.', '개발 서버를 시작하지 못했습니다.')
         )
       }
     } catch (caught) {
@@ -107,8 +105,8 @@ export function DesignSurface({ locale }: { locale: AppLocale }) {
   }
 
   const modeTabs: { id: DesignUiMode; label: string }[] = [
-    { id: 'template', label: t(locale, 'Template', '템플릿') },
-    { id: 'code', label: t(locale, 'Code', '코드') }
+    { id: 'template', label: pick(locale, 'Template', '템플릿') },
+    { id: 'code', label: pick(locale, 'Code', '코드') }
   ]
 
   return (
@@ -140,7 +138,7 @@ export function DesignSurface({ locale }: { locale: AppLocale }) {
             onClick={() => setAiPromptOpen(true)}
           >
             <Sparkles className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-            {t(locale, 'AI prompt', 'AI 프롬프트')}
+            {pick(locale, 'AI prompt', 'AI 프롬프트')}
           </Button>
           <Button
             type="button"
@@ -156,8 +154,8 @@ export function DesignSurface({ locale }: { locale: AppLocale }) {
               <ExternalLink className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
             )}
             {previewBusy
-              ? t(locale, 'Starting…', '시작 중…')
-              : t(locale, 'Open site preview', '사이트 미리보기')}
+              ? pick(locale, 'Starting…', '시작 중…')
+              : pick(locale, 'Open site preview', '사이트 미리보기')}
           </Button>
         </div>
       </div>
@@ -190,10 +188,10 @@ export function DesignSurface({ locale }: { locale: AppLocale }) {
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="text-sm font-semibold text-ink">
-                  {t(locale, 'Switch design mode?', '디자인 모드를 바꿀까요?')}
+                  {pick(locale, 'Switch design mode?', '디자인 모드를 바꿀까요?')}
                 </div>
                 <p className="text-sm leading-relaxed text-muted">
-                  {t(
+                  {pick(
                     locale,
                     'Changing the mode can discard or reset customizations in other modes. A running dev server will be stopped. After you continue, this mode loads its default starting point.',
                     '모드를 바꾸면 다른 모드에서 하던 커스터마이징이 사라지거나 초기화될 수 있습니다. 실행 중인 개발 서버는 종료됩니다. 계속하면 이 모드의 기본 상태로 맞춥니다.'
@@ -201,10 +199,10 @@ export function DesignSurface({ locale }: { locale: AppLocale }) {
                 </p>
                 <div className="flex justify-end gap-2 border-t border-border pt-3">
                   <Button type="button" variant="ghost" className="h-8" onClick={() => setPendingMode(null)}>
-                    {t(locale, 'Cancel', '취소')}
+                    {pick(locale, 'Cancel', '취소')}
                   </Button>
                   <Button type="button" className="h-8" onClick={() => void confirmModeChange()}>
-                    {t(locale, 'Continue', '계속')}
+                    {pick(locale, 'Continue', '계속')}
                   </Button>
                 </div>
               </Card>

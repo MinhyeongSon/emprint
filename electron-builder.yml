@@ -1,7 +1,7 @@
 # electron-builder configuration.
 #
 # Run with `npm run dist` (current platform) or `npm run dist:mac|win|linux`.
-# Icons are auto-generated into `build/` by `scripts/prepare-build-icons.mjs`,
+# Icons are auto-generated into `build/` by `apps/desktop/scripts/prepare-build-icons.mjs`,
 # which is wired in as a `pre*` step on every dist script.
 #
 # Cross-compile notes:

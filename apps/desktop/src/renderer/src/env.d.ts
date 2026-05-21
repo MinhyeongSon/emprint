@@ -3,14 +3,9 @@ import type { EmprintDesktopApi } from '@emprint/shared'
 declare global {
   interface Window {
     emprint: EmprintDesktopApi
-    /** Backup bridge when `emprint.siteDev` is missing from a stale preload bundle. */
+    /** Fallback bridge when `window.emprint.siteDev` is missing (stale preload after dev HMR). See `design-dev-preview.ts`. */
     emprintSiteDev?: EmprintDesktopApi['siteDev']
   }
-}
-
-declare module '*.css?raw' {
-  const content: string
-  export default content
 }
 
 export {}

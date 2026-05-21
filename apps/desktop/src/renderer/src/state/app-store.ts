@@ -103,11 +103,12 @@ export const useAppStore = create<AppState>()(
       setGithubSession: ({ connected, login }) => set({ githubConnected: connected, githubLogin: login }),
       setWorkspaceRootDir: (workspaceRootDir) => set({ workspaceRootDir }),
       completeWizard: ({ workspaceRootDir, githubConnected }) =>
-        set({
+        set((state) => ({
           mode: 'hub',
           workspaceRootDir,
-          githubConnected
-        }),
+          githubConnected,
+          hubCatalogRefreshToken: state.hubCatalogRefreshToken + 1
+        })),
       returnToWizard: async () => {
         await leaveAnthologySession()
         set({

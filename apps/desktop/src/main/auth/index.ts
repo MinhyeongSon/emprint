@@ -1,0 +1,5 @@
+export type { AuthProvider, AuthProviderId, HostingProvider, StoredAuthSession } from './types'
+export { getAuthProvider, getHostingProvider, listAuthProviderIds, registerGithubRepoCreate } from './registry'
+export { readGithubSession, performGithubLogout } from './providers/github'
+export { isQaMockAuthEnabled } from './qa/env'
+export { mockGithubRepoCreate } from './qa/mock-provider'

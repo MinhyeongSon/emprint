@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Command, Hash } from 'lucide-react'
-import { Button } from '@renderer/components/ui/button'
 import {
   getLocaleMessages,
 } from '@renderer/lib/i18n'
@@ -9,12 +7,13 @@ import { PullBeforePublishDialog } from './pull-before-publish-dialog'
 import { PullOverwriteDialog } from './pull-overwrite-dialog'
 import { PublishDialog } from './publish-dialog'
 import { WorkspaceSyncFooter } from './workspace-sync-footer'
-import { useAppStore, type SidebarSection } from '@renderer/state/app-store'
+import { useAppStore } from '@renderer/state/app-store'
 import { PostsSurface } from '@renderer/features/posts/posts-surface'
 import { SectionsSurface } from '@renderer/features/sections/sections-surface'
 import { DesignSurface } from '@renderer/features/design/design-surface'
 import { AssetsSurface } from '@renderer/features/assets/assets-surface'
 import { ImprintSurface } from '@renderer/features/imprint/imprint-surface'
+import { PlatformMigrationPanel } from '@renderer/features/settings/platform-migration-panel'
 import { sidebarSectionsForKind } from './workspace-sidebar-sections'
 
 export function AppShell() {
@@ -182,30 +181,7 @@ export function AppShell() {
                 <div className="mt-2 text-lg font-semibold tracking-[-0.02em] text-ink">Studio</div>
               </div>
 
-              <div className="rounded-lg border border-border bg-surface p-4">
-                <div className="text-sm font-medium text-ink">Keyboard</div>
-                <div className="mt-3 grid gap-2 text-sm text-muted">
-                  <div className="flex items-center justify-between rounded-md border border-border/70 bg-panel px-3 py-2">
-                    <span className="inline-flex items-center gap-2 text-ink" title="Command palette">
-                      <Command className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
-                      <span className="sr-only">Open command palette</span>
-                    </span>
-                    <span className="rounded-sm border border-border px-1.5 py-0.5 font-mono text-[10px]">Ctrl K</span>
-                  </div>
-                  <div className="flex items-center justify-between rounded-md border border-border/70 bg-panel px-3 py-2">
-                    <span className="inline-flex items-center gap-2 text-ink" title="Jump sections">
-                      <Hash className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
-                      <span className="sr-only">Jump sections</span>
-                    </span>
-                    <span className="rounded-sm border border-border px-1.5 py-0.5 font-mono text-[10px]">1–6</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-border bg-surface p-4">
-                <div className="text-sm font-medium text-ink">Data</div>
-                <div className="mt-2 text-sm text-muted">Your content lives in your workspace folder.</div>
-              </div>
+              {siteProjectKind === 'column' ? <PlatformMigrationPanel locale={locale} /> : null}
             </div>
           </div>
         )}

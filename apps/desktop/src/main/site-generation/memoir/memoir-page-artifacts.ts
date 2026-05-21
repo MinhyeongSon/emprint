@@ -1,5 +1,5 @@
-import type { WorkspaceArtifact } from '../../workspace/workspace-template'
-import { EP } from './contract'
+import type { WorkspaceArtifact } from '@emprint/core'
+import { EpMemoirClasses } from './contract'
 
 const MEMOIR_PAGE_SYNC_PATHS = new Set([
   'src/pages/index.astro',
@@ -43,16 +43,16 @@ const hp = hero.data.props
 const qp = quote.data.props
 ---
 
-<section class="${EP.Section} ${EP.EditorialLead}" id={hero.data.id}>
-  <div class="${EP.SectionInner} ${EP.Container}">
-    <div class="${EP.EditorialLeadHero}">
-      {hp.eyebrow ? <p class="${EP.Eyebrow}">{String(hp.eyebrow)}</p> : null}
-      <h1 class="${EP.HeroTitle}">{String(hp.title ?? '')}</h1>
-      {hp.subtitle ? <p class="${EP.HeroSubtitle}">{String(hp.subtitle)}</p> : null}
+<section class="${EpMemoirClasses.Section} ${EpMemoirClasses.EditorialLead}" id={hero.data.id}>
+  <div class="${EpMemoirClasses.SectionInner} ${EpMemoirClasses.Container}">
+    <div class="${EpMemoirClasses.EditorialLeadHero}">
+      {hp.eyebrow ? <p class="${EpMemoirClasses.Eyebrow}">{String(hp.eyebrow)}</p> : null}
+      <h1 class="${EpMemoirClasses.HeroTitle}">{String(hp.title ?? '')}</h1>
+      {hp.subtitle ? <p class="${EpMemoirClasses.HeroSubtitle}">{String(hp.subtitle)}</p> : null}
     </div>
-    <aside class="${EP.EditorialLeadQuote}" id={quote.data.id}>
-      {qp.body ? <MemoirRichText text={String(qp.body)} class="${EP.QuoteBody}" as="blockquote" /> : null}
-      {qp.attribution ? <p class="${EP.QuoteAttribution}">— {String(qp.attribution)}</p> : null}
+    <aside class="${EpMemoirClasses.EditorialLeadQuote}" id={quote.data.id}>
+      {qp.body ? <MemoirRichText text={String(qp.body)} class="${EpMemoirClasses.QuoteBody}" as="blockquote" /> : null}
+      {qp.attribution ? <p class="${EpMemoirClasses.QuoteAttribution}">— {String(qp.attribution)}</p> : null}
     </aside>
   </div>
 </section>
@@ -79,63 +79,63 @@ const isGrid = composition === 'grid'
 
 {type === 'Hero' ? (
   composition === 'editorial' ? null : (
-    <section class="${EP.Section} ${EP.Hero}" id={entry.data.id}>
-      <div class="${EP.SectionInner} ${EP.Container}">
-        {p.eyebrow ? <p class="${EP.Eyebrow}">{String(p.eyebrow)}</p> : null}
-        <h1 class="${EP.HeroTitle}">{String(p.title ?? '')}</h1>
-        {p.subtitle ? <p class="${EP.HeroSubtitle}">{String(p.subtitle)}</p> : null}
+    <section class="${EpMemoirClasses.Section} ${EpMemoirClasses.Hero}" id={entry.data.id}>
+      <div class="${EpMemoirClasses.SectionInner} ${EpMemoirClasses.Container}">
+        {p.eyebrow ? <p class="${EpMemoirClasses.Eyebrow}">{String(p.eyebrow)}</p> : null}
+        <h1 class="${EpMemoirClasses.HeroTitle}">{String(p.title ?? '')}</h1>
+        {p.subtitle ? <p class="${EpMemoirClasses.HeroSubtitle}">{String(p.subtitle)}</p> : null}
       </div>
     </section>
   )
 ) : type === 'Quote' ? (
   composition === 'editorial' ? null : (
-    <section class="${EP.Section} ${EP.Quote}" id={entry.data.id}>
-      <div class="${EP.SectionInner} ${EP.Container}">
-        {p.body ? <MemoirRichText text={String(p.body)} class="${EP.QuoteBody}" as="blockquote" /> : null}
-        {p.attribution ? <p class="${EP.QuoteAttribution}">— {String(p.attribution)}</p> : null}
+    <section class="${EpMemoirClasses.Section} ${EpMemoirClasses.Quote}" id={entry.data.id}>
+      <div class="${EpMemoirClasses.SectionInner} ${EpMemoirClasses.Container}">
+        {p.body ? <MemoirRichText text={String(p.body)} class="${EpMemoirClasses.QuoteBody}" as="blockquote" /> : null}
+        {p.attribution ? <p class="${EpMemoirClasses.QuoteAttribution}">— {String(p.attribution)}</p> : null}
       </div>
     </section>
   )
 ) : type === 'Introduction' ? (
-  <section class="${EP.Section} ${EP.Introduction}" id={entry.data.id}>
-    <div class="${EP.SectionInner} ${EP.Container}">
-      {p.title ? <h2 class="${EP.IntroductionTitle}">{String(p.title)}</h2> : null}
-      {p.body ? <MemoirRichText text={String(p.body)} class="${EP.IntroductionBody}" /> : null}
+  <section class="${EpMemoirClasses.Section} ${EpMemoirClasses.Introduction}" id={entry.data.id}>
+    <div class="${EpMemoirClasses.SectionInner} ${EpMemoirClasses.Container}">
+      {p.title ? <h2 class="${EpMemoirClasses.IntroductionTitle}">{String(p.title)}</h2> : null}
+      {p.body ? <MemoirRichText text={String(p.body)} class="${EpMemoirClasses.IntroductionBody}" /> : null}
     </div>
   </section>
 ) : type === 'Project' ? (
-  <section class="${EP.Section} ${EP.Project}" id={entry.data.id}>
-    <div class="${EP.SectionInner} ${EP.Container}">
-      <div class={isGrid ? '${EP.ProjectMasonry}' : '${EP.ProjectStack}'}>
-        <article class="${EP.Project}">
-          <h2 class="${EP.ProjectTitle}">{String(p.title ?? '')}</h2>
-          {p.body ? <MemoirRichText text={String(p.body)} class="${EP.ProjectBody}" /> : null}
+  <section class="${EpMemoirClasses.Section} ${EpMemoirClasses.Project}" id={entry.data.id}>
+    <div class="${EpMemoirClasses.SectionInner} ${EpMemoirClasses.Container}">
+      <div class={isGrid ? '${EpMemoirClasses.ProjectMasonry}' : '${EpMemoirClasses.ProjectStack}'}>
+        <article class="${EpMemoirClasses.Project}">
+          <h2 class="${EpMemoirClasses.ProjectTitle}">{String(p.title ?? '')}</h2>
+          {p.body ? <MemoirRichText text={String(p.body)} class="${EpMemoirClasses.ProjectBody}" /> : null}
         </article>
       </div>
     </div>
   </section>
 ) : type === 'Skill' ? (
-  <section class="${EP.Section} ${EP.Skill}" id={entry.data.id}>
-    <div class="${EP.SectionInner} ${EP.Container}">
-      <p class="${EP.SkillName}">
+  <section class="${EpMemoirClasses.Section} ${EpMemoirClasses.Skill}" id={entry.data.id}>
+    <div class="${EpMemoirClasses.SectionInner} ${EpMemoirClasses.Container}">
+      <p class="${EpMemoirClasses.SkillName}">
         {String(p.name ?? '')}
-        {p.level ? <span class="${EP.SkillLevel}"> · {String(p.level)}</span> : null}
+        {p.level ? <span class="${EpMemoirClasses.SkillLevel}"> · {String(p.level)}</span> : null}
       </p>
     </div>
   </section>
 ) : type === 'ProjectGroup' ? (
-  <section class="${EP.Section} ${EP.ProjectGroup}" id={entry.data.id}>
-    <div class="${EP.SectionInner} ${EP.Container}">
-      {p.title ? <h2 class="${EP.ProjectGroupTitle}">{String(p.title)}</h2> : null}
-      <div class={isGrid ? '${EP.ProjectMasonry}' : '${EP.ProjectStack}'}>
+  <section class="${EpMemoirClasses.Section} ${EpMemoirClasses.ProjectGroup}" id={entry.data.id}>
+    <div class="${EpMemoirClasses.SectionInner} ${EpMemoirClasses.Container}">
+      {p.title ? <h2 class="${EpMemoirClasses.ProjectGroupTitle}">{String(p.title)}</h2> : null}
+      <div class={isGrid ? '${EpMemoirClasses.ProjectMasonry}' : '${EpMemoirClasses.ProjectStack}'}>
         {children.map((childId) => {
           const child = byId.get(childId)
           if (!child || child.data.type !== 'Project') return null
           const cp = child.data.props
           return (
-            <article class="${EP.Project}" id={child.data.id}>
-              <h3 class="${EP.ProjectTitle}">{String(cp.title ?? '')}</h3>
-              {cp.body ? <MemoirRichText text={String(cp.body)} class="${EP.ProjectBody}" /> : null}
+            <article class="${EpMemoirClasses.Project}" id={child.data.id}>
+              <h3 class="${EpMemoirClasses.ProjectTitle}">{String(cp.title ?? '')}</h3>
+              {cp.body ? <MemoirRichText text={String(cp.body)} class="${EpMemoirClasses.ProjectBody}" /> : null}
             </article>
           )
         })}
@@ -143,18 +143,18 @@ const isGrid = composition === 'grid'
     </div>
   </section>
 ) : type === 'SkillGroup' ? (
-  <section class="${EP.Section} ${EP.SkillGroup}" id={entry.data.id}>
-    <div class="${EP.SectionInner} ${EP.Container}">
-      {p.title ? <h2 class="${EP.SkillGroupTitle}">{String(p.title)}</h2> : null}
-      <ul class="${EP.SkillList}">
+  <section class="${EpMemoirClasses.Section} ${EpMemoirClasses.SkillGroup}" id={entry.data.id}>
+    <div class="${EpMemoirClasses.SectionInner} ${EpMemoirClasses.Container}">
+      {p.title ? <h2 class="${EpMemoirClasses.SkillGroupTitle}">{String(p.title)}</h2> : null}
+      <ul class="${EpMemoirClasses.SkillList}">
         {children.map((childId) => {
           const child = byId.get(childId)
           if (!child || child.data.type !== 'Skill') return null
           const cp = child.data.props
           return (
-            <li class="${EP.Skill}" id={child.data.id}>
-              <span class="${EP.SkillName}">{String(cp.name ?? '')}</span>
-              {cp.level ? <span class="${EP.SkillLevel}">{String(cp.level)}</span> : null}
+            <li class="${EpMemoirClasses.Skill}" id={child.data.id}>
+              <span class="${EpMemoirClasses.SkillName}">{String(cp.name ?? '')}</span>
+              {cp.level ? <span class="${EpMemoirClasses.SkillLevel}">{String(cp.level)}</span> : null}
             </li>
           )
         })}
@@ -162,44 +162,44 @@ const isGrid = composition === 'grid'
     </div>
   </section>
 ) : type === 'Timeline' ? (
-  <section class="${EP.Section} ${EP.Timeline}" id={entry.data.id}>
-    <div class="${EP.SectionInner} ${EP.Container}">
-      {p.title ? <h2 class="${EP.TimelineTitle}">{String(p.title)}</h2> : null}
-      <div class="${EP.TimelineList}">
+  <section class="${EpMemoirClasses.Section} ${EpMemoirClasses.Timeline}" id={entry.data.id}>
+    <div class="${EpMemoirClasses.SectionInner} ${EpMemoirClasses.Container}">
+      {p.title ? <h2 class="${EpMemoirClasses.TimelineTitle}">{String(p.title)}</h2> : null}
+      <div class="${EpMemoirClasses.TimelineList}">
         {children.map((childId) => {
           const child = byId.get(childId)
           if (!child) return null
           const cp = child.data.props
           const ct = child.data.type
           return (
-            <div class="${EP.TimelineItem}" id={child.data.id}>
+            <div class="${EpMemoirClasses.TimelineItem}" id={child.data.id}>
               {ct === 'Introduction' ? (
                 <>
-                  {cp.title ? <h3 class="${EP.IntroductionTitle}">{String(cp.title)}</h3> : null}
-                  {cp.body ? <MemoirRichText text={String(cp.body)} class="${EP.IntroductionBody}" /> : null}
+                  {cp.title ? <h3 class="${EpMemoirClasses.IntroductionTitle}">{String(cp.title)}</h3> : null}
+                  {cp.body ? <MemoirRichText text={String(cp.body)} class="${EpMemoirClasses.IntroductionBody}" /> : null}
                 </>
               ) : ct === 'Quote' ? (
                 <>
-                  {cp.body ? <MemoirRichText text={String(cp.body)} class="${EP.QuoteBody}" as="blockquote" /> : null}
-                  {cp.attribution ? <p class="${EP.QuoteAttribution}">— {String(cp.attribution)}</p> : null}
+                  {cp.body ? <MemoirRichText text={String(cp.body)} class="${EpMemoirClasses.QuoteBody}" as="blockquote" /> : null}
+                  {cp.attribution ? <p class="${EpMemoirClasses.QuoteAttribution}">— {String(cp.attribution)}</p> : null}
                 </>
               ) : ct === 'Project' ? (
-                <article class="${EP.Project}">
-                  <h3 class="${EP.ProjectTitle}">{String(cp.title ?? '')}</h3>
-                  {cp.body ? <MemoirRichText text={String(cp.body)} class="${EP.ProjectBody}" /> : null}
+                <article class="${EpMemoirClasses.Project}">
+                  <h3 class="${EpMemoirClasses.ProjectTitle}">{String(cp.title ?? '')}</h3>
+                  {cp.body ? <MemoirRichText text={String(cp.body)} class="${EpMemoirClasses.ProjectBody}" /> : null}
                 </article>
               ) : ct === 'Skill' ? (
-                <p class="${EP.SkillName}">
+                <p class="${EpMemoirClasses.SkillName}">
                   {String(cp.name ?? '')}
-                  {cp.level ? <span class="${EP.SkillLevel}"> · {String(cp.level)}</span> : null}
+                  {cp.level ? <span class="${EpMemoirClasses.SkillLevel}"> · {String(cp.level)}</span> : null}
                 </p>
               ) : ct === 'Contact' ? (
                 <>
-                  {cp.title ? <h3 class="${EP.ContactTitle}">{String(cp.title)}</h3> : null}
-                  {cp.body ? <MemoirRichText text={String(cp.body)} class="${EP.ContactBody}" /> : null}
+                  {cp.title ? <h3 class="${EpMemoirClasses.ContactTitle}">{String(cp.title)}</h3> : null}
+                  {cp.body ? <MemoirRichText text={String(cp.body)} class="${EpMemoirClasses.ContactBody}" /> : null}
                 </>
               ) : (
-                <p class="${EP.Muted}">{ct}</p>
+                <p class="${EpMemoirClasses.Muted}">{ct}</p>
               )}
             </div>
           )
@@ -208,30 +208,30 @@ const isGrid = composition === 'grid'
     </div>
   </section>
 ) : type === 'Gallery' ? (
-  <section class="${EP.Section} ${EP.Gallery}" id={entry.data.id}>
-    <div class="${EP.SectionInner} ${EP.Container}">
-      {p.title ? <h2 class="${EP.GalleryTitle}">{String(p.title)}</h2> : null}
-      <div class={isGrid ? '${EP.ProjectMasonry}' : '${EP.GalleryGrid}'}>
+  <section class="${EpMemoirClasses.Section} ${EpMemoirClasses.Gallery}" id={entry.data.id}>
+    <div class="${EpMemoirClasses.SectionInner} ${EpMemoirClasses.Container}">
+      {p.title ? <h2 class="${EpMemoirClasses.GalleryTitle}">{String(p.title)}</h2> : null}
+      <div class={isGrid ? '${EpMemoirClasses.ProjectMasonry}' : '${EpMemoirClasses.GalleryGrid}'}>
         {children.map((childId) => {
           const child = byId.get(childId)
           if (!child) return null
           const cp = child.data.props
           const ct = child.data.type
-          const itemClass = isGrid && ct === 'Project' ? '${EP.Project}' : '${EP.GalleryItem}'
+          const itemClass = isGrid && ct === 'Project' ? '${EpMemoirClasses.Project}' : '${EpMemoirClasses.GalleryItem}'
           return (
             <article class={itemClass} id={child.data.id}>
               {ct === 'Project' ? (
                 <>
-                  <h3 class="${EP.ProjectTitle}">{String(cp.title ?? '')}</h3>
-                  {cp.body ? <MemoirRichText text={String(cp.body)} class="${EP.ProjectBody}" /> : null}
+                  <h3 class="${EpMemoirClasses.ProjectTitle}">{String(cp.title ?? '')}</h3>
+                  {cp.body ? <MemoirRichText text={String(cp.body)} class="${EpMemoirClasses.ProjectBody}" /> : null}
                 </>
               ) : ct === 'Introduction' ? (
                 <>
-                  {cp.title ? <h3 class="${EP.IntroductionTitle}">{String(cp.title)}</h3> : null}
-                  {cp.body ? <MemoirRichText text={String(cp.body)} class="${EP.IntroductionBody}" /> : null}
+                  {cp.title ? <h3 class="${EpMemoirClasses.IntroductionTitle}">{String(cp.title)}</h3> : null}
+                  {cp.body ? <MemoirRichText text={String(cp.body)} class="${EpMemoirClasses.IntroductionBody}" /> : null}
                 </>
               ) : (
-                <p class="${EP.Muted}">{ct}</p>
+                <p class="${EpMemoirClasses.Muted}">{ct}</p>
               )}
             </article>
           )
@@ -240,16 +240,16 @@ const isGrid = composition === 'grid'
     </div>
   </section>
 ) : type === 'Contact' ? (
-  <section class="${EP.Section} ${EP.Contact}" id={entry.data.id}>
-    <div class="${EP.SectionInner} ${EP.Container}">
-      {p.title ? <h2 class="${EP.ContactTitle}">{String(p.title)}</h2> : null}
-      {p.body ? <MemoirRichText text={String(p.body)} class="${EP.ContactBody}" /> : null}
+  <section class="${EpMemoirClasses.Section} ${EpMemoirClasses.Contact}" id={entry.data.id}>
+    <div class="${EpMemoirClasses.SectionInner} ${EpMemoirClasses.Container}">
+      {p.title ? <h2 class="${EpMemoirClasses.ContactTitle}">{String(p.title)}</h2> : null}
+      {p.body ? <MemoirRichText text={String(p.body)} class="${EpMemoirClasses.ContactBody}" /> : null}
     </div>
   </section>
 ) : (
-  <section class="${EP.Section}" id={entry.data.id}>
-    <div class="${EP.SectionInner} ${EP.Container}">
-      <p class="${EP.Muted}">{type}</p>
+  <section class="${EpMemoirClasses.Section}" id={entry.data.id}>
+    <div class="${EpMemoirClasses.SectionInner} ${EpMemoirClasses.Container}">
+      <p class="${EpMemoirClasses.Muted}">{type}</p>
     </div>
   </section>
 )}
@@ -297,7 +297,7 @@ for (let i = 0; i < roots.length; i++) {
 ---
 
 <Layout>
-  <div class="${EP.Page}" data-composition={composition}>
+  <div class="${EpMemoirClasses.Page}" data-composition={composition}>
     {blocks.map((block) =>
       block.kind === 'editorial-lead' ? (
         <MemoirEditorialLead hero={block.hero} quote={block.quote} />

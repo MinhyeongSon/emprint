@@ -1,7 +1,7 @@
-import type { WorkspaceArtifact } from '../../workspace/workspace-template'
+import type { WorkspaceArtifact } from '@emprint/core'
 import type { SiteGenerationContext } from '../site-project-generator'
 import syncThemeScript from '../column/sync-theme.mjs?raw'
-import { EP } from './contract'
+import { EpMemoirClasses } from './contract'
 import {
   createMemoirGlobalCss,
   createMemoirThemeJson,
@@ -86,15 +86,15 @@ const defaultMode =
 ---
 
 <div
-  class="${EP.ThemeToggle}"
+  class="${EpMemoirClasses.ThemeToggle}"
   role="group"
   aria-label="${label}"
   data-ep-theme-toggle
   data-default-mode={defaultMode}
 >
-  <button type="button" class="${EP.ThemeToggleBtn}" data-ep-theme-mode="system" aria-pressed="false">${system}</button>
-  <button type="button" class="${EP.ThemeToggleBtn}" data-ep-theme-mode="light" aria-pressed="false">${light}</button>
-  <button type="button" class="${EP.ThemeToggleBtn}" data-ep-theme-mode="dark" aria-pressed="false">${dark}</button>
+  <button type="button" class="${EpMemoirClasses.ThemeToggleBtn}" data-ep-theme-mode="system" aria-pressed="false">${system}</button>
+  <button type="button" class="${EpMemoirClasses.ThemeToggleBtn}" data-ep-theme-mode="light" aria-pressed="false">${light}</button>
+  <button type="button" class="${EpMemoirClasses.ThemeToggleBtn}" data-ep-theme-mode="dark" aria-pressed="false">${dark}</button>
 </div>
 
 <script>
@@ -134,9 +134,9 @@ function headerAstro(_lang: 'ko' | 'en'): string {
 import ThemeToggle from './ThemeToggle.astro'
 ---
 
-<header class="${EP.Header}">
-  <div class="${EP.HeaderInner} ${EP.Wide}">
-    <div class="${EP.HeaderTools}">
+<header class="${EpMemoirClasses.Header}">
+  <div class="${EpMemoirClasses.HeaderInner} ${EpMemoirClasses.Wide}">
+    <div class="${EpMemoirClasses.HeaderTools}">
       <ThemeToggle />
     </div>
   </div>
@@ -150,8 +150,8 @@ import { SITE_TITLE } from '../lib/site'
 const year = new Date().getFullYear()
 ---
 
-<footer class="${EP.Footer}">
-  <div class="${EP.FooterInner} ${EP.Wide}">
+<footer class="${EpMemoirClasses.Footer}">
+  <div class="${EpMemoirClasses.FooterInner} ${EpMemoirClasses.Wide}">
     <span>© {year} {SITE_TITLE}</span>
     <span>${lang === 'ko' ? 'Emprint Memoir' : 'Emprint Memoir'}</span>
   </div>
@@ -210,7 +210,7 @@ const layoutComposition =
   </head>
   <body>
     <LandingIntro />
-    <div class="${EP.Site}">
+    <div class="${EpMemoirClasses.Site}">
       <Header />
       <main>
         <slot />

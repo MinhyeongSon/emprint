@@ -1,3 +1,4 @@
+import { pick } from '@renderer/lib/i18n'
 import type { AppLocale, MemoirSectionFieldDef, MemoirSectionFile } from '@emprint/shared'
 import {
   isMemoirContainerSectionType,
@@ -9,9 +10,6 @@ import { Input } from '@renderer/components/ui/input'
 import { Textarea } from '@renderer/components/ui/textarea'
 import { cn } from '@renderer/lib/cn'
 
-function t(locale: AppLocale, en: string, ko: string) {
-  return locale === 'ko' ? ko : en
-}
 
 function fieldLabel(locale: AppLocale, field: MemoirSectionFieldDef) {
   return locale === 'ko' ? field.labelKo : field.labelEn
@@ -89,11 +87,11 @@ export function SectionComposerForm({
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block space-y-1.5">
-          <span className="text-xs font-medium text-muted">{t(locale, 'Section ID', '섹션 ID')}</span>
+          <span className="text-xs font-medium text-muted">{pick(locale, 'Section ID', '섹션 ID')}</span>
           <Input value={section.id} readOnly className="bg-panel2 font-mono text-[12px]" />
         </label>
         <label className="block space-y-1.5">
-          <span className="text-xs font-medium text-muted">{t(locale, 'Type', '유형')}</span>
+          <span className="text-xs font-medium text-muted">{pick(locale, 'Type', '유형')}</span>
           <Input value={section.type} readOnly className="bg-panel2" />
         </label>
       </div>
@@ -105,13 +103,13 @@ export function SectionComposerForm({
           checked={section.published}
           onChange={(e) => onChange({ ...section, published: e.target.checked })}
         />
-        <span className="text-sm text-ink">{t(locale, 'Published on site', '사이트에 공개')}</span>
+        <span className="text-sm text-ink">{pick(locale, 'Published on site', '사이트에 공개')}</span>
       </label>
 
       {parentId && !isMemoirContainerSectionType(section.type) ? (
         <label className="block max-w-[8rem] space-y-1.5">
           <span className="text-xs font-medium text-muted">
-            {t(locale, 'Order in group', '그룹 내 순서')}
+            {pick(locale, 'Order in group', '그룹 내 순서')}
           </span>
           <Input
             type="number"
@@ -123,14 +121,14 @@ export function SectionComposerForm({
             }}
           />
           <p className="text-[10px] text-muted">
-            {t(locale, '0 = first in the parent group.', '0 = 부모 그룹에서 첫 번째.')}
+            {pick(locale, '0 = first in the parent group.', '0 = 부모 그룹에서 첫 번째.')}
           </p>
         </label>
       ) : null}
 
       <div className="space-y-4 border-t border-border pt-4">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">
-          {t(locale, 'Content', '콘텐츠')}
+          {pick(locale, 'Content', '콘텐츠')}
         </h2>
         {fields.map((field) => (
           <label key={field.key} className="block space-y-1.5">
@@ -167,17 +165,17 @@ export function SectionComposerForm({
       {isMemoirContainerSectionType(section.type) ? (
         <div className="space-y-3 border-t border-border pt-4">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">
-            {t(locale, 'Child sections', '하위 섹션')}
+            {pick(locale, 'Child sections', '하위 섹션')}
           </h2>
           <p className="text-xs text-muted">
-            {t(
+            {pick(
               locale,
               'Order here controls display inside this group. Only leaf sections of matching types can be added.',
               '여기서 순서가 그룹 안 표시 순서를 정합니다. 허용된 유형의 리프 섹션만 추가할 수 있습니다.'
             )}
           </p>
           {childIds.length === 0 ? (
-            <p className="text-sm text-muted">{t(locale, 'No children yet.', '하위 섹션이 없습니다.')}</p>
+            <p className="text-sm text-muted">{pick(locale, 'No children yet.', '하위 섹션이 없습니다.')}</p>
           ) : (
             <ul className="space-y-2">
               {childIds.map((childId, index) => {
@@ -219,7 +217,7 @@ export function SectionComposerForm({
                         className="rounded px-1.5 py-0.5 text-xs text-dangerInk hover:bg-dangerBg/50"
                         onClick={() => removeChild(childId)}
                       >
-                        {t(locale, 'Remove', '제거')}
+                        {pick(locale, 'Remove', '제거')}
                       </button>
                     </div>
                   </li>
@@ -229,7 +227,7 @@ export function SectionComposerForm({
           )}
           {eligibleChildren.filter((c) => !childIds.includes(c.id)).length > 0 ? (
             <label className="block space-y-1.5">
-              <span className="text-xs font-medium text-muted">{t(locale, 'Add child', '하위 섹션 추가')}</span>
+              <span className="text-xs font-medium text-muted">{pick(locale, 'Add child', '하위 섹션 추가')}</span>
               <select
                 className={cn(
                   'w-full rounded-md border border-border bg-panel px-3 py-2 text-sm text-ink outline-none focus:border-accent/70'
@@ -241,7 +239,7 @@ export function SectionComposerForm({
                   e.target.value = ''
                 }}
               >
-                <option value="">{t(locale, 'Select a section…', '섹션 선택…')}</option>
+                <option value="">{pick(locale, 'Select a section…', '섹션 선택…')}</option>
                 {eligibleChildren
                   .filter((c) => !childIds.includes(c.id))
                   .map((c) => (
@@ -253,7 +251,7 @@ export function SectionComposerForm({
             </label>
           ) : (
             <p className="text-xs text-muted">
-              {t(
+              {pick(
                 locale,
                 'Create a matching leaf section first (e.g. Project for a project group).',
                 '먼저 맞는 리프 섹션을 만드세요 (예: 프로젝트 그룹에는 Project).'

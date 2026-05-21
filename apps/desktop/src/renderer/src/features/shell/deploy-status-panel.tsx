@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, CheckCircle2, ExternalLink, Loader2 } from 'lucide-react'
+import { pick } from '@renderer/lib/i18n'
 import type { AppLocale, GitHubDeployPhase, GitHubDeployStatus } from '@emprint/shared'
 import { Button } from '@renderer/components/ui/button'
 
-function t(locale: AppLocale, en: string, ko: string): string {
-  return locale === 'ko' ? ko : en
-}
 
 const POLL_INTERVAL_MS = 8_000
 const MAX_POLL_MS = 10 * 60_000
@@ -13,24 +11,24 @@ const MAX_POLL_MS = 10 * 60_000
 function phaseLabel(locale: AppLocale, phase: GitHubDeployPhase): string {
   switch (phase) {
     case 'queued':
-      return t(locale, 'Waiting to build…', '빌드 대기 중…')
+      return pick(locale, 'Waiting to build…', '빌드 대기 중…')
     case 'in_progress':
-      return t(locale, 'Building your live site…', '배포본을 빌드하는 중…')
+      return pick(locale, 'Building your live site…', '배포본을 빌드하는 중…')
     case 'live':
-      return t(locale, 'Live site is up to date', '배포본이 최신 상태입니다')
+      return pick(locale, 'Live site is up to date', '배포본이 최신 상태입니다')
     case 'failed':
-      return t(locale, 'Build or deploy failed', '빌드 또는 배포에 실패했습니다')
+      return pick(locale, 'Build or deploy failed', '빌드 또는 배포에 실패했습니다')
     case 'no_session':
-      return t(locale, 'Sign in to track deploy status', '배포 상태를 보려면 로그인하세요')
+      return pick(locale, 'Sign in to track deploy status', '배포 상태를 보려면 로그인하세요')
     case 'no_remote':
-      return t(locale, 'No GitHub remote configured', 'GitHub 원격이 설정되지 않았습니다')
+      return pick(locale, 'No GitHub remote configured', 'GitHub 원격이 설정되지 않았습니다')
     default:
-      return t(locale, 'Checking deploy status…', '배포 상태 확인 중…')
+      return pick(locale, 'Checking deploy status…', '배포 상태 확인 중…')
   }
 }
 
 function pipelineTimingNotice(locale: AppLocale): string {
-  return t(
+  return pick(
     locale,
     'Your publish is being applied to the live site. This may take a few minutes.',
     '만든 흔적을 실제 사이트에 반영하는 중입니다. 완료까지 몇 분 걸릴 수 있습니다.'
@@ -44,15 +42,15 @@ function phaseDetail(locale: AppLocale, status: GitHubDeployStatus): string | nu
   switch (status.phase) {
     case 'queued':
     case 'in_progress':
-      return t(
+      return pick(
         locale,
         'You can close this dialog — your publish is already saved.',
         '이 창을 닫아도 발행 기록은 이미 저장되었습니다.'
       )
     case 'live':
-      return t(locale, 'Visitors should see your latest publish shortly.', '방문자도 곧 최신 발행을 볼 수 있습니다.')
+      return pick(locale, 'Visitors should see your latest publish shortly.', '방문자도 곧 최신 발행을 볼 수 있습니다.')
     case 'failed':
-      return t(
+      return pick(
         locale,
         'The build or deploy did not finish successfully. Try publishing again in a few minutes.',
         '빌드 또는 배포가 끝나지 않았습니다. 잠시 후 다시 발행해 보세요.'
@@ -165,7 +163,7 @@ export function DeployStatusPanel({ locale, active }: DeployStatusPanelProps) {
             ) : null
           ) : (
             <p className="text-[11px] leading-relaxed text-muted">
-              {t(locale, 'Checking the deploy pipeline…', '배포 파이프라인을 확인하는 중…')}
+              {pick(locale, 'Checking the deploy pipeline…', '배포 파이프라인을 확인하는 중…')}
             </p>
           )}
         </div>
@@ -180,7 +178,7 @@ export function DeployStatusPanel({ locale, active }: DeployStatusPanelProps) {
             onClick={() => window.open(status.pagesUrl, '_blank')}
           >
             <ExternalLink className="h-3 w-3" strokeWidth={2} aria-hidden />
-            {t(locale, 'Open live site', '배포본 열기')}
+            {pick(locale, 'Open live site', '배포본 열기')}
           </Button>
         </div>
       ) : null}

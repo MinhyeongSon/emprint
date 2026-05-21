@@ -1,5 +1,5 @@
-import landingIntroLibSource from '@emprint/shared/landing-intro.ts?raw'
-import type { WorkspaceArtifact } from '../../workspace/workspace-template'
+import landingIntroLibSource from '@emprint/shared/cross/landing-intro.ts?raw'
+import type { WorkspaceArtifact } from '@emprint/core'
 import landingIntroCssTemplate from './landing-intro.css?raw'
 
 function landingIntroCss(classPrefix: string): string {

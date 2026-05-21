@@ -1,10 +1,8 @@
 import { Loader2 } from 'lucide-react'
+import { pick } from '@renderer/lib/i18n'
 import type { AppLocale } from '@emprint/shared'
 import { useAppStore } from '@renderer/state/app-store'
 
-function t(locale: AppLocale, en: string, ko: string): string {
-  return locale === 'ko' ? ko : en
-}
 
 interface HubRecoveryOverlayProps {
   locale: AppLocale
@@ -21,7 +19,7 @@ export function HubRecoveryOverlay({ locale }: HubRecoveryOverlayProps) {
       <div className="w-full max-w-md space-y-4 rounded-lg border border-border bg-surface p-6 shadow-lg">
         <div className="space-y-1 text-center">
           <div className="text-sm font-semibold text-ink">
-            {t(locale, 'Restoring workspace', '워크스페이스 복구 중')}
+            {pick(locale, 'Restoring workspace', '워크스페이스 복구 중')}
           </div>
           <p className="text-xs text-muted">{hubRecovery.title}</p>
         </div>
@@ -39,7 +37,7 @@ export function HubRecoveryOverlay({ locale }: HubRecoveryOverlayProps) {
         </div>
 
         <p className="text-center text-[10px] leading-relaxed text-muted">
-          {t(
+          {pick(
             locale,
             'Your local copy was removed and is being downloaded again from GitHub. You will return to the Hub when finished.',
             '로컬 복사본을 삭제한 뒤 GitHub에서 다시 받고 있습니다. 완료되면 Hub로 돌아옵니다.'

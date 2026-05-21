@@ -15,7 +15,9 @@
     "paths": {
       "@renderer/*": ["./apps/desktop/src/renderer/src/*"],
       "@emprint/shared": ["./shared/src/index.ts"],
-      "@emprint/shared/*": ["./shared/src/*"]
+      "@emprint/shared/*": ["./shared/src/*"],
+      "@emprint/core": ["./core/src/index.ts"],
+      "@emprint/core/*": ["./core/src/*"]
     }
   }
 }

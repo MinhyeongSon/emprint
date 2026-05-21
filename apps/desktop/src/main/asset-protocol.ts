@@ -3,7 +3,7 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { hasPathTraversalSegment } from '@emprint/shared'
 import { getMountedWorkspaceRoot } from './ipc'
-import { WORKSPACE_DIR } from './workspace-paths'
+import { WORKSPACE_DIR } from '@emprint/shared'
 
 export const ASSET_PROTOCOL = 'emprint-asset'
 

@@ -1,14 +1,12 @@
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { AlertTriangle, Loader2, Trash2, X } from 'lucide-react'
+import { pick } from '@renderer/lib/i18n'
 import type { AppLocale, AssetImageInfo } from '@emprint/shared'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { cn } from '@renderer/lib/cn'
 
-function t(locale: AppLocale, en: string, ko: string): string {
-  return locale === 'ko' ? ko : en
-}
 
 interface AssetDeleteDialogProps {
   open: boolean
@@ -100,8 +98,8 @@ export function AssetDeleteDialog({
               <div className="min-w-0">
                 <div id="asset-delete-title" className="text-sm font-semibold tracking-[-0.01em] text-ink">
                   {isReferenced
-                    ? t(locale, 'This image is used by other posts', '이 이미지를 사용하는 글이 있어요')
-                    : t(locale, 'Delete this image?', '이미지를 삭제할까요?')}
+                    ? pick(locale, 'This image is used by other posts', '이 이미지를 사용하는 글이 있어요')
+                    : pick(locale, 'Delete this image?', '이미지를 삭제할까요?')}
                 </div>
                 <div className="mt-1 break-all font-mono text-[11px] text-muted">{image.name}</div>
               </div>
@@ -110,7 +108,7 @@ export function AssetDeleteDialog({
               type="button"
               onClick={onCancel}
               disabled={deleting}
-              aria-label={t(locale, 'Close', '닫기')}
+              aria-label={pick(locale, 'Close', '닫기')}
               className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm border border-transparent text-muted transition hover:border-border hover:text-ink disabled:opacity-50"
             >
               <X className="h-4 w-4" strokeWidth={2} aria-hidden />
@@ -119,7 +117,7 @@ export function AssetDeleteDialog({
 
           {isReferenced ? (
             <div className="rounded-md border border-danger/40 bg-dangerBg/70 px-3 py-2.5 text-[12px] leading-relaxed text-dangerInk">
-              {t(
+              {pick(
                 locale,
                 `Deleting "${image.name}" will leave a broken image in ${referenceCount} post${referenceCount === 1 ? '' : 's'}. Open each post and remove the image before deleting, or proceed anyway and fix the broken references later.`,
                 `"${image.name}"을(를) 삭제하면 ${referenceCount}개의 글에서 깨진 이미지로 표시됩니다. 먼저 각 글에서 이미지를 제거하거나, 그대로 삭제 후 나중에 수동으로 정리해 주세요.`
@@ -127,7 +125,7 @@ export function AssetDeleteDialog({
             </div>
           ) : (
             <div className="rounded-md border border-border bg-panel px-3 py-2.5 text-[12px] leading-relaxed text-muted">
-              {t(
+              {pick(
                 locale,
                 'This image is not used by any post. The file will be removed from assets/images/ and cannot be undone from inside Emprint.',
                 '이 이미지는 어떤 글에서도 사용되지 않습니다. assets/images/ 폴더에서 파일이 삭제되며, Emprint 안에서는 되돌릴 수 없습니다.'
@@ -138,12 +136,12 @@ export function AssetDeleteDialog({
           {isReferenced ? (
             <div>
               <div className="mb-1.5 text-[11px] uppercase tracking-[0.16em] text-muted">
-                {t(locale, 'Referenced in', '참조하는 글')}
+                {pick(locale, 'Referenced in', '참조하는 글')}
               </div>
               <ul className="max-h-44 space-y-1.5 overflow-y-auto pr-1">
                 {image.references.map((ref) => {
                   const sectionLabel =
-                    ref.section === 'posts' ? t(locale, 'Posts', '글') : t(locale, 'Drafts', '드래프트')
+                    ref.section === 'posts' ? pick(locale, 'Posts', '글') : pick(locale, 'Drafts', '드래프트')
                   return (
                     <li key={`${ref.section}:${ref.postPath}`}>
                       <button
@@ -171,7 +169,7 @@ export function AssetDeleteDialog({
               onClick={onCancel}
               disabled={deleting}
             >
-              {t(locale, 'Cancel', '취소')}
+              {pick(locale, 'Cancel', '취소')}
             </Button>
             <Button
               ref={confirmRef}
@@ -186,8 +184,8 @@ export function AssetDeleteDialog({
               disabled={deleting}
               aria-label={
                 isReferenced
-                  ? t(locale, 'Delete anyway', '그래도 삭제')
-                  : t(locale, 'Delete image', '이미지 삭제')
+                  ? pick(locale, 'Delete anyway', '그래도 삭제')
+                  : pick(locale, 'Delete image', '이미지 삭제')
               }
             >
               {deleting ? (
@@ -197,8 +195,8 @@ export function AssetDeleteDialog({
               )}
               <span>
                 {isReferenced
-                  ? t(locale, 'Delete anyway', '그래도 삭제')
-                  : t(locale, 'Delete', '삭제')}
+                  ? pick(locale, 'Delete anyway', '그래도 삭제')
+                  : pick(locale, 'Delete', '삭제')}
               </span>
             </Button>
           </div>

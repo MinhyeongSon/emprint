@@ -1,15 +1,13 @@
 import { useCallback, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Check, ClipboardCopy, Loader2, Sparkles, X } from 'lucide-react'
+import { pick } from '@renderer/lib/i18n'
 import type { AppLocale, WorkspaceConfig } from '@emprint/shared'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
 import { Textarea } from '@renderer/components/ui/textarea'
 import { buildDesignAiPrompt } from './design-ai-prompt'
 
-function t(locale: AppLocale, en: string, ko: string) {
-  return locale === 'ko' ? ko : en
-}
 
 export function DesignAiPromptDialog({
   locale,
@@ -53,7 +51,7 @@ export function DesignAiPromptDialog({
 
   const hint = useMemo(
     () =>
-      t(
+      pick(
         locale,
         'Generate a detailed prompt, copy it, then paste into your AI chat (⌘/Ctrl+V). The assistant should return file paths and full code you can apply in Design → Code.',
         '상세 프롬프트를 만든 뒤 복사해 AI 채팅에 붙여넣으세요(⌘/Ctrl+V). 어시스턴트는 디자인 → 코드에 적용할 파일 경로와 전체 코드를 돌려줘야 합니다.'
@@ -76,11 +74,11 @@ export function DesignAiPromptDialog({
           <div>
             <div className="flex items-center gap-2 text-sm font-semibold text-ink">
               <Sparkles className="h-4 w-4 text-accent" strokeWidth={2} aria-hidden />
-              {t(locale, 'AI customization prompt', 'AI 커스터마이징 프롬프트')}
+              {pick(locale, 'AI customization prompt', 'AI 커스터마이징 프롬프트')}
             </div>
             <p className="mt-1 text-xs leading-relaxed text-muted">{hint}</p>
           </div>
-          <Button type="button" variant="ghost" className="h-8 w-8 shrink-0 p-0" onClick={onClose} aria-label={t(locale, 'Close', '닫기')}>
+          <Button type="button" variant="ghost" className="h-8 w-8 shrink-0 p-0" onClick={onClose} aria-label={pick(locale, 'Close', '닫기')}>
             <X className="h-4 w-4" strokeWidth={2} />
           </Button>
         </div>
@@ -88,12 +86,12 @@ export function DesignAiPromptDialog({
         <div className="space-y-3">
           <label className="block space-y-1.5">
             <span className="text-[11px] uppercase tracking-[0.16em] text-muted">
-              {t(locale, 'Mood & theme', '분위기 · 테마')}
+              {pick(locale, 'Mood & theme', '분위기 · 테마')}
             </span>
             <Textarea
               value={moodAndTheme}
               onChange={(e) => setMoodAndTheme(e.target.value)}
-              placeholder={t(
+              placeholder={pick(
                 locale,
                 'e.g. minimal dark magazine, warm paper texture, large serif headlines, muted olive accent…',
                 '예: 미니멀 다크 매거진, 따뜻한 종이 질감, 큰 세리프 제목, 올리브 포인트 컬러…'
@@ -103,12 +101,12 @@ export function DesignAiPromptDialog({
           </label>
           <label className="block space-y-1.5">
             <span className="text-[11px] uppercase tracking-[0.16em] text-muted">
-              {t(locale, 'Requirements', '요구사항')}
+              {pick(locale, 'Requirements', '요구사항')}
             </span>
             <Textarea
               value={requirements}
               onChange={(e) => setRequirements(e.target.value)}
-              placeholder={t(
+              placeholder={pick(
                 locale,
                 'e.g. wider home hero, sticky header, tag chips on cards, hide dates on list, footer with social links…',
                 '예: 홈 히어로 넓게, 헤더 고정, 카드에 태그 칩, 목록에서 날짜 숨김, 푸터에 SNS 링크…'
@@ -121,9 +119,9 @@ export function DesignAiPromptDialog({
         {generated ? (
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2 text-[11px] text-muted">
-              <span>{t(locale, 'Preview', '미리보기')}</span>
+              <span>{pick(locale, 'Preview', '미리보기')}</span>
               <span className="font-mono">
-                {previewLength.toLocaleString()} {t(locale, 'chars', '자')}
+                {previewLength.toLocaleString()} {pick(locale, 'chars', '자')}
               </span>
             </div>
             <pre className="max-h-[240px] overflow-auto rounded-md border border-border bg-panel2/80 p-3 font-mono text-[10px] leading-relaxed text-muted">
@@ -135,7 +133,7 @@ export function DesignAiPromptDialog({
 
         <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-3">
           <Button type="button" variant="outline" className="h-8" onClick={handleGenerate}>
-            {t(locale, 'Generate prompt', '프롬프트 생성')}
+            {pick(locale, 'Generate prompt', '프롬프트 생성')}
           </Button>
           <Button
             type="button"
@@ -151,10 +149,10 @@ export function DesignAiPromptDialog({
               <ClipboardCopy className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
             )}
             {copyState === 'done'
-              ? t(locale, 'Copied', '복사됨')
+              ? pick(locale, 'Copied', '복사됨')
               : copyState === 'error'
-                ? t(locale, 'Copy failed', '복사 실패')
-                : t(locale, 'Copy to clipboard', '클립보드에 복사')}
+                ? pick(locale, 'Copy failed', '복사 실패')
+                : pick(locale, 'Copy to clipboard', '클립보드에 복사')}
           </Button>
         </div>
       </Card>

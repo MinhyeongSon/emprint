@@ -1,5 +1,5 @@
-import type { WorkspaceArtifact } from '../../workspace/workspace-template'
-import { EP } from './contract'
+import type { WorkspaceArtifact } from '@emprint/core'
+import { EpColumnClasses } from './contract'
 
 const COLUMN_PAGE_SYNC_PATHS = new Set([
   'src/pages/index.astro',
@@ -36,17 +36,17 @@ const hasMore = sorted.length > recent.length
 ---
 
 <Layout current="home">
-  <section class="${EP.Container}">
-    <div class="${EP.SectionHead}">
-      <h2 class="${EP.SectionHeadTitle}">
+  <section class="${EpColumnClasses.Container}">
+    <div class="${EpColumnClasses.SectionHead}">
+      <h2 class="${EpColumnClasses.SectionHeadTitle}">
         {composition === 'journal' ? 'Journal' : composition === 'magazine' ? 'Latest' : 'Recent'}
       </h2>
       {hasMore ? (
-        <a class="${EP.SectionHeadLink}" href={\`\${import.meta.env.BASE_URL}posts/\`}>See all →</a>
+        <a class="${EpColumnClasses.SectionHeadLink}" href={\`\${import.meta.env.BASE_URL}posts/\`}>See all →</a>
       ) : null}
     </div>
     {recent.length === 0 ? (
-      <div class="${EP.Empty}">No posts yet. Write something in Emprint and publish.</div>
+      <div class="${EpColumnClasses.Empty}">No posts yet. Write something in Emprint and publish.</div>
     ) : (
       <ColumnPostFeed posts={recent} catalog={sorted} mode="home" />
     )}
@@ -69,13 +69,13 @@ const posts = (await getCollection('posts', ({ data }) => !data.draft)).sort((a,
 ---
 
 <Layout title="Archive" current="archive">
-  <section class="${EP.Container}">
-    <div class="${EP.SectionHead}">
-      <h2 class="${EP.SectionHeadTitle}">Archive</h2>
-      <span class="${EP.SectionHeadAside}">{posts.length}</span>
+  <section class="${EpColumnClasses.Container}">
+    <div class="${EpColumnClasses.SectionHead}">
+      <h2 class="${EpColumnClasses.SectionHeadTitle}">Archive</h2>
+      <span class="${EpColumnClasses.SectionHeadAside}">{posts.length}</span>
     </div>
     {posts.length === 0 ? (
-      <div class="${EP.Empty}">No posts yet.</div>
+      <div class="${EpColumnClasses.Empty}">No posts yet.</div>
     ) : (
       <ColumnPostFeed posts={posts} catalog={posts} mode="archive" />
     )}
@@ -129,18 +129,18 @@ const tags = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeComp
 ---
 
 <Layout title="Tags" current="tags">
-  <section class="${EP.Container}">
-    <div class="${EP.SectionHead}">
-      <h2 class="${EP.SectionHeadTitle}">Tags</h2>
-      <span class="${EP.SectionHeadAside}">{tags.length}</span>
+  <section class="${EpColumnClasses.Container}">
+    <div class="${EpColumnClasses.SectionHead}">
+      <h2 class="${EpColumnClasses.SectionHeadTitle}">Tags</h2>
+      <span class="${EpColumnClasses.SectionHeadAside}">{tags.length}</span>
     </div>
     {tags.length === 0 ? (
-      <div class="${EP.Empty}">No tags yet. Add some in your post frontmatter.</div>
+      <div class="${EpColumnClasses.Empty}">No tags yet. Add some in your post frontmatter.</div>
     ) : (
-      <ul class="${EP.TagRow}" style="padding:0.5rem 0;">
+      <ul class="${EpColumnClasses.TagRow}" style="padding:0.5rem 0;">
         {tags.map(([tag, count]) => (
           <li>
-            <a class="${EP.Tag}" href={\`\${import.meta.env.BASE_URL}tags/\${encodeURIComponent(tag)}/\`}>
+            <a class="${EpColumnClasses.Tag}" href={\`\${import.meta.env.BASE_URL}tags/\${encodeURIComponent(tag)}/\`}>
               {tag} · {count}
             </a>
           </li>
@@ -181,10 +181,10 @@ const { tag, posts } = Astro.props
 ---
 
 <Layout title={\`#\${tag}\`} current="tags">
-  <section class="${EP.Container}">
-    <div class="${EP.SectionHead}">
-      <h2 class="${EP.SectionHeadTitle}">#{tag}</h2>
-      <span class="${EP.SectionHeadAside}">{posts.length}</span>
+  <section class="${EpColumnClasses.Container}">
+    <div class="${EpColumnClasses.SectionHead}">
+      <h2 class="${EpColumnClasses.SectionHeadTitle}">#{tag}</h2>
+      <span class="${EpColumnClasses.SectionHeadAside}">{posts.length}</span>
     </div>
     <ColumnPostFeed posts={posts} catalog={posts} mode="archive" />
   </section>

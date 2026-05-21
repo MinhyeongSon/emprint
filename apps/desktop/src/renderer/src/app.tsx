@@ -3,6 +3,7 @@ import { AppShell } from '@renderer/features/shell/app-shell'
 import { WorkspaceHub } from '@renderer/features/hub/workspace-hub'
 import { WorkspaceWizard } from '@renderer/features/wizard/workspace-wizard'
 import type { AppLocale } from '@emprint/shared'
+import { createCommandRegistry } from '@emprint/core'
 import { useAppStore, type AppTheme } from '@renderer/state/app-store'
 import { Titlebar } from '@renderer/components/titlebar/titlebar'
 import { Badge } from '@renderer/components/ui/badge'
@@ -38,6 +39,7 @@ export function App() {
   const workspaceConfig = useAppStore((state) => state.workspaceConfig)
   const workspaceRootDir = useAppStore((state) => state.workspaceRootDir)
   const setWorkspaceRootDir = useAppStore((state) => state.setWorkspaceRootDir)
+  const bumpHubCatalogRefresh = useAppStore((state) => state.bumpHubCatalogRefresh)
   const githubConnected = useAppStore((state) => state.githubConnected)
   const githubLogin = useAppStore((state) => state.githubLogin)
   const setGithubSession = useAppStore((state) => state.setGithubSession)
@@ -56,6 +58,43 @@ export function App() {
         // Keep the shell usable even if diagnostics are unavailable.
       })
   }, [setRuntimeInfo])
+
+  // emprint-qa: jump to hub/wizard via location hash (see seed-app-state.ts).
+  useEffect(() => {
+    if (!window.emprint?.env?.qaMode) return
+    const match = window.location.hash.match(/^#qa-mode=(hub|wizard)$/)
+    if (!match) return
+    const target = match[1]
+    if (target === 'hub') {
+      let workspaceRootDir: string | undefined
+      let githubConnected = false
+      let githubLogin: string | undefined
+      try {
+        const raw = localStorage.getItem('emprint-preferences')
+        if (raw) {
+          const parsed = JSON.parse(raw) as {
+            state?: { workspaceRootDir?: string; githubConnected?: boolean; githubLogin?: string }
+          }
+          workspaceRootDir = parsed.state?.workspaceRootDir
+          githubConnected = parsed.state?.githubConnected ?? false
+          githubLogin = parsed.state?.githubLogin
+        }
+      } catch {
+        /* ignore */
+      }
+      useAppStore.setState({
+        mode: 'hub',
+        locale: 'en',
+        theme: 'warm',
+        githubConnected,
+        ...(githubLogin ? { githubLogin } : {}),
+        ...(workspaceRootDir ? { workspaceRootDir } : {})
+      })
+    } else {
+      useAppStore.setState({ mode: 'wizard' })
+    }
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`)
+  }, [])
 
   useEffect(() => {
     document.documentElement.lang = locale
@@ -151,27 +190,40 @@ export function App() {
   ]
 
   const paletteItems: CommandPaletteItem[] = useMemo(() => {
-    const items: CommandPaletteItem[] = [
-      {
-        id: 'app:settings',
-        label: 'Emprint Settings',
-        hint: 'Open app settings',
-        meta: 'App',
-        onSelect: () => setSettingsOpen(true)
-      }
-    ]
+    const registry = createCommandRegistry()
+
+    registry.register({
+      id: 'app:settings',
+      label: 'Emprint Settings',
+      hint: 'Open app settings',
+      meta: 'App',
+      scopes: ['app'],
+      execute: () => setSettingsOpen(true)
+    })
 
     if (mode === 'workspace') {
-      items.unshift({
+      registry.register({
         id: 'nav:hub',
         label: 'Go to Hub',
         hint: locale === 'ko' ? '앤솔로지 허브로 돌아가기' : 'Back to anthology hub',
         meta: 'Nav',
-        onSelect: () => void enterHub()
+        scopes: ['nav'],
+        execute: () => void enterHub()
       })
     }
 
-    return items
+    return registry.toPaletteEntries().map((entry) => {
+      const item: CommandPaletteItem = {
+        id: entry.id,
+        label: entry.label,
+        hint: entry.hint ?? '',
+        onSelect: () => {
+          void registry.execute(entry.id)
+        }
+      }
+      if (entry.meta) item.meta = entry.meta
+      return item
+    })
   }, [enterHub, locale, mode])
 
   const right = (
@@ -301,7 +353,10 @@ export function App() {
                     title="Choose folder"
                     onClick={async () => {
                       const result = await window.emprint.system.selectDirectory()
-                      if (result?.directory) setWorkspaceRootDir(result.directory)
+                      if (result?.directory) {
+                        setWorkspaceRootDir(result.directory)
+                        bumpHubCatalogRefresh()
+                      }
                     }}
                   >
                     <FolderOpen className="h-4 w-4" strokeWidth={2} />

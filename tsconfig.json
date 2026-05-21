@@ -8,6 +8,7 @@
     "apps/**/*.ts",
     "apps/**/*.tsx",
     "apps/**/*.d.ts",
-    "shared/**/*.ts"
+    "shared/**/*.ts",
+    "core/**/*.ts"
   ]
 }

@@ -1,4 +1,4 @@
-import type { WorkspaceArtifact } from '../workspace/workspace-template'
+import type { WorkspaceArtifact } from '@emprint/core'
 import type { SiteGenerationContext } from './site-project-generator'
 import { createColumnLayoutArtifacts } from './column/column-layout-artifacts'
 

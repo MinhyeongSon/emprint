@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AlertTriangle, ArrowUpFromLine, CheckCircle2, Loader2, X } from 'lucide-react'
+import { pick } from '@renderer/lib/i18n'
 import type { AppLocale, GitPublishResult, GitWorkingTreeSummary } from '@emprint/shared'
 import { Button } from '@renderer/components/ui/button'
 import { DeployStatusPanel } from './deploy-status-panel'
 
-function t(locale: AppLocale, en: string, ko: string): string {
-  return locale === 'ko' ? ko : en
-}
 
 interface PublishDialogProps {
   open: boolean
@@ -127,10 +125,10 @@ export function PublishDialog({ open, locale, onClose, onPublished }: PublishDia
                 id="publish-dialog-title"
                 className="text-sm font-semibold tracking-[-0.01em] text-ink"
               >
-                {t(locale, 'Publish your changes', '변경사항 발행')}
+                {pick(locale, 'Publish your changes', '변경사항 발행')}
               </div>
               <div className="mt-1 text-xs text-muted">
-                {t(
+                {pick(
                   locale,
                   'Leave a short note about what you changed. It will be saved with the publish.',
                   '이번에 무엇을 바꿨는지 짧게 적어주세요. 발행 기록에 함께 저장됩니다.'
@@ -141,7 +139,7 @@ export function PublishDialog({ open, locale, onClose, onPublished }: PublishDia
               type="button"
               onClick={onClose}
               disabled={phase === 'submitting'}
-              aria-label={t(locale, 'Close', '닫기')}
+              aria-label={pick(locale, 'Close', '닫기')}
               className="inline-flex h-7 w-7 items-center justify-center rounded-sm border border-transparent text-muted transition hover:border-border hover:text-ink disabled:opacity-50"
             >
               <X className="h-4 w-4" strokeWidth={2} aria-hidden />
@@ -151,7 +149,7 @@ export function PublishDialog({ open, locale, onClose, onPublished }: PublishDia
           {phase === 'loading' ? (
             <div className="flex items-center gap-2 rounded-md border border-border bg-panel px-3 py-2 text-[12px] text-muted">
               <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} aria-hidden />
-              <span>{t(locale, 'Reading changes…', '변경사항을 확인하는 중…')}</span>
+              <span>{pick(locale, 'Reading changes…', '변경사항을 확인하는 중…')}</span>
             </div>
           ) : null}
 
@@ -172,7 +170,7 @@ export function PublishDialog({ open, locale, onClose, onPublished }: PublishDia
                 className="block text-[11px] uppercase tracking-[0.16em] text-muted"
                 htmlFor="publish-commit-message"
               >
-                {t(locale, 'Note', '메모')}
+                {pick(locale, 'Note', '메모')}
               </label>
               <textarea
                 ref={textareaRef}
@@ -180,7 +178,7 @@ export function PublishDialog({ open, locale, onClose, onPublished }: PublishDia
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 disabled={phase === 'submitting'}
-                placeholder={t(
+                placeholder={pick(
                   locale,
                   'What did you change? (the first line becomes the headline)',
                   '무엇을 바꿨나요? (첫 줄이 헤드라인으로 사용됩니다)'
@@ -208,7 +206,7 @@ export function PublishDialog({ open, locale, onClose, onPublished }: PublishDia
             >
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
               <div className="min-w-0">
-                <div className="font-medium">{t(locale, 'Publish failed', '발행 실패')}</div>
+                <div className="font-medium">{pick(locale, 'Publish failed', '발행 실패')}</div>
                 <div className="mt-0.5 break-words text-[11px] leading-5">{error}</div>
               </div>
             </div>
@@ -217,7 +215,7 @@ export function PublishDialog({ open, locale, onClose, onPublished }: PublishDia
           <div className="flex items-center justify-end gap-2 border-t border-border pt-3">
             {phase === 'done' ? (
               <Button type="button" className="h-8 px-3 text-xs" onClick={onClose}>
-                {t(locale, 'Done', '확인')}
+                {pick(locale, 'Done', '확인')}
               </Button>
             ) : (
               <>
@@ -228,7 +226,7 @@ export function PublishDialog({ open, locale, onClose, onPublished }: PublishDia
                   onClick={onClose}
                   disabled={phase === 'submitting'}
                 >
-                  {t(locale, 'Cancel', '취소')}
+                  {pick(locale, 'Cancel', '취소')}
                 </Button>
                 <Button
                   type="button"
@@ -241,7 +239,7 @@ export function PublishDialog({ open, locale, onClose, onPublished }: PublishDia
                   ) : (
                     <ArrowUpFromLine className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
                   )}
-                  <span>{t(locale, 'Publish', '발행')}</span>
+                  <span>{pick(locale, 'Publish', '발행')}</span>
                 </Button>
               </>
             )}
@@ -265,7 +263,7 @@ function ChangesPanel({ locale, summary }: { locale: AppLocale; summary: GitWork
   if (totalChanges === 0 && !hasUnpushedLocal) {
     return (
       <div className="rounded-md border border-border bg-panel px-3 py-2.5 text-[12px] text-muted">
-        {t(locale, 'Nothing new to publish yet.', '아직 발행할 변경이 없어요.')}
+        {pick(locale, 'Nothing new to publish yet.', '아직 발행할 변경이 없어요.')}
       </div>
     )
   }
@@ -273,7 +271,7 @@ function ChangesPanel({ locale, summary }: { locale: AppLocale; summary: GitWork
   if (totalChanges === 0 && hasUnpushedLocal) {
     return (
       <div className="rounded-md border border-border bg-panel px-3 py-2.5 text-[12px] text-muted">
-        {t(
+        {pick(
           locale,
           'There are previously saved changes waiting to be published.',
           '이전에 저장한 변경이 아직 발행되지 않은 상태입니다.'
@@ -285,7 +283,7 @@ function ChangesPanel({ locale, summary }: { locale: AppLocale; summary: GitWork
   return (
     <div className="space-y-2 rounded-md border border-border bg-panel p-3">
       <div className="text-[11px] uppercase tracking-[0.16em] text-muted">
-        {t(locale, 'Changes', '변경 내역')}{' '}
+        {pick(locale, 'Changes', '변경 내역')}{' '}
         <span className="ml-1 text-muted/70">({totalChanges})</span>
       </div>
       <div className="max-h-44 space-y-2.5 overflow-y-auto pr-1">
@@ -315,28 +313,28 @@ function ChangesPanel({ locale, summary }: { locale: AppLocale; summary: GitWork
 function DoneBanner({ locale, result }: { locale: AppLocale; result: GitPublishResult }) {
   const reason = result.pushSkippedReason
   const headline = result.pushed
-    ? t(locale, 'Published.', '발행되었습니다.')
+    ? pick(locale, 'Published.', '발행되었습니다.')
     : result.committed
-      ? t(locale, 'Saved locally.', '로컬에 저장되었습니다.')
-      : t(locale, 'Nothing to publish.', '발행할 변경이 없었습니다.')
+      ? pick(locale, 'Saved locally.', '로컬에 저장되었습니다.')
+      : pick(locale, 'Nothing to publish.', '발행할 변경이 없었습니다.')
 
   // Translate the technical reason into something a non-developer would
   // actually read and act on.
   let note: string | null = null
   if (reason === 'no-remote') {
-    note = t(
+    note = pick(
       locale,
       "It's only saved on this computer for now — connect a remote to share it.",
       '아직 이 기기에만 저장되었어요. 원격 저장소를 연결하면 함께 보낼 수 있어요.'
     )
   } else if (reason === 'no-session') {
-    note = t(
+    note = pick(
       locale,
       "It's only saved on this computer for now — sign in to publish to the web.",
       '아직 이 기기에만 저장되었어요. 로그인하면 웹으로 발행할 수 있어요.'
     )
   } else if (reason === 'nothing-to-push') {
-    note = t(locale, 'Everything was already up to date.', '이미 발행되어 있었어요.')
+    note = pick(locale, 'Everything was already up to date.', '이미 발행되어 있었어요.')
   }
 
   return (
@@ -360,12 +358,12 @@ function DoneBanner({ locale, result }: { locale: AppLocale; result: GitPublishR
  */
 function groupFiles(files: GitWorkingTreeSummary['pendingFiles'], locale: AppLocale) {
   type Group = { kind: string; label: string; files: typeof files }
-  const added: Group = { kind: 'added', label: t(locale, 'New', '새로 생김'), files: [] }
-  const edited: Group = { kind: 'edited', label: t(locale, 'Edited', '수정됨'), files: [] }
-  const removed: Group = { kind: 'removed', label: t(locale, 'Removed', '삭제됨'), files: [] }
+  const added: Group = { kind: 'added', label: pick(locale, 'New', '새로 생김'), files: [] }
+  const edited: Group = { kind: 'edited', label: pick(locale, 'Edited', '수정됨'), files: [] }
+  const removed: Group = { kind: 'removed', label: pick(locale, 'Removed', '삭제됨'), files: [] }
   const needsAttention: Group = {
     kind: 'attention',
-    label: t(locale, 'Needs attention', '확인 필요'),
+    label: pick(locale, 'Needs attention', '확인 필요'),
     files: []
   }
 

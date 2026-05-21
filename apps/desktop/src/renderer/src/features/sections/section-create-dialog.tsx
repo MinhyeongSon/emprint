@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Loader2, Plus, X } from 'lucide-react'
+import { pick } from '@renderer/lib/i18n'
 import type { AppLocale, MemoirContainerSectionType, MemoirSectionSummary, MemoirSectionType } from '@emprint/shared'
 import {
   defaultPropsForMemoirSectionType,
@@ -13,9 +14,6 @@ import {
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 
-function t(locale: AppLocale, en: string, ko: string) {
-  return locale === 'ko' ? ko : en
-}
 
 const ROOT_TYPES: MemoirSectionType[] = [...MEMOIR_CONTAINER_SECTION_TYPES, ...MEMOIR_LEAF_SECTION_TYPES]
 
@@ -96,11 +94,11 @@ export function SectionCreateDialog({
   const submit = () => {
     const id = slugifyMemoirSectionId(idInput)
     if (!id) {
-      setIdError(t(locale, 'Enter a section id.', '섹션 ID를 입력하세요.'))
+      setIdError(pick(locale, 'Enter a section id.', '섹션 ID를 입력하세요.'))
       return
     }
     if (existingIds.includes(id)) {
-      setIdError(t(locale, 'This id is already in use.', '이 ID는 이미 사용 중입니다.'))
+      setIdError(pick(locale, 'This id is already in use.', '이 ID는 이미 사용 중입니다.'))
       return
     }
     setIdError(null)
@@ -123,17 +121,17 @@ export function SectionCreateDialog({
             <div>
               <div id="section-create-title" className="text-sm font-semibold text-ink">
                 {parentId
-                  ? t(locale, 'Add child section', '하위 섹션 추가')
-                  : t(locale, 'Add section', '섹션 추가')}
+                  ? pick(locale, 'Add child section', '하위 섹션 추가')
+                  : pick(locale, 'Add section', '섹션 추가')}
               </div>
               <p className="mt-1 text-xs text-muted">
                 {parentId
-                  ? t(
+                  ? pick(
                       locale,
                       'Creates a leaf section and attaches it to the selected group.',
                       '리프 섹션을 만들고 선택한 그룹에 연결합니다.'
                     )
-                  : t(
+                  : pick(
                       locale,
                       'Pick a semantic type. Structure stays stable when you change themes.',
                       '시맨틱 유형을 고릅니다. 테마를 바꿔도 구조는 유지됩니다.'
@@ -144,7 +142,7 @@ export function SectionCreateDialog({
               type="button"
               onClick={onCancel}
               disabled={creating}
-              aria-label={t(locale, 'Close', '닫기')}
+              aria-label={pick(locale, 'Close', '닫기')}
               className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm text-muted hover:text-ink disabled:opacity-50"
             >
               <X className="h-4 w-4" aria-hidden />
@@ -154,7 +152,7 @@ export function SectionCreateDialog({
           {containerParents.length > 0 ? (
             <label className="block space-y-1.5">
               <span className="text-xs font-medium text-muted">
-                {t(locale, 'Parent group (optional)', '부모 그룹 (선택)')}
+                {pick(locale, 'Parent group (optional)', '부모 그룹 (선택)')}
               </span>
               <select
                 className="w-full rounded-md border border-border bg-panel px-3 py-2 text-sm text-ink outline-none focus:border-accent/70"
@@ -162,7 +160,7 @@ export function SectionCreateDialog({
                 disabled={Boolean(initialParentId)}
                 onChange={(e) => setParentId(e.target.value || undefined)}
               >
-                <option value="">{t(locale, 'Root section', '루트 섹션')}</option>
+                <option value="">{pick(locale, 'Root section', '루트 섹션')}</option>
                 {containerParents.map((parent) => (
                   <option key={parent.id} value={parent.id}>
                     {parent.title} ({parent.type})
@@ -173,7 +171,7 @@ export function SectionCreateDialog({
           ) : null}
 
           <label className="block space-y-1.5">
-            <span className="text-xs font-medium text-muted">{t(locale, 'Type', '유형')}</span>
+            <span className="text-xs font-medium text-muted">{pick(locale, 'Type', '유형')}</span>
             <select
               className="w-full rounded-md border border-border bg-panel px-3 py-2 text-sm text-ink outline-none focus:border-accent/70"
               value={type}
@@ -197,7 +195,7 @@ export function SectionCreateDialog({
           </label>
 
           <label className="block space-y-1.5">
-            <span className="text-xs font-medium text-muted">{t(locale, 'Section ID', '섹션 ID')}</span>
+            <span className="text-xs font-medium text-muted">{pick(locale, 'Section ID', '섹션 ID')}</span>
             <Input
               value={idInput}
               onChange={(e) => {
@@ -219,11 +217,11 @@ export function SectionCreateDialog({
               onClick={onCancel}
               disabled={creating}
             >
-              {t(locale, 'Cancel', '취소')}
+              {pick(locale, 'Cancel', '취소')}
             </Button>
             <Button type="button" className="h-8 gap-1.5 px-3 text-xs" disabled={creating} onClick={submit}>
               {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-              {t(locale, 'Create', '만들기')}
+              {pick(locale, 'Create', '만들기')}
             </Button>
           </div>
         </div>

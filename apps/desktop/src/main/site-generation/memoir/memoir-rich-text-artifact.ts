@@ -1,5 +1,5 @@
-import type { WorkspaceArtifact } from '../../workspace/workspace-template'
-import memoirRichTextLibSource from '@emprint/shared/memoir-rich-text.ts?raw'
+import type { WorkspaceArtifact } from '@emprint/core'
+import memoirRichTextLibSource from '@emprint/shared/memoir/rich-text.ts?raw'
 
 export function createMemoirRichTextArtifacts(): WorkspaceArtifact[] {
   const libSource = memoirRichTextLibSource
