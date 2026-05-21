@@ -14,6 +14,7 @@ import {
   MAX_ASSET_IMAGE_BYTES,
   hasPathTraversalSegment,
   type AssetImageInfo,
+  type AssetPublishScope,
   type AssetReference,
   type GitHubRepoCreateInput,
   type GitHubRepoCreateResult,
@@ -26,7 +27,11 @@ import {
   type GitResetDraftResult,
   EMPRINT_GITIGNORE_LINES,
   EMPRINT_PUBLISH_BRANCH,
+  classifyAssetPublishScope,
   isEmprintIgnoredPublishPath,
+  isNonPublishableAssetPendingPath,
+  isNonPublishableAssetScope,
+  normalizePublishPendingPath,
   type GitPublishInput,
   type GitPublishResult,
   type GitPullInput,
@@ -280,29 +285,69 @@ export async function githubRepoCreate(input: GitHubRepoCreateInput): Promise<Gi
  * We only log non-success outcomes; the workspace creation must not fail
  * just because Pages couldn't be auto-configured.
  */
-export async function tryEnableGitHubPagesViaActions(owner: string, repo: string, token: string): Promise<void> {
-  const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pages`
+function sleepMs(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function githubRepoExistsOnApi(owner: string, repo: string, token: string): Promise<boolean> {
+  const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`
   try {
     const res = await fetch(url, {
-      method: 'POST',
+      method: 'GET',
       headers: {
         Accept: 'application/vnd.github+json',
         Authorization: `Bearer ${token}`,
         'X-GitHub-Api-Version': '2022-11-28',
-        'User-Agent': 'Emprint',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ build_type: 'workflow' })
+        'User-Agent': 'Emprint'
+      }
     })
+    return res.status === 200
+  } catch {
+    return false
+  }
+}
 
-    if (res.status === 201 || res.status === 204 || res.status === 409) return
+export async function tryEnableGitHubPagesViaActions(owner: string, repo: string, token: string): Promise<void> {
+  const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pages`
+  const retryDelaysMs = [0, 600, 1200, 2400, 4800]
 
-    const text = await safeReadText(res)
-    if (res.status === 422 && /already|exists|configured/i.test(text)) return
+  for (let attempt = 0; attempt < retryDelaysMs.length; attempt++) {
+    const delay = retryDelaysMs[attempt] ?? 4800
+    if (delay > 0) await sleepMs(delay)
 
-    console.warn(`[emprint] Could not auto-enable GitHub Pages for ${owner}/${repo} (${res.status}): ${text}`)
-  } catch (err) {
-    console.warn(`[emprint] Could not auto-enable GitHub Pages for ${owner}/${repo}:`, err)
+    if (attempt > 0) {
+      const ready = await githubRepoExistsOnApi(owner, repo, token)
+      if (!ready) continue
+    }
+
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/vnd.github+json',
+          Authorization: `Bearer ${token}`,
+          'X-GitHub-Api-Version': '2022-11-28',
+          'User-Agent': 'Emprint',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ build_type: 'workflow' })
+      })
+
+      if (res.status === 201 || res.status === 204 || res.status === 409) return
+
+      const text = await safeReadText(res)
+      if (res.status === 422 && /already|exists|configured/i.test(text)) return
+
+      if (res.status === 404 && attempt < retryDelaysMs.length - 1) continue
+
+      console.warn(
+        `[emprint] Could not auto-enable GitHub Pages for ${owner}/${repo} (${res.status}): ${text}`
+      )
+      return
+    } catch (err) {
+      if (attempt < retryDelaysMs.length - 1) continue
+      console.warn(`[emprint] Could not auto-enable GitHub Pages for ${owner}/${repo}:`, err)
+    }
   }
 }
 
@@ -494,7 +539,7 @@ export async function gitInitialSync(input: { directory: string; remoteUrl?: str
   // Stage + commit if possible (ignore if nothing to commit).
   let committed = false
   try {
-    await gitStagePublishableChanges(git)
+    await gitStagePublishableChanges(git, directory)
     await git.commit("Show where you've been.")
     committed = true
   } catch {
@@ -532,7 +577,10 @@ export function countPendingFiles(status: Awaited<ReturnType<ReturnType<typeof s
   )
 }
 
-export function mapPendingFiles(status: Awaited<ReturnType<ReturnType<typeof simpleGit>['status']>>): GitWorkingTreeSummary['pendingFiles'] {
+export function mapPendingFiles(
+  status: Awaited<ReturnType<ReturnType<typeof simpleGit>['status']>>,
+  nonPublishableAssetPaths?: Set<string>
+): GitWorkingTreeSummary['pendingFiles'] {
   const seen = new Set<string>()
   const pending: GitWorkingTreeSummary['pendingFiles'] = []
   const push = (filePath: string, statusCode: GitWorkingTreeSummary['pendingFiles'][number]['status'], staged: boolean) => {
@@ -548,7 +596,552 @@ export function mapPendingFiles(status: Awaited<ReturnType<ReturnType<typeof sim
   for (const f of status.renamed) push(typeof f === 'string' ? f : f.to, 'R', false)
   for (const f of status.not_added) push(f, '?', false)
   for (const f of status.conflicted) push(f, 'U', false)
-  return pending.filter((f) => !isEmprintIgnoredPublishPath(f.path))
+  return pending.filter((f) => {
+    const normalized = normalizePublishPendingPath(f.path)
+    if (isEmprintIgnoredPublishPath(normalized)) return false
+    if (isNonPublishableAssetPendingPath(f.path, nonPublishableAssetPaths)) return false
+    return true
+  })
+}
+
+/** Incremental index: which posts reference which images (for publish-scope). */
+type IncrementalPublishScopeIndex = {
+  postsFp: string
+  draftsFp: string
+  assetsFp: string
+  imageByKey: Map<string, string>
+  imagePaths: Set<string>
+  refsByImage: Map<string, AssetReference[]>
+  /** post path → last scanned mtime */
+  postMtimes: Map<string, number>
+}
+
+type WorkspacePublishScopeCache = {
+  fingerprint: string
+  index: IncrementalPublishScopeIndex
+  nonPublishable: Set<string>
+  appliedNonPublishableKey: string | null
+  excludeWrittenKey: string | null
+}
+
+const publishScopeCacheByWorkspace = new Map<string, WorkspacePublishScopeCache>()
+const emprintGitignoreEnsuredRoots = new Set<string>()
+
+function publishScopeCacheKey(workspaceRoot: string): string {
+  return path.resolve(workspaceRoot)
+}
+
+function nonPublishableSetKey(paths: Set<string>): string {
+  return [...paths].sort().join('\n')
+}
+
+function postSectionFromPath(postPath: string): 'posts' | 'drafts' | null {
+  if (postPath.startsWith(`${WORKSPACE_DIR.posts}/`)) return 'posts'
+  if (postPath.startsWith(`${WORKSPACE_DIR.drafts}/`)) return 'drafts'
+  return null
+}
+
+/** Drop cached publish-scope index (e.g. migration). */
+export function invalidateWorkspacePublishScopeCache(workspaceRoot: string): void {
+  publishScopeCacheByWorkspace.delete(publishScopeCacheKey(workspaceRoot))
+}
+
+/** @deprecated Prefer `applyPostPublishScopeChange` with a post path. */
+export function markWorkspacePublishScopeDirty(
+  workspaceRoot: string,
+  hint?: { postPath?: string; assetsCatalog?: boolean }
+): void {
+  if (!hint?.postPath && !hint?.assetsCatalog) {
+    invalidateWorkspacePublishScopeCache(workspaceRoot)
+    return
+  }
+  const key = publishScopeCacheKey(workspaceRoot)
+  const cached = publishScopeCacheByWorkspace.get(key)
+  if (!cached?.index) return
+  if (hint.postPath) {
+    removePostFromPublishScopeIndex(cached.index, hint.postPath)
+    cached.fingerprint = ''
+  }
+  if (hint.assetsCatalog) {
+    cached.index.assetsFp = ''
+    cached.fingerprint = ''
+  }
+}
+
+async function flatDirFingerprint(dir: string): Promise<string> {
+  if (!existsSync(dir)) return '0:0'
+  const entries = await readdir(dir, { withFileTypes: true })
+  let count = 0
+  let maxMtime = 0
+  for (const ent of entries) {
+    if (!ent.isFile()) continue
+    count++
+    const st = await stat(path.join(dir, ent.name))
+    maxMtime = Math.max(maxMtime, st.mtimeMs)
+  }
+  return `${count}:${maxMtime}`
+}
+
+async function publishScopeFingerprint(workspaceRoot: string): Promise<string> {
+  return [
+    await flatDirFingerprint(path.join(workspaceRoot, WORKSPACE_DIR.posts)),
+    await flatDirFingerprint(path.join(workspaceRoot, WORKSPACE_DIR.drafts)),
+    await flatDirFingerprint(path.join(workspaceRoot, WORKSPACE_DIR.assetsImages))
+  ].join('|')
+}
+
+function removePostFromPublishScopeIndex(index: IncrementalPublishScopeIndex, postPath: string): void {
+  index.postMtimes.delete(postPath)
+  for (const [imagePath, refs] of index.refsByImage) {
+    const next = refs.filter((r) => r.postPath !== postPath)
+    if (next.length !== refs.length) {
+      index.refsByImage.set(imagePath, next)
+    }
+  }
+}
+
+function registerImagePath(index: IncrementalPublishScopeIndex, imagePath: string): void {
+  const rel = normalizePublishPendingPath(imagePath)
+  index.imagePaths.add(rel)
+  index.imageByKey.set(rel, rel)
+  index.imageByKey.set(path.basename(rel), rel)
+  if (!index.refsByImage.has(rel)) {
+    index.refsByImage.set(rel, [])
+  }
+}
+
+function unregisterImagePath(index: IncrementalPublishScopeIndex, imagePath: string): void {
+  const rel = normalizePublishPendingPath(imagePath)
+  index.imagePaths.delete(rel)
+  index.refsByImage.delete(rel)
+  for (const [key, target] of [...index.imageByKey.entries()]) {
+    if (target === rel) index.imageByKey.delete(key)
+  }
+}
+
+function collectRefsFromMarkdown(
+  postRelPath: string,
+  content: string,
+  section: 'posts' | 'drafts',
+  imageByKey: Map<string, string>
+): Array<{ imagePath: string; reference: AssetReference }> {
+  const summary = summarizeMarkdown(postRelPath, content, '')
+  const hits: Array<{ imagePath: string; reference: AssetReference }> = []
+  for (const ref of extractMarkdownImageRefs(content)) {
+    const target = normalizeReferenceTarget(ref)
+    if (!target) continue
+    const imagePath = imageByKey.get(target) ?? imageByKey.get(target.split('/').pop()!)
+    if (!imagePath) continue
+    hits.push({
+      imagePath,
+      reference: { postPath: postRelPath, postTitle: summary.title, section }
+    })
+  }
+  return hits
+}
+
+function applyPostRefsToIndex(
+  index: IncrementalPublishScopeIndex,
+  hits: Array<{ imagePath: string; reference: AssetReference }>
+): void {
+  for (const { imagePath, reference } of hits) {
+    const refs = index.refsByImage.get(imagePath)
+    if (!refs) continue
+    if (refs.some((r) => r.postPath === reference.postPath)) continue
+    refs.push(reference)
+  }
+}
+
+async function syncAssetCatalogInIndex(
+  workspaceRoot: string,
+  index: IncrementalPublishScopeIndex
+): Promise<void> {
+  const imagesDir = path.join(workspaceRoot, WORKSPACE_DIR.assetsImages)
+  const onDisk = new Set<string>()
+  if (existsSync(imagesDir)) {
+    const dirents = await readdir(imagesDir, { withFileTypes: true })
+    for (const ent of dirents) {
+      if (!ent.isFile()) continue
+      const ext = ent.name.split('.').pop()?.toLowerCase() ?? ''
+      if (!Object.values(ASSET_IMAGE_MIME_ALLOWLIST).includes(ext)) continue
+      onDisk.add(normalizePublishPendingPath(`${WORKSPACE_DIR.assetsImages}/${ent.name}`))
+    }
+  }
+
+  for (const rel of onDisk) {
+    if (!index.imagePaths.has(rel)) registerImagePath(index, rel)
+  }
+  for (const rel of [...index.imagePaths]) {
+    if (!onDisk.has(rel)) unregisterImagePath(index, rel)
+  }
+
+  index.assetsFp = await flatDirFingerprint(imagesDir)
+}
+
+async function refreshPostInPublishScopeIndex(
+  workspaceRoot: string,
+  index: IncrementalPublishScopeIndex,
+  postPath: string,
+  content?: string
+): Promise<void> {
+  const section = postSectionFromPath(postPath)
+  if (!section) return
+
+  removePostFromPublishScopeIndex(index, postPath)
+
+  const abs = path.join(workspaceRoot, postPath)
+  let mtimeMs = 0
+  let body = content
+  try {
+    const st = await stat(abs)
+    if (!st.isFile()) return
+    mtimeMs = st.mtimeMs
+    if (body === undefined) {
+      body = await readFile(abs, 'utf8')
+    }
+  } catch {
+    return
+  }
+
+  index.postMtimes.set(postPath, mtimeMs)
+  const hits = collectRefsFromMarkdown(postPath, body, section, index.imageByKey)
+  applyPostRefsToIndex(index, hits)
+}
+
+async function incrementalUpdatePostSection(
+  workspaceRoot: string,
+  index: IncrementalPublishScopeIndex,
+  section: 'posts' | 'drafts'
+): Promise<void> {
+  const dir = path.join(workspaceRoot, section)
+  const present = new Set<string>()
+
+  if (existsSync(dir)) {
+    const files = await safeListDirectory(dir)
+    for (const fileName of files) {
+      if (!fileName.toLowerCase().endsWith('.md')) continue
+      const postRelPath = `${section}/${fileName}`
+      present.add(postRelPath)
+
+      const abs = path.join(dir, fileName)
+      let mtimeMs = 0
+      try {
+        mtimeMs = (await stat(abs)).mtimeMs
+      } catch {
+        continue
+      }
+
+      if (index.postMtimes.get(postRelPath) === mtimeMs) continue
+      await refreshPostInPublishScopeIndex(workspaceRoot, index, postRelPath)
+    }
+  }
+
+  for (const tracked of [...index.postMtimes.keys()]) {
+    if (tracked.startsWith(`${section}/`) && !present.has(tracked)) {
+      removePostFromPublishScopeIndex(index, tracked)
+    }
+  }
+
+  const fp = await flatDirFingerprint(dir)
+  if (section === 'posts') index.postsFp = fp
+  else index.draftsFp = fp
+}
+
+async function buildFullPublishScopeIndex(workspaceRoot: string): Promise<IncrementalPublishScopeIndex> {
+  const index: IncrementalPublishScopeIndex = {
+    postsFp: '',
+    draftsFp: '',
+    assetsFp: '',
+    imageByKey: new Map(),
+    imagePaths: new Set(),
+    refsByImage: new Map(),
+    postMtimes: new Map()
+  }
+
+  await syncAssetCatalogInIndex(workspaceRoot, index)
+  await incrementalUpdatePostSection(workspaceRoot, index, 'posts')
+  await incrementalUpdatePostSection(workspaceRoot, index, 'drafts')
+  return index
+}
+
+async function incrementalUpdatePublishScopeIndex(
+  workspaceRoot: string,
+  index: IncrementalPublishScopeIndex
+): Promise<IncrementalPublishScopeIndex> {
+  const [postsFp, draftsFp, assetsFp] = await Promise.all([
+    flatDirFingerprint(path.join(workspaceRoot, WORKSPACE_DIR.posts)),
+    flatDirFingerprint(path.join(workspaceRoot, WORKSPACE_DIR.drafts)),
+    flatDirFingerprint(path.join(workspaceRoot, WORKSPACE_DIR.assetsImages))
+  ])
+
+  if (assetsFp !== index.assetsFp) {
+    await syncAssetCatalogInIndex(workspaceRoot, index)
+  }
+  if (postsFp !== index.postsFp) {
+    await incrementalUpdatePostSection(workspaceRoot, index, 'posts')
+  }
+  if (draftsFp !== index.draftsFp) {
+    await incrementalUpdatePostSection(workspaceRoot, index, 'drafts')
+  }
+
+  return index
+}
+
+function nonPublishablePathsFromIndex(index: IncrementalPublishScopeIndex): Set<string> {
+  const paths = new Set<string>()
+  for (const imagePath of index.imagePaths) {
+    const refs = index.refsByImage.get(imagePath) ?? []
+    if (isNonPublishableAssetScope(classifyAssetPublishScope(refs))) {
+      paths.add(imagePath)
+    }
+  }
+  return paths
+}
+
+function writePublishScopeCacheEntry(
+  workspaceRoot: string,
+  index: IncrementalPublishScopeIndex,
+  fingerprint: string,
+  nonPublishable: Set<string>
+): void {
+  const key = publishScopeCacheKey(workspaceRoot)
+  const prev = publishScopeCacheByWorkspace.get(key)
+  publishScopeCacheByWorkspace.set(key, {
+    fingerprint,
+    index,
+    nonPublishable,
+    appliedNonPublishableKey: prev?.appliedNonPublishableKey ?? null,
+    excludeWrittenKey: prev?.excludeWrittenKey ?? null
+  })
+}
+
+async function ensurePublishScopeIndex(workspaceRoot: string): Promise<IncrementalPublishScopeIndex> {
+  const key = publishScopeCacheKey(workspaceRoot)
+  const cached = publishScopeCacheByWorkspace.get(key)
+  if (cached?.index) {
+    return await incrementalUpdatePublishScopeIndex(workspaceRoot, cached.index)
+  }
+  return await buildFullPublishScopeIndex(workspaceRoot)
+}
+
+/** Scan all image publish scopes (full rebuild). */
+export async function collectNonPublishableAssetPaths(workspaceRoot: string): Promise<Set<string>> {
+  const index = await buildFullPublishScopeIndex(workspaceRoot)
+  return nonPublishablePathsFromIndex(index)
+}
+
+async function resolveNonPublishableAssetPathsCached(workspaceRoot: string): Promise<Set<string>> {
+  const key = publishScopeCacheKey(workspaceRoot)
+  const fingerprint = await publishScopeFingerprint(workspaceRoot)
+  const cached = publishScopeCacheByWorkspace.get(key)
+  if (cached?.fingerprint === fingerprint) {
+    return cached.nonPublishable
+  }
+
+  const index = cached?.index
+    ? await incrementalUpdatePublishScopeIndex(workspaceRoot, cached.index)
+    : await buildFullPublishScopeIndex(workspaceRoot)
+  const nonPublishable = nonPublishablePathsFromIndex(index)
+  writePublishScopeCacheEntry(workspaceRoot, index, fingerprint, nonPublishable)
+  return nonPublishable
+}
+
+/** Update one post in the incremental index (after save). */
+export async function applyPostPublishScopeChange(
+  workspaceRoot: string,
+  postPath: string,
+  content?: string
+): Promise<void> {
+  const key = publishScopeCacheKey(workspaceRoot)
+  const index =
+    publishScopeCacheByWorkspace.get(key)?.index ?? (await buildFullPublishScopeIndex(workspaceRoot))
+  await refreshPostInPublishScopeIndex(workspaceRoot, index, postPath, content)
+  const fingerprint = await publishScopeFingerprint(workspaceRoot)
+  writePublishScopeCacheEntry(workspaceRoot, index, fingerprint, nonPublishablePathsFromIndex(index))
+}
+
+/** Update index after posts/drafts move. */
+export async function applyPostsMovePublishScope(
+  workspaceRoot: string,
+  fromPath: string,
+  toPath: string
+): Promise<void> {
+  const index = await ensurePublishScopeIndex(workspaceRoot)
+  removePostFromPublishScopeIndex(index, fromPath)
+  await refreshPostInPublishScopeIndex(workspaceRoot, index, toPath)
+  const fingerprint = await publishScopeFingerprint(workspaceRoot)
+  writePublishScopeCacheEntry(workspaceRoot, index, fingerprint, nonPublishablePathsFromIndex(index))
+}
+
+/** Update index after post delete. */
+export async function applyPostDeletePublishScope(workspaceRoot: string, postPath: string): Promise<void> {
+  const key = publishScopeCacheKey(workspaceRoot)
+  const cached = publishScopeCacheByWorkspace.get(key)
+  if (!cached?.index) return
+  removePostFromPublishScopeIndex(cached.index, postPath)
+  const fingerprint = await publishScopeFingerprint(workspaceRoot)
+  writePublishScopeCacheEntry(
+    workspaceRoot,
+    cached.index,
+    fingerprint,
+    nonPublishablePathsFromIndex(cached.index)
+  )
+}
+
+/** Update index after asset file add/remove. */
+export async function applyAssetCatalogPublishScope(workspaceRoot: string): Promise<void> {
+  const index = await ensurePublishScopeIndex(workspaceRoot)
+  await syncAssetCatalogInIndex(workspaceRoot, index)
+  const fingerprint = await publishScopeFingerprint(workspaceRoot)
+  writePublishScopeCacheEntry(workspaceRoot, index, fingerprint, nonPublishablePathsFromIndex(index))
+}
+
+async function untrackNonPublishableAssets(
+  git: ReturnType<typeof simpleGit>,
+  paths: Set<string>
+): Promise<void> {
+  const rels = [...paths]
+  if (rels.length === 0) return
+  try {
+    await git.raw(['rm', '--cached', '--ignore-unmatch', ...rels])
+  } catch {
+    // not tracked
+  }
+}
+
+async function unstageNonPublishableAssets(
+  git: ReturnType<typeof simpleGit>,
+  paths: Set<string>
+): Promise<void> {
+  const rels = [...paths]
+  if (rels.length === 0) return
+  try {
+    await git.raw(['reset', 'HEAD', '--', ...rels])
+  } catch {
+    // path was not staged
+  }
+}
+
+const GIT_EXCLUDE_NON_PUBLISHABLE_BEGIN = '# >>> emprint-non-publishable-assets'
+const GIT_EXCLUDE_NON_PUBLISHABLE_END = '# <<< emprint-non-publishable-assets'
+
+async function syncGitExcludeNonPublishableAssets(
+  workspaceRoot: string,
+  paths: Set<string>,
+  cacheEntry: WorkspacePublishScopeCache | undefined
+): Promise<void> {
+  const gitDir = path.join(workspaceRoot, '.git')
+  if (!existsSync(gitDir)) return
+
+  const excludeKey = nonPublishableSetKey(paths)
+  if (cacheEntry?.excludeWrittenKey === excludeKey) return
+
+  const excludePath = path.join(gitDir, 'info', 'exclude')
+  await mkdir(path.dirname(excludePath), { recursive: true })
+
+  let preserved: string[] = []
+  if (existsSync(excludePath)) {
+    const raw = await readFile(excludePath, 'utf8')
+    let inBlock = false
+    for (const line of raw.split(/\r?\n/)) {
+      if (line === GIT_EXCLUDE_NON_PUBLISHABLE_BEGIN) {
+        inBlock = true
+        continue
+      }
+      if (line === GIT_EXCLUDE_NON_PUBLISHABLE_END) {
+        inBlock = false
+        continue
+      }
+      if (!inBlock) preserved.push(line)
+    }
+  }
+
+  const next = [
+    ...preserved,
+    GIT_EXCLUDE_NON_PUBLISHABLE_BEGIN,
+    ...[...paths].sort(),
+    GIT_EXCLUDE_NON_PUBLISHABLE_END,
+    ''
+  ]
+  await writeFile(excludePath, next.join('\n'), 'utf8')
+  if (cacheEntry) cacheEntry.excludeWrittenKey = excludeKey
+}
+
+async function ensureEmprintGitignoreOnce(workspaceRoot: string): Promise<void> {
+  const key = publishScopeCacheKey(workspaceRoot)
+  if (emprintGitignoreEnsuredRoots.has(key)) return
+  await ensureEmprintGitignore(workspaceRoot)
+  emprintGitignoreEnsuredRoots.add(key)
+}
+
+/**
+ * Apply git index/exclude updates only when the non-publishable asset set changed.
+ */
+async function reconcilePublishScopeGit(
+  workspaceRoot: string,
+  nonPublishable: Set<string>
+): Promise<void> {
+  const cacheKey = publishScopeCacheKey(workspaceRoot)
+  let cacheEntry = publishScopeCacheByWorkspace.get(cacheKey)
+  if (!cacheEntry) {
+    const index = await ensurePublishScopeIndex(workspaceRoot)
+    cacheEntry = {
+      fingerprint: await publishScopeFingerprint(workspaceRoot),
+      index,
+      nonPublishable,
+      appliedNonPublishableKey: null,
+      excludeWrittenKey: null
+    }
+    publishScopeCacheByWorkspace.set(cacheKey, cacheEntry)
+  } else {
+    cacheEntry.nonPublishable = nonPublishable
+  }
+
+  const appliedKey = nonPublishableSetKey(nonPublishable)
+  const gitOpsNeeded = cacheEntry.appliedNonPublishableKey !== appliedKey
+
+  let git: ReturnType<typeof simpleGit> | undefined
+  try {
+    git = simpleGit(workspaceRoot)
+    if (!(await git.checkIsRepo())) {
+      await syncGitExcludeNonPublishableAssets(workspaceRoot, nonPublishable, cacheEntry)
+      return
+    }
+  } catch {
+    await syncGitExcludeNonPublishableAssets(workspaceRoot, nonPublishable, cacheEntry)
+    return
+  }
+
+  if (gitOpsNeeded) {
+    await untrackNonPublishableAssets(git, nonPublishable)
+    await unstageNonPublishableAssets(git, nonPublishable)
+    cacheEntry.appliedNonPublishableKey = appliedKey
+  }
+
+  await syncGitExcludeNonPublishableAssets(workspaceRoot, nonPublishable, cacheEntry)
+}
+
+/**
+ * Reconcile git index/exclude with which assets should ship on publish.
+ * Call after post moves/deletes and other edits that change asset publish scope.
+ */
+export async function syncWorkspacePublishScope(workspaceRoot: string): Promise<Set<string>> {
+  await ensureEmprintGitignoreOnce(workspaceRoot)
+  await untrackEmprintIgnoredPathsOnce(workspaceRoot)
+  const index = await ensurePublishScopeIndex(workspaceRoot)
+  const fingerprint = await publishScopeFingerprint(workspaceRoot)
+  const nonPublishable = nonPublishablePathsFromIndex(index)
+  writePublishScopeCacheEntry(workspaceRoot, index, fingerprint, nonPublishable)
+  await reconcilePublishScopeGit(workspaceRoot, nonPublishable)
+  return nonPublishable
+}
+
+async function preparePublishScopeForSnapshot(workspaceRoot: string): Promise<Set<string>> {
+  await ensureEmprintGitignoreOnce(workspaceRoot)
+  await untrackEmprintIgnoredPathsOnce(workspaceRoot)
+  const nonPublishable = await resolveNonPublishableAssetPathsCached(workspaceRoot)
+  await reconcilePublishScopeGit(workspaceRoot, nonPublishable)
+  return nonPublishable
 }
 
 export async function resolveOriginPlainUrl(git: ReturnType<typeof simpleGit>): Promise<string | undefined> {
@@ -748,9 +1341,6 @@ export async function untrackEmprintIgnoredPathsOnce(workspaceRoot: string): Pro
 }
 
 export async function gitWorkingTree(directory: string): Promise<GitWorkingTreeSummary> {
-  await ensureEmprintGitignore(directory)
-  await untrackEmprintIgnoredPathsOnce(directory)
-
   const git = simpleGit(directory)
   const branchInfo = await ensurePublishBranch(git)
 
@@ -770,8 +1360,10 @@ export async function gitWorkingTree(directory: string): Promise<GitWorkingTreeS
     }
   }
 
+  const nonPublishableAssets = await preparePublishScopeForSnapshot(directory)
+
   const status = await git.status()
-  const pendingFiles = mapPendingFiles(status)
+  const pendingFiles = mapPendingFiles(status, nonPublishableAssets)
   const hasConflicts = status.conflicted.length > 0
   const session = await readGithubSession()
   const branch = status.current ?? branchInfo.branch
@@ -910,11 +1502,14 @@ export async function gitPublish(directory: string, input: GitPublishInput): Pro
   const wantPush = input.push !== false
   const git = simpleGit(directory)
 
-  await ensureEmprintGitignore(directory)
-  await untrackEmprintIgnoredPathsOnce(directory)
+  const nonPublishableAssets = await preparePublishScopeForSnapshot(directory)
 
   const preStatus = await git.status()
-  const hasPendingChanges = mapPendingFiles(preStatus).length > 0 || preStatus.conflicted.some((f) => !isEmprintIgnoredPublishPath(f))
+  const hasPendingChanges =
+    mapPendingFiles(preStatus, nonPublishableAssets).length > 0 ||
+    preStatus.conflicted.some(
+      (f) => !isEmprintIgnoredPublishPath(normalizePublishPendingPath(f))
+    )
 
   let committed = false
   let commitSha: string | undefined
@@ -925,7 +1520,7 @@ export async function gitPublish(directory: string, input: GitPublishInput): Pro
     const session = await readGithubSession()
     await ensureGitAuthorIdentity(git, session)
 
-    await gitStagePublishableChanges(git)
+    await gitStagePublishableChanges(git, directory)
     const commitResult = await git.commit(message)
     committed = true
     commitSha = commitResult.commit || undefined
@@ -1213,7 +1808,11 @@ export async function untrackEmprintIgnoredPaths(workspaceRoot: string): Promise
  * Stage working-tree changes for publish while keeping Emprint-private paths
  * (e.g. `drafts/`) out of the index even if they were tracked historically.
  */
-export async function gitStagePublishableChanges(git: ReturnType<typeof simpleGit>): Promise<void> {
+export async function gitStagePublishableChanges(
+  git: ReturnType<typeof simpleGit>,
+  workspaceRoot: string
+): Promise<void> {
+  const nonPublishableAssets = await resolveNonPublishableAssetPathsCached(workspaceRoot)
   await git.add(['-A', '.'])
   for (const entry of EMPRINT_GITIGNORE_LINES) {
     if (entry.includes('*')) continue
@@ -1224,6 +1823,7 @@ export async function gitStagePublishableChanges(git: ReturnType<typeof simpleGi
       // path was not staged
     }
   }
+  await unstageNonPublishableAssets(git, nonPublishableAssets)
 }
 
 export function buildGithubAuthRemoteUrl(remoteUrl: string, token: string): string {
@@ -1412,7 +2012,8 @@ export async function saveAssetImage(
     size: st.size,
     mimeType: input.mimeType,
     modifiedAt: st.mtime.toISOString(),
-    references: []
+    references: [],
+    publishScope: 'orphan'
   }
 }
 
@@ -1514,7 +2115,8 @@ export async function listAssetImages(workspaceRoot: string): Promise<AssetImage
       size: st.size,
       mimeType: mimeTypeForExtension(ext),
       modifiedAt: st.mtime.toISOString(),
-      references: []
+      references: [],
+      publishScope: 'orphan'
     })
   }
 
@@ -1560,6 +2162,10 @@ export async function listAssetImages(workspaceRoot: string): Promise<AssetImage
         hit.references.push(reference)
       }
     }
+  }
+
+  for (const image of images) {
+    image.publishScope = classifyAssetPublishScope(image.references)
   }
 
   images.sort((a, b) => (a.modifiedAt < b.modifiedAt ? 1 : -1))

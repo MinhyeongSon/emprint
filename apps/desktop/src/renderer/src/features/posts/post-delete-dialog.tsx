@@ -16,6 +16,8 @@ interface PostDeleteDialogProps {
   title: string
   /** Workspace-relative path of the post being deleted (e.g. `posts/2024-01-01-hello.md`). */
   path: string
+  /** When set, shows bulk-delete copy and hides single-item path emphasis. */
+  bulkCount?: number
   deleting: boolean
   onCancel(): void
   onConfirm(): void
@@ -36,12 +38,14 @@ export function PostDeleteDialog({
   section,
   title,
   path,
+  bulkCount,
   deleting,
   onCancel,
   onConfirm
 }: PostDeleteDialogProps) {
   const cancelRef = useRef<HTMLButtonElement | null>(null)
   const isPublished = section === 'posts'
+  const isBulk = (bulkCount ?? 0) > 1
 
   useEffect(() => {
     if (!open) return
@@ -84,12 +88,32 @@ export function PostDeleteDialog({
               </div>
               <div className="min-w-0">
                 <div id="post-delete-title" className="text-sm font-semibold tracking-[-0.01em] text-ink">
-                  {isPublished
-                    ? pick(locale, 'Delete this published post?', '발행한 글을 삭제할까요?')
-                    : pick(locale, 'Delete this draft?', '드래프트를 삭제할까요?')}
+                  {isBulk
+                    ? isPublished
+                      ? pick(
+                          locale,
+                          `Delete ${bulkCount} published posts?`,
+                          `발행한 글 ${bulkCount}개를 삭제할까요?`
+                        )
+                      : pick(locale, `Delete ${bulkCount} drafts?`, `드래프트 ${bulkCount}개를 삭제할까요?`)
+                    : isPublished
+                      ? pick(locale, 'Delete this published post?', '발행한 글을 삭제할까요?')
+                      : pick(locale, 'Delete this draft?', '드래프트를 삭제할까요?')}
                 </div>
-                <div className="mt-1 break-words text-[12px] text-ink/85">{title || path}</div>
-                <div className="mt-0.5 break-all font-mono text-[10.5px] text-muted">{path}</div>
+                {isBulk ? (
+                  <div className="mt-1 text-[12px] text-muted">
+                    {pick(
+                      locale,
+                      'Selected files will be removed from your workspace.',
+                      '선택한 파일이 워크스페이스에서 삭제됩니다.'
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <div className="mt-1 break-words text-[12px] text-ink/85">{title || path}</div>
+                    <div className="mt-0.5 break-all font-mono text-[10.5px] text-muted">{path}</div>
+                  </>
+                )}
               </div>
             </div>
             <button

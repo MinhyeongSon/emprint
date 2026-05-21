@@ -1,12 +1,20 @@
 import { ipcMain } from 'electron'
 import { ipcChannels } from '@emprint/shared'
 import { ensureWorkspaceMounted } from '../state'
-import { deleteAssetImage, listAssetImages, saveAssetImage } from '../core'
+import {
+  applyAssetCatalogPublishScope,
+  deleteAssetImage,
+  listAssetImages,
+  saveAssetImage,
+  syncWorkspacePublishScope
+} from '../core'
 
 export function registerAssetsHandlers(): void {
   ipcMain.handle(ipcChannels.assetsSaveImage, async (_event, input) => {
     const root = ensureWorkspaceMounted()
-    return await saveAssetImage(root, input)
+    const saved = await saveAssetImage(root, input)
+    await applyAssetCatalogPublishScope(root)
+    return saved
   })
 
   ipcMain.handle(ipcChannels.assetsListImages, async () => {
@@ -17,5 +25,7 @@ export function registerAssetsHandlers(): void {
   ipcMain.handle(ipcChannels.assetsDeleteImage, async (_event, input: { path: string }) => {
     const root = ensureWorkspaceMounted()
     await deleteAssetImage(root, input.path)
+    await applyAssetCatalogPublishScope(root)
+    await syncWorkspacePublishScope(root)
   })
 }

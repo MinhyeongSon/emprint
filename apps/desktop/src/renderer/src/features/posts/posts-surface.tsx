@@ -4,11 +4,14 @@ import {
   ArrowLeft,
   FileDown,
   FilePlus,
+  ListChecks,
   Loader2,
   Save,
+  Search,
   Send,
   SquarePen,
-  Trash2
+  Trash2,
+  X
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -18,6 +21,7 @@ import matter from 'gray-matter'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
+import { Input } from '@renderer/components/ui/input'
 import { Tooltip } from '@renderer/components/ui/tooltip'
 import { TipTapEditor, type InsertedImage } from '@renderer/components/editor/tiptap-editor'
 import { useAppStore } from '@renderer/state/app-store'
@@ -120,6 +124,41 @@ function parseTagsDraft(value: string): string[] {
   )
 }
 
+function matchesPostSearch(item: PostSummary, query: string): boolean {
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+  const haystack = [item.title, item.description, item.path, ...item.tags].join(' ').toLowerCase()
+  return haystack.includes(q)
+}
+
+type PendingDelete =
+  | { kind: 'single'; path: string; title: string }
+  | { kind: 'bulk'; paths: string[] }
+
+async function movePostBetweenSections(
+  path: string,
+  targetSection: 'posts' | 'drafts'
+): Promise<string> {
+  const result = await window.emprint.posts.read({ path })
+  const parsed = parsePost(result.content)
+  const fileName = path.split('/').pop()
+  if (!fileName) {
+    throw new Error('Unable to determine the target filename.')
+  }
+  const targetPath = `${targetSection}/${fileName}`
+  if (path === targetPath) {
+    return path
+  }
+  const nextData: Record<string, unknown> = {
+    ...parsed.data,
+    draft: targetSection === 'drafts'
+  }
+  const nextMarkdown = buildPostMarkdown({ data: nextData, body: parsed.body })
+  await window.emprint.posts.save({ path, content: nextMarkdown })
+  const moved = await window.emprint.posts.move({ from: path, to: targetPath })
+  return moved.path
+}
+
 export function PostsSurface({ locale, section }: { locale: AppLocale; section: Section }) {
   const surface = useAppStore((state) => state.surface)
   const openDocument = useAppStore((state) => state.openDocument)
@@ -161,8 +200,12 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
   // Post (or draft) queued for deletion via the confirmation dialog. We keep
   // the displayed title separately so the dialog stays stable even after the
   // list is refetched following a successful delete.
-  const [pendingDelete, setPendingDelete] = useState<{ path: string; title: string } | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null)
   const [deletingPath, setDeletingPath] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedPaths, setSelectedPaths] = useState<Set<string>>(() => new Set())
+  const [bulkBusy, setBulkBusy] = useState<'delete' | 'move' | null>(null)
   const tagTailInputRef = useRef<HTMLInputElement | null>(null)
   const tagDraftRef = useRef(tagDraft)
   tagDraftRef.current = tagDraft
@@ -234,6 +277,54 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
       alive = false
     }
   }, [section])
+
+  useEffect(() => {
+    setSearchQuery('')
+    setSelectionMode(false)
+    setSelectedPaths(new Set())
+  }, [section])
+
+  const filteredItems = useMemo(
+    () => items.filter((item) => matchesPostSearch(item, searchQuery)),
+    [items, searchQuery]
+  )
+
+  const selectedCount = selectedPaths.size
+  const allFilteredSelected =
+    filteredItems.length > 0 && filteredItems.every((item) => selectedPaths.has(item.path))
+
+  const exitSelectionMode = useCallback(() => {
+    setSelectionMode(false)
+    setSelectedPaths(new Set())
+  }, [])
+
+  const toggleSelectedPath = useCallback((path: string) => {
+    setSelectedPaths((prev) => {
+      const next = new Set(prev)
+      if (next.has(path)) {
+        next.delete(path)
+      } else {
+        next.add(path)
+      }
+      return next
+    })
+  }, [])
+
+  const toggleSelectAllFiltered = useCallback(() => {
+    setSelectedPaths((prev) => {
+      const next = new Set(prev)
+      if (allFilteredSelected) {
+        for (const item of filteredItems) {
+          next.delete(item.path)
+        }
+      } else {
+        for (const item of filteredItems) {
+          next.add(item.path)
+        }
+      }
+      return next
+    })
+  }, [allFilteredSelected, filteredItems])
 
   useEffect(() => {
     if (!activeDocumentPath || surface === 'list') {
@@ -394,6 +485,7 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
         }
       }
       setPendingDelete({
+        kind: 'single',
         path: input.path,
         title: input.title || inferTitleFromPath(input.path)
       })
@@ -401,18 +493,39 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
     [activeDocumentPath, locale]
   )
 
+  const requestBulkDelete = useCallback(() => {
+    const paths = [...selectedPaths]
+    if (paths.length === 0) return
+    if (paths.includes(activeDocumentPath ?? '') && useAppStore.getState().activeDocumentDirty) {
+      setSaveError(
+        pick(
+          locale,
+          'Save or discard your unsaved changes before deleting the open post.',
+          '삭제하기 전에 열린 글의 저장하지 않은 변경사항을 먼저 저장하거나 취소해 주세요.'
+        )
+      )
+      return
+    }
+    setPendingDelete({ kind: 'bulk', paths })
+  }, [activeDocumentPath, locale, selectedPaths])
+
   const confirmDelete = useCallback(async () => {
     const target = pendingDelete
     if (!target) return
-    setDeletingPath(target.path)
+    const paths = target.kind === 'single' ? [target.path] : target.paths
+    if (target.kind === 'single') {
+      setDeletingPath(target.path)
+    } else {
+      setBulkBusy('delete')
+    }
     setSaveError(null)
     try {
-      await window.emprint.posts.delete({ path: target.path })
+      for (const path of paths) {
+        await window.emprint.posts.delete({ path })
+      }
       setPendingDelete(null)
 
-      // If we deleted the file the user was viewing/editing, drop the editor
-      // state and bounce them back to the list. Otherwise just refresh the list.
-      if (target.path === activeDocumentPath) {
+      if (activeDocumentPath && paths.includes(activeDocumentPath)) {
         setActiveContent('')
         setEditorBody('')
         setEditorTitle('')
@@ -427,12 +540,14 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
       const refreshed = await window.emprint.posts.list({ section })
       if (refreshed) setItems(refreshed)
       bumpWorkspaceGitRefresh()
+      exitSelectionMode()
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : String(caught)
       setSaveError(message)
       console.error('[emprint] post delete failed', caught)
     } finally {
       setDeletingPath(null)
+      setBulkBusy(null)
     }
   }, [
     activeDocumentPath,
@@ -440,8 +555,61 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
     pendingDelete,
     section,
     bumpWorkspaceGitRefresh,
+    exitSelectionMode,
     setActiveDocumentDirty,
     setActiveDocumentTitle
+  ])
+
+  const handleBulkMoveSection = useCallback(async () => {
+    const paths = [...selectedPaths]
+    if (paths.length === 0) return
+    if (paths.includes(activeDocumentPath ?? '') && useAppStore.getState().activeDocumentDirty) {
+      setSaveError(
+        pick(
+          locale,
+          'Save or discard your unsaved changes before moving the open post.',
+          '이동하기 전에 열린 글의 저장하지 않은 변경사항을 먼저 저장하거나 취소해 주세요.'
+        )
+      )
+      return
+    }
+
+    const targetSection: 'posts' | 'drafts' = isDraftSection ? 'posts' : 'drafts'
+    setBulkBusy('move')
+    setSaveError(null)
+    try {
+      for (const path of paths) {
+        await movePostBetweenSections(path, targetSection)
+      }
+      const refreshed = await window.emprint.posts.list({ section })
+      if (refreshed) setItems(refreshed)
+      bumpWorkspaceGitRefresh()
+      exitSelectionMode()
+      if (activeDocumentPath && paths.includes(activeDocumentPath)) {
+        const fileName = activeDocumentPath.split('/').pop()
+        if (fileName) {
+          const newPath = `${targetSection}/${fileName}`
+          setActiveSection(targetSection)
+          openEditor(newPath)
+        }
+      }
+    } catch (caught) {
+      const message =
+        caught instanceof Error ? caught.message : typeof caught === 'string' ? caught : 'Unknown error'
+      setSaveError(message)
+    } finally {
+      setBulkBusy(null)
+    }
+  }, [
+    activeDocumentPath,
+    bumpWorkspaceGitRefresh,
+    exitSelectionMode,
+    isDraftSection,
+    locale,
+    openEditor,
+    section,
+    selectedPaths,
+    setActiveSection
   ])
 
   const handleImageFiles = useCallback(async (files: File[]): Promise<InsertedImage[]> => {
@@ -518,9 +686,15 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
       open={pendingDelete !== null}
       locale={locale}
       section={section}
-      title={pendingDelete?.title ?? ''}
-      path={pendingDelete?.path ?? ''}
-      deleting={deletingPath !== null && pendingDelete !== null && deletingPath === pendingDelete.path}
+      title={pendingDelete?.kind === 'single' ? pendingDelete.title : ''}
+      path={pendingDelete?.kind === 'single' ? pendingDelete.path : ''}
+      {...(pendingDelete?.kind === 'bulk' ? { bulkCount: pendingDelete.paths.length } : {})}
+      deleting={
+        bulkBusy === 'delete' ||
+        (pendingDelete?.kind === 'single' &&
+          deletingPath !== null &&
+          deletingPath === pendingDelete.path)
+      }
       onCancel={() => setPendingDelete(null)}
       onConfirm={() => void confirmDelete()}
     />
@@ -895,7 +1069,7 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
       key={`list:${transitionKey}`}
       className="mx-auto w-full max-w-[1180px] px-4 py-8 opacity-100 transition duration-300 ease-out lg:px-10"
     >
-      <div className="mb-6 flex items-end justify-between gap-4">
+      <div className="mb-4 flex items-end justify-between gap-4">
         <div className="min-w-0">
           <div className="text-[11px] uppercase tracking-[0.16em] text-muted">
             {isDraftSection ? 'Drafts' : 'Posts'}
@@ -915,13 +1089,28 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
                   : 'Published entries. Send back to drafts to keep editing privately.')}
           </div>
         </div>
-        <Button
-          variant="outline"
-          type="button"
-          className="h-8 w-8 shrink-0 p-0"
-          aria-label={locale === 'ko' ? '새 글' : 'New post'}
-          title={locale === 'ko' ? '새 글' : 'New'}
-          onClick={() => {
+        <div className="flex shrink-0 items-center gap-2">
+          {!selectionMode ? (
+            <Button
+              variant="outline"
+              type="button"
+              className="h-8 gap-1.5 px-3 text-[12px]"
+              aria-label={pick(locale, 'Select multiple', '다중 선택')}
+              onClick={() => setSelectionMode(true)}
+              disabled={items.length === 0 || saving || bulkBusy !== null}
+            >
+              <ListChecks className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+              <span>{pick(locale, 'Select', '선택')}</span>
+            </Button>
+          ) : null}
+          <Button
+            variant="outline"
+            type="button"
+            className="h-8 w-8 shrink-0 p-0"
+            aria-label={locale === 'ko' ? '새 글' : 'New post'}
+            title={locale === 'ko' ? '새 글' : 'New'}
+            disabled={selectionMode || saving || bulkBusy !== null}
+            onClick={() => {
             const path = `${section}/${new Date().toISOString().slice(0, 10)}-new.md`
             // Folder is the source of truth: posts/ → draft:false, drafts/ → draft:true.
             const template = [
@@ -951,7 +1140,6 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
               }
             })()
           }}
-          disabled={saving}
         >
           {saving ? (
             <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden />
@@ -959,7 +1147,102 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
             <FilePlus className="h-4 w-4" strokeWidth={2} />
           )}
         </Button>
+        </div>
       </div>
+
+      <div className="relative mb-4">
+        <Search
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+          strokeWidth={2}
+          aria-hidden
+        />
+        <Input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder={
+            locale === 'ko'
+              ? '제목, 설명, 태그, 경로로 검색…'
+              : 'Search title, description, tags, path…'
+          }
+          aria-label={pick(locale, 'Search posts', '글 검색')}
+          className="h-10 pl-9"
+        />
+      </div>
+
+      {selectionMode ? (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-panel2/50 px-3 py-2.5">
+          <span className="text-[12px] text-ink">
+            {pick(locale, `${selectedCount} selected`, `${selectedCount}개 선택`)}
+          </span>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              type="button"
+              className="h-8 px-3 text-[12px]"
+              onClick={toggleSelectAllFiltered}
+              disabled={filteredItems.length === 0 || bulkBusy !== null}
+            >
+              {allFilteredSelected
+                ? pick(locale, 'Deselect all', '전체 해제')
+                : pick(locale, 'Select all', '전체 선택')}
+            </Button>
+            <Button
+              variant="outline"
+              type="button"
+              className="h-8 gap-1.5 px-3 text-[12px]"
+              disabled={selectedCount === 0 || bulkBusy !== null}
+              onClick={() => void handleBulkMoveSection()}
+            >
+              {bulkBusy === 'move' ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} aria-hidden />
+              ) : isDraftSection ? (
+                <Send className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+              ) : (
+                <FileDown className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+              )}
+              <span>
+                {isDraftSection
+                  ? pick(locale, 'Publish', '발행')
+                  : pick(locale, 'To drafts', '드래프트로')}
+              </span>
+            </Button>
+            <Button
+              variant="outline"
+              type="button"
+              className="h-8 gap-1.5 border-danger/40 px-3 text-[12px] text-dangerInk hover:border-danger hover:bg-dangerBg/40"
+              disabled={selectedCount === 0 || bulkBusy !== null}
+              onClick={requestBulkDelete}
+            >
+              {bulkBusy === 'delete' ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} aria-hidden />
+              ) : (
+                <Trash2 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+              )}
+              <span>{pick(locale, 'Delete', '삭제')}</span>
+            </Button>
+            <Button
+              variant="ghost"
+              type="button"
+              className="h-8 w-8 p-0"
+              aria-label={pick(locale, 'Exit selection', '선택 종료')}
+              onClick={exitSelectionMode}
+              disabled={bulkBusy !== null}
+            >
+              <X className="h-4 w-4" strokeWidth={2} aria-hidden />
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {saveError && surface === 'list' ? (
+        <div
+          className="mb-3 flex items-start gap-2 rounded-md border border-danger/40 bg-dangerBg px-3 py-2 text-[12px] text-dangerInk"
+          role="alert"
+        >
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+          <div className="min-w-0 flex-1 break-words font-mono text-[11px]">{saveError}</div>
+        </div>
+      ) : null}
 
       <div className="grid gap-2">
         {loading ? (
@@ -974,62 +1257,104 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
                   ? '아직 발행한 글이 없어요.'
                   : 'No published entries yet.')}
           </Card>
+        ) : filteredItems.length === 0 ? (
+          <Card className="px-4 py-10 text-center text-sm text-muted">
+            {pick(locale, 'No posts match your search.', '검색 결과가 없습니다.')}
+          </Card>
         ) : (
-          items.map((item) => (
-            <div
-              key={item.path}
-              role="button"
-              tabIndex={0}
-              onClick={() => openDocument(item.path)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault()
+          filteredItems.map((item) => {
+            const isSelected = selectedPaths.has(item.path)
+            return (
+              <div
+                key={item.path}
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  if (selectionMode) {
+                    toggleSelectedPath(item.path)
+                    return
+                  }
                   openDocument(item.path)
-                }
-              }}
-              className={cn(
-                'group relative cursor-pointer rounded-lg border border-border bg-surface px-4 py-4 text-left transition hover:bg-panel2/60',
-                'focus:outline-none focus:ring-1 focus:ring-accent/35'
-              )}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-semibold text-ink">{item.title}</div>
-                  <div className="mt-1 text-xs text-muted">{formatDate(item.updatedAt)}</div>
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    if (selectionMode) {
+                      toggleSelectedPath(item.path)
+                    } else {
+                      openDocument(item.path)
+                    }
+                  }
+                }}
+                className={cn(
+                  'group relative cursor-pointer rounded-lg border bg-surface px-4 py-4 text-left transition hover:bg-panel2/60',
+                  'focus:outline-none focus:ring-1 focus:ring-accent/35',
+                  isSelected ? 'border-accent/50 ring-1 ring-accent/25' : 'border-border'
+                )}
+              >
+                <div className="flex items-start gap-3">
+                  {selectionMode ? (
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSelectedPath(item.path)}
+                      onClick={(event) => event.stopPropagation()}
+                      aria-label={pick(locale, `Select ${item.title}`, `${item.title} 선택`)}
+                      className="mt-1 h-4 w-4 shrink-0 cursor-pointer accent-accent"
+                    />
+                  ) : null}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold text-ink">{item.title}</div>
+                        <div className="mt-1 text-xs text-muted">{formatDate(item.updatedAt)}</div>
+                      </div>
+                      {!selectionMode ? (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            requestDelete({ path: item.path, title: item.title })
+                          }}
+                          disabled={deletingPath === item.path || bulkBusy !== null}
+                          aria-label={pick(
+                            locale,
+                            `Delete ${item.title || item.path}`,
+                            `${item.title || item.path} 삭제`
+                          )}
+                          title={pick(locale, 'Delete', '삭제')}
+                          className={cn(
+                            'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm border border-transparent text-muted opacity-0 transition focus:opacity-100 focus:outline-none focus:ring-1 focus:ring-accent/40 group-hover:opacity-100',
+                            'hover:border-danger/40 hover:bg-dangerBg/40 hover:text-dangerInk'
+                          )}
+                        >
+                          {deletingPath === item.path ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} aria-hidden />
+                          ) : (
+                            <Trash2 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+                          )}
+                        </button>
+                      ) : null}
+                    </div>
+                    <div className="mt-2 text-sm leading-6 text-muted">
+                      {item.description?.trim()
+                        ? item.description
+                        : activeDocumentPath === item.path
+                          ? snippetFromMarkdown(activeContent)
+                          : ''}
+                    </div>
+                    {item.tags?.length ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {item.tags.slice(0, 6).map((tag) => (
+                          <Badge key={tag}>{tag}</Badge>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    requestDelete({ path: item.path, title: item.title })
-                  }}
-                  disabled={deletingPath === item.path}
-                  aria-label={pick(locale, `Delete ${item.title || item.path}`, `${item.title || item.path} 삭제`)}
-                  title={pick(locale, 'Delete', '삭제')}
-                  className={cn(
-                    'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm border border-transparent text-muted opacity-0 transition focus:opacity-100 focus:outline-none focus:ring-1 focus:ring-accent/40 group-hover:opacity-100',
-                    'hover:border-danger/40 hover:bg-dangerBg/40 hover:text-dangerInk'
-                  )}
-                >
-                  {deletingPath === item.path ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} aria-hidden />
-                  ) : (
-                    <Trash2 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-                  )}
-                </button>
               </div>
-              <div className="mt-2 text-sm leading-6 text-muted">
-                {item.description?.trim() ? item.description : activeDocumentPath === item.path ? snippetFromMarkdown(activeContent) : ''}
-              </div>
-              {item.tags?.length ? (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {item.tags.slice(0, 6).map((tag) => (
-                    <Badge key={tag}>{tag}</Badge>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          ))
+            )
+          })
         )}
       </div>
     </div>

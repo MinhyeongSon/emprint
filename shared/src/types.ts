@@ -67,6 +67,9 @@ export interface WorkspaceManifest {
 /** Maximum bytes for a single asset image upload. Enforced before compression. */
 export const MAX_ASSET_IMAGE_BYTES = 20 * 1024 * 1024
 
+/** Whether an asset is included in the next site publish (git commit). */
+export type AssetPublishScope = 'published' | 'draft-only' | 'orphan'
+
 /** Where a post references an asset image. */
 export interface AssetReference {
   /** Workspace-relative POSIX path to the referencing post, e.g. `posts/2024-01-01-hello.md`. */
@@ -84,6 +87,8 @@ export interface AssetImageInfo {
   mimeType: string
   modifiedAt: string
   references: AssetReference[]
+  /** Derived from post/draft references — only `published` assets ship on publish. */
+  publishScope: AssetPublishScope
 }
 
 /** One node in the workspace `src/` tree (for Implement surface). */

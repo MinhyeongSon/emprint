@@ -4,6 +4,8 @@
  */
 export const EMPRINT_GITIGNORE_LINES = [
   'drafts/',
+  /** Astro sync mirror of `assets/` — never user publish content. */
+  'public/assets/',
   'package-lock.json',
   'npm-debug.log*',
   '.pnpm-debug.log*'

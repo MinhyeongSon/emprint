@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ImageOff, Loader2, RefreshCw, Trash2 } from 'lucide-react'
 import { pick } from '@renderer/lib/i18n'
-import type { AppLocale, AssetImageInfo, AssetReference } from '@emprint/shared'
+import type { AppLocale, AssetImageInfo, AssetPublishScope, AssetReference } from '@emprint/shared'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
@@ -23,6 +23,17 @@ function formatDate(value: string): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
   return date.toISOString().slice(0, 10)
+}
+
+function publishScopeLabel(scope: AssetPublishScope, locale: AppLocale): string {
+  switch (scope) {
+    case 'published':
+      return pick(locale, 'Included in publish', '발행 포함')
+    case 'draft-only':
+      return pick(locale, 'Draft only', '드래프트 전용')
+    default:
+      return pick(locale, 'Unused', '미사용')
+  }
 }
 
 export function AssetsSurface({ locale }: { locale: AppLocale }) {
@@ -63,7 +74,15 @@ export function AssetsSurface({ locale }: { locale: AppLocale }) {
   }, [load])
 
   const totalSize = useMemo(() => images.reduce((sum, img) => sum + img.size, 0), [images])
-  const orphanCount = useMemo(() => images.filter((img) => img.references.length === 0).length, [images])
+  const orphanCount = useMemo(() => images.filter((img) => img.publishScope === 'orphan').length, [images])
+  const draftOnlyCount = useMemo(
+    () => images.filter((img) => img.publishScope === 'draft-only').length,
+    [images]
+  )
+  const publishCount = useMemo(
+    () => images.filter((img) => img.publishScope === 'published').length,
+    [images]
+  )
 
   const selectedImage = useMemo(
     () => images.find((img) => img.path === selected) ?? null,
@@ -116,10 +135,19 @@ export function AssetsSurface({ locale }: { locale: AppLocale }) {
           <div className="mt-1 text-xs text-muted">
             {pick(
               locale,
-              `${images.length} image${images.length === 1 ? '' : 's'} · ${formatBytes(totalSize)}${
+              `${images.length} image${images.length === 1 ? '' : 's'} · ${formatBytes(totalSize)} · ${publishCount} publish · ${draftOnlyCount} draft-only${
                 orphanCount ? ` · ${orphanCount} unused` : ''
               }`,
-              `이미지 ${images.length}개 · ${formatBytes(totalSize)}${orphanCount ? ` · 미사용 ${orphanCount}개` : ''}`
+              `이미지 ${images.length}개 · ${formatBytes(totalSize)} · 발행 ${publishCount} · 드래프트 전용 ${draftOnlyCount}${
+                orphanCount ? ` · 미사용 ${orphanCount}` : ''
+              }`
+            )}
+          </div>
+          <div className="mt-1.5 text-[11px] leading-relaxed text-muted">
+            {pick(
+              locale,
+              'Only images referenced by published posts are included when you publish. Draft-only and unused images stay on this computer.',
+              '발행할 때는 발행된 글(Posts)에서 참조하는 이미지만 사이트에 올라갑니다. 드래프트 전용·미사용 이미지는 이 컴퓨터에만 남습니다.'
             )}
           </div>
         </div>
@@ -165,8 +193,8 @@ export function AssetsSurface({ locale }: { locale: AppLocale }) {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
               {images.map((image) => {
                 const isActive = selected === image.path
-                const orphan = image.references.length === 0
                 const referenceCount = image.references.length
+                const scope = image.publishScope
                 return (
                   <div
                     key={image.path}
@@ -194,11 +222,18 @@ export function AssetsSurface({ locale }: { locale: AppLocale }) {
                         draggable={false}
                         loading="lazy"
                       />
-                      {orphan ? (
-                        <span className="absolute left-1.5 top-1.5 rounded-sm border border-border/60 bg-panel/85 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted backdrop-blur-sm">
-                          {pick(locale, 'Unused', '미사용')}
-                        </span>
-                      ) : null}
+                      <span
+                        className={cn(
+                          'absolute left-1.5 top-1.5 rounded-sm border px-1.5 py-0.5 text-[10px] uppercase tracking-wide backdrop-blur-sm',
+                          scope === 'published'
+                            ? 'border-accent/50 bg-accent/15 text-ink'
+                            : scope === 'draft-only'
+                              ? 'border-border/60 bg-panel/85 text-muted'
+                              : 'border-border/60 bg-panel/85 text-muted'
+                        )}
+                      >
+                        {publishScopeLabel(scope, locale)}
+                      </span>
                       {referenceCount > 0 ? (
                         <span
                           className="absolute right-1.5 top-1.5 rounded-sm border border-border/60 bg-panel/85 px-1.5 py-0.5 text-[10px] tracking-wide text-ink backdrop-blur-sm"
@@ -273,6 +308,15 @@ export function AssetsSurface({ locale }: { locale: AppLocale }) {
               <div className="space-y-1">
                 <div className="truncate font-mono text-[12px] text-ink">{selectedImage.name}</div>
                 <div className="font-mono text-[10px] text-muted">{selectedImage.path}</div>
+                <div className="pt-1">
+                  <Badge
+                    className={cn(
+                      selectedImage.publishScope === 'published' && 'border-accent/40 bg-accent/10'
+                    )}
+                  >
+                    {publishScopeLabel(selectedImage.publishScope, locale)}
+                  </Badge>
+                </div>
                 <div className="flex flex-wrap gap-2 pt-1 text-[11px] text-muted">
                   <span>{formatBytes(selectedImage.size)}</span>
                   <span>·</span>
@@ -290,8 +334,16 @@ export function AssetsSurface({ locale }: { locale: AppLocale }) {
                   <div className="rounded-md border border-dashed border-border/70 bg-panel/40 px-3 py-3 text-xs text-muted">
                     {pick(
                       locale,
-                      'Not referenced by any post. Safe to delete if unused.',
-                      '아직 어떤 글에서도 참조하지 않습니다. 사용하지 않는다면 삭제해도 안전합니다.'
+                      'Not referenced by any post. It will not be published until a published post uses it.',
+                      '어떤 글에서도 참조하지 않습니다. 발행된 글에서 쓰기 전까지 사이트에 올라가지 않습니다.'
+                    )}
+                  </div>
+                ) : selectedImage.publishScope === 'draft-only' ? (
+                  <div className="rounded-md border border-border/70 bg-panel/40 px-3 py-3 text-xs text-muted">
+                    {pick(
+                      locale,
+                      'Only drafts reference this image. Publish those posts (or move them to Posts) to include it on the live site.',
+                      '드래프트에서만 참조 중입니다. 해당 글을 발행하거나 Posts로 옮기면 사이트에 포함됩니다.'
                     )}
                   </div>
                 ) : (

@@ -5,9 +5,13 @@ import { ipcMain } from 'electron'
 import { ipcChannels } from '@emprint/shared'
 import { ensureWorkspaceMounted } from '../state'
 import {
+  applyPostDeletePublishScope,
+  applyPostPublishScopeChange,
+  applyPostsMovePublishScope,
   resolveSafePostsOrDraftsPath,
   safeListDirectory,
   summarizeMarkdown,
+  syncWorkspacePublishScope,
   toPosixWorkspacePath
 } from '../core'
 
@@ -53,7 +57,9 @@ export function registerPostsHandlers(): void {
     }
     await mkdir(path.dirname(abs), { recursive: true })
     await writeFile(abs, input.content, 'utf8')
-    return { path: toPosixWorkspacePath(path.relative(root, abs)) }
+    const rel = toPosixWorkspacePath(path.relative(root, abs))
+    await applyPostPublishScopeChange(root, rel, input.content)
+    return { path: rel }
   })
 
   ipcMain.handle(ipcChannels.postsMove, async (_event, input: { from: string; to: string }) => {
@@ -68,7 +74,10 @@ export function registerPostsHandlers(): void {
     }
     await mkdir(path.dirname(toAbs), { recursive: true })
     await fsRename(fromAbs, toAbs)
-    return { path: toPosixWorkspacePath(path.relative(root, toAbs)) }
+    const rel = toPosixWorkspacePath(path.relative(root, toAbs))
+    await applyPostsMovePublishScope(root, input.from, rel)
+    await syncWorkspacePublishScope(root)
+    return { path: rel }
   })
 
   ipcMain.handle(ipcChannels.postsDelete, async (_event, input: { path: string }) => {
@@ -84,7 +93,10 @@ export function registerPostsHandlers(): void {
     if (!abs.toLowerCase().endsWith('.md')) {
       throw new Error('Only markdown files can be deleted here.')
     }
+    const rel = toPosixWorkspacePath(path.relative(root, abs))
     await unlink(abs)
-    return { path: toPosixWorkspacePath(path.relative(root, abs)) }
+    await applyPostDeletePublishScope(root, rel)
+    await syncWorkspacePublishScope(root)
+    return { path: rel }
   })
 }

@@ -209,6 +209,7 @@ export function AppShell() {
       <PublishDialog
         open={publishOpen}
         locale={locale}
+        refreshToken={workspaceGitRefreshToken}
         onClose={() => setPublishOpen(false)}
         onPublished={handlePublished}
       />

@@ -10,13 +10,15 @@ import { DeployStatusPanel } from './deploy-status-panel'
 interface PublishDialogProps {
   open: boolean
   locale: AppLocale
+  /** Bump after post/asset edits so the pending list stays accurate while open. */
+  refreshToken?: number
   onClose(): void
   onPublished?(result: GitPublishResult): void
 }
 
 type Phase = 'idle' | 'loading' | 'submitting' | 'done' | 'error'
 
-export function PublishDialog({ open, locale, onClose, onPublished }: PublishDialogProps) {
+export function PublishDialog({ open, locale, refreshToken, onClose, onPublished }: PublishDialogProps) {
   const [phase, setPhase] = useState<Phase>('idle')
   const [summary, setSummary] = useState<GitWorkingTreeSummary | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -55,7 +57,7 @@ export function PublishDialog({ open, locale, onClose, onPublished }: PublishDia
     return () => {
       cancelled = true
     }
-  }, [open])
+  }, [open, refreshToken])
 
   useEffect(() => {
     if (!open) return
