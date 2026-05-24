@@ -5,6 +5,9 @@ import type {
   ColumnLayoutComposition,
   ColumnLayoutCompositionId,
   ColumnThemePresetId,
+  DictionaryLayoutComposition,
+  DictionaryLayoutCompositionId,
+  DictionaryThemePresetId,
   LayoutCompositionId,
   MemoirColorPaletteId,
   MemoirLayoutComposition,
@@ -17,16 +20,24 @@ import {
   COLUMN_LAYOUT_COMPOSITIONS,
   DEFAULT_COLUMN_LAYOUT_COMPOSITION,
   DEFAULT_COLUMN_THEME_PRESET_ID,
+  DEFAULT_DICTIONARY_LAYOUT_COMPOSITION,
+  DEFAULT_DICTIONARY_THEME_PRESET_ID,
   DEFAULT_MEMOIR_COLOR_PALETTE,
   DEFAULT_MEMOIR_LAYOUT_COMPOSITION,
+  DICTIONARY_LAYOUT_COMPOSITIONS,
   inferColumnLayoutComposition,
   inferColumnThemePresetId,
+  inferDictionaryLayoutComposition,
+  inferDictionaryThemePresetId,
   inferMemoirColorPalette,
   inferMemoirLayoutComposition,
   LAYOUT_COMPOSITIONS,
+  buildDictionaryTheme,
   parseColumnThemeFile,
+  parseDictionaryThemeFile,
   parseMemoirThemeFile,
   serializeColumnThemeFile,
+  serializeDictionaryThemeFile,
   serializeMemoirThemeFile
 } from '@emprint/shared'
 import { Button } from '@renderer/components/ui/button'
@@ -85,6 +96,18 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
     DEFAULT_COLUMN_THEME_PRESET_ID
   )
 
+  const [appliedDictionaryComposition, setAppliedDictionaryComposition] =
+    useState<DictionaryLayoutComposition>(DEFAULT_DICTIONARY_LAYOUT_COMPOSITION)
+  const [appliedDictionaryPreset, setAppliedDictionaryPreset] = useState<DictionaryThemePresetId>(
+    DEFAULT_DICTIONARY_THEME_PRESET_ID
+  )
+  const [draftDictionaryComposition, setDraftDictionaryComposition] = useState<DictionaryLayoutComposition>(
+    DEFAULT_DICTIONARY_LAYOUT_COMPOSITION
+  )
+  const [draftDictionaryPreset, setDraftDictionaryPreset] = useState<DictionaryThemePresetId>(
+    DEFAULT_DICTIONARY_THEME_PRESET_ID
+  )
+
   const [appliedComposition, setAppliedComposition] = useState<MemoirLayoutComposition>(
     DEFAULT_MEMOIR_LAYOUT_COMPOSITION
   )
@@ -97,6 +120,10 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
 
   const columnDirty =
     draftColumnComposition !== appliedColumnComposition || draftColumnPreset !== appliedColumnPreset
+
+  const dictionaryDirty =
+    draftDictionaryComposition !== appliedDictionaryComposition ||
+    draftDictionaryPreset !== appliedDictionaryPreset
 
   const memoirDirty =
     draftComposition !== appliedComposition || draftPalette !== appliedPalette
@@ -118,6 +145,14 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
         setAppliedPalette(palette)
         setDraftComposition(composition)
         setDraftPalette(palette)
+      } else if (siteKind === 'dictionary') {
+        const theme = parseDictionaryThemeFile(res.content)
+        const composition = inferDictionaryLayoutComposition(theme)
+        const preset = inferDictionaryThemePresetId(theme)
+        setAppliedDictionaryComposition(composition)
+        setAppliedDictionaryPreset(preset)
+        setDraftDictionaryComposition(composition)
+        setDraftDictionaryPreset(preset)
       } else {
         const theme = parseColumnThemeFile(res.content)
         const composition = inferColumnLayoutComposition(theme)
@@ -133,6 +168,11 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
         setAppliedPalette(DEFAULT_MEMOIR_COLOR_PALETTE)
         setDraftComposition(DEFAULT_MEMOIR_LAYOUT_COMPOSITION)
         setDraftPalette(DEFAULT_MEMOIR_COLOR_PALETTE)
+      } else if (siteKind === 'dictionary') {
+        setAppliedDictionaryComposition(DEFAULT_DICTIONARY_LAYOUT_COMPOSITION)
+        setAppliedDictionaryPreset(DEFAULT_DICTIONARY_THEME_PRESET_ID)
+        setDraftDictionaryComposition(DEFAULT_DICTIONARY_LAYOUT_COMPOSITION)
+        setDraftDictionaryPreset(DEFAULT_DICTIONARY_THEME_PRESET_ID)
       } else {
         setAppliedColumnComposition(DEFAULT_COLUMN_LAYOUT_COMPOSITION)
         setAppliedColumnPreset(DEFAULT_COLUMN_THEME_PRESET_ID)
@@ -176,6 +216,41 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
       bumpWorkspaceGitRefresh()
       setAppliedColumnComposition(draftColumnComposition)
       setAppliedColumnPreset(draftColumnPreset)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function applyDictionaryTheme() {
+    if (!dictionaryDirty) return
+    const api = window.emprint?.workspaceSrc
+    if (!api?.save) {
+      setError(pick(locale, 'Workspace source API unavailable.', '워크스페이스 소스 API를 사용할 수 없습니다.'))
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      const built = buildDictionaryTheme(draftDictionaryComposition, draftDictionaryPreset)
+      if (api.read) {
+        try {
+          const existing = parseDictionaryThemeFile((await api.read({ path: THEME_JSON_PATH })).content)
+          if (existing.landingIntro) {
+            built.landingIntro = existing.landingIntro
+          }
+        } catch {
+          /* keep preset default */
+        }
+      }
+      await api.save({
+        path: THEME_JSON_PATH,
+        content: serializeDictionaryThemeFile(built)
+      })
+      bumpWorkspaceGitRefresh()
+      setAppliedDictionaryComposition(draftDictionaryComposition)
+      setAppliedDictionaryPreset(draftDictionaryPreset)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught))
     } finally {
@@ -326,6 +401,93 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
             {busy
               ? pick(locale, 'Applying…', '적용 중…')
               : memoirDirty
+                ? pick(locale, 'Apply layout & palette', '레이아웃·색감 적용')
+                : pick(locale, 'Applied', '적용됨')}
+          </Button>
+        </>
+      ) : siteKind === 'dictionary' ? (
+        <>
+          <section className="space-y-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">
+              {pick(locale, 'Layout composition', '레이아웃 컴포지션')}
+            </h2>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {DICTIONARY_LAYOUT_COMPOSITIONS.map((item) => {
+                const selected = draftDictionaryComposition === item.id
+                return (
+                  <Card
+                    key={item.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setDraftDictionaryComposition(item.id as DictionaryLayoutCompositionId)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setDraftDictionaryComposition(item.id as DictionaryLayoutCompositionId)
+                      }
+                    }}
+                    className={cn(
+                      'cursor-pointer space-y-2 border p-4 transition outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
+                      selected ? 'border-accent/50 bg-panel2/60' : 'border-border bg-panel hover:border-accent/30'
+                    )}
+                  >
+                    <div className="text-sm font-semibold text-ink">
+                      {locale === 'ko' ? item.labelKo : item.labelEn}
+                    </div>
+                    <p className="text-xs leading-relaxed text-muted">
+                      {locale === 'ko' ? item.hintKo : item.hintEn}
+                    </p>
+                  </Card>
+                )
+              })}
+            </div>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">
+              {pick(locale, 'Color palette', '색감')}
+            </h2>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {COLUMN_COLOR_PRESETS.map((item) => {
+                const selected = draftDictionaryPreset === item.id
+                return (
+                  <Card
+                    key={item.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setDraftDictionaryPreset(item.id as DictionaryThemePresetId)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setDraftDictionaryPreset(item.id as DictionaryThemePresetId)
+                      }
+                    }}
+                    className={cn(
+                      'cursor-pointer space-y-2 border p-4 transition outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
+                      selected ? 'border-accent/50 bg-panel2/60' : 'border-border bg-panel hover:border-accent/30'
+                    )}
+                  >
+                    <div className="text-sm font-semibold text-ink">
+                      {locale === 'ko' ? item.labelKo : item.labelEn}
+                    </div>
+                    <p className="text-xs leading-relaxed text-muted">
+                      {locale === 'ko' ? item.hintKo : item.hintEn}
+                    </p>
+                  </Card>
+                )
+              })}
+            </div>
+          </section>
+
+          <Button
+            type="button"
+            className="w-full sm:w-auto"
+            disabled={loadingApplied || busy || !dictionaryDirty}
+            onClick={() => void applyDictionaryTheme()}
+          >
+            {busy
+              ? pick(locale, 'Applying…', '적용 중…')
+              : dictionaryDirty
                 ? pick(locale, 'Apply layout & palette', '레이아웃·색감 적용')
                 : pick(locale, 'Applied', '적용됨')}
           </Button>

@@ -10,6 +10,12 @@ export {
   type StarterPostArtifact
 } from './workspace/starter-post'
 export { createStarterMemoirArtifacts, type StarterMemoirArtifact } from './workspace/starter-memoir'
+export {
+  createStarterKnowledgeArtifact,
+  parseKnowledgeSummary,
+  type StarterKnowledgeArtifact
+} from './workspace/starter-knowledge'
+export { createStarterIndexRegistryArtifact } from './workspace/starter-index-registry'
 export { CommandRegistry, createCommandRegistry } from './commands/registry'
 export type { CommandDefinition, CommandPaletteEntry, CommandScope } from './commands/types'
 export { WorkspaceRuntime, workspaceRuntime } from './runtime/workspace-runtime'

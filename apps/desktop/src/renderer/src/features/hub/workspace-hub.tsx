@@ -23,7 +23,11 @@ import {
   type WorkspaceConfig
 } from '@emprint/shared'
 import { Sidebar } from '@renderer/features/shell/sidebar'
-import { ColumnReadingRoomPreview, MemoirLayoutPreview } from '@renderer/features/hub/workspace-format-previews'
+import {
+  ColumnReadingRoomPreview,
+  DictionaryLayoutPreview,
+  MemoirLayoutPreview
+} from '@renderer/features/hub/workspace-format-previews'
 import { cn } from '@renderer/lib/cn'
 
 function formatDate(value: string): string {
@@ -415,7 +419,7 @@ export function WorkspaceHub() {
                 <div className="text-[11px] uppercase tracking-[0.16em] text-muted">
                   {locale === 'ko' ? '사이트 형식' : 'Site format'}
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {(
                     [
                       {
@@ -426,6 +430,15 @@ export function WorkspaceHub() {
                           locale === 'ko'
                             ? 'posts/와 drafts/에서 Markdown 글을 쓰고 발행합니다.'
                             : 'Write Markdown posts under posts/ and drafts/.'
+                      },
+                      {
+                        kind: 'dictionary' as const,
+                        title: 'Dictionary',
+                        subtitle: locale === 'ko' ? '지식 베이스 · 계층 인덱스' : 'Knowledge base · hierarchical index',
+                        body:
+                          locale === 'ko'
+                            ? 'knowledge/와 drafts/에서 Markdown 항목을 쓰고 index 필드로 분류합니다.'
+                            : 'Write Markdown entries under knowledge/ and drafts/ with an index path.'
                       },
                       {
                         kind: 'memoir' as const,
@@ -465,6 +478,8 @@ export function WorkspaceHub() {
                         </div>
                         {format.kind === 'column' ? (
                           <ColumnReadingRoomPreview />
+                        ) : format.kind === 'dictionary' ? (
+                          <DictionaryLayoutPreview />
                         ) : (
                           <MemoirLayoutPreview />
                         )}

@@ -23,7 +23,9 @@ import type {
   GitRecoverWorkspaceProgress,
   GitRecoverWorkspaceResult,
   GitWorkingTreeSummary,
+  IndexTreeNode,
   InitializeWorkspaceResult,
+  KnowledgeSummary,
   MemoirSectionFile,
   MemoirSectionSummary,
   PostSummary,
@@ -40,6 +42,7 @@ import type {
   WorkspaceMonacoTypescriptPayload,
   WorkspaceSrcTreeNode,
 } from './types'
+import type { IndexEntrySummary, IndexRegistryEntry } from './dictionary/index-registry'
 import type {
   MarkdownMigrationRunInput,
   MarkdownMigrationRunResult,
@@ -77,6 +80,18 @@ export const ipcChannels = {
   postSave: 'post:save',
   postsMove: 'posts:move',
   postsDelete: 'posts:delete',
+  knowledgeList: 'knowledge:list',
+  knowledgeRead: 'knowledge:read',
+  knowledgeSave: 'knowledge:save',
+  knowledgeMove: 'knowledge:move',
+  knowledgeDelete: 'knowledge:delete',
+  knowledgeIndexTree: 'knowledge:index-tree',
+  indexList: 'index:list',
+  indexTree: 'index:tree',
+  indexCreate: 'index:create',
+  indexUpdate: 'index:update',
+  indexDelete: 'index:delete',
+  indexRename: 'index:rename',
   sectionsList: 'sections:list',
   sectionRead: 'section:read',
   sectionSave: 'section:save',
@@ -213,6 +228,28 @@ export interface EmprintDesktopApi {
      * against the workspace root; deleting outside those folders is refused.
      */
     delete(input: { path: string }): Promise<{ path: string }>
+  }
+  knowledge: {
+    list(input: { section: 'knowledge' | 'drafts' }): Promise<KnowledgeSummary[]>
+    read(input: { path: string }): Promise<{ path: string; content: string }>
+    save(input: { path: string; content: string }): Promise<{ path: string }>
+    move(input: { from: string; to: string }): Promise<{ path: string }>
+    delete(input: { path: string }): Promise<{ path: string }>
+    indexTree(): Promise<IndexTreeNode[]>
+  }
+  index: {
+    list(): Promise<IndexEntrySummary[]>
+    tree(): Promise<IndexTreeNode[]>
+    create(input: {
+      parentPath?: string
+      segment?: string
+      path?: string
+      label?: string
+      description?: string
+    }): Promise<IndexRegistryEntry>
+    update(input: { path: string; label?: string; description?: string }): Promise<IndexRegistryEntry>
+    delete(input: { path: string }): Promise<{ ok: true }>
+    rename(input: { from: string; to: string }): Promise<{ ok: true }>
   }
   workspaceSrc: {
     listTree(): Promise<WorkspaceSrcTreeNode | null>

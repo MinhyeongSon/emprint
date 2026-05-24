@@ -9,6 +9,8 @@ import { PublishDialog } from './publish-dialog'
 import { WorkspaceSyncFooter } from './workspace-sync-footer'
 import { useAppStore } from '@renderer/state/app-store'
 import { PostsSurface } from '@renderer/features/posts/posts-surface'
+import { IndexSurface } from '@renderer/features/index/index-surface'
+import { KnowledgeSurface } from '@renderer/features/knowledge/knowledge-surface'
 import { SectionsSurface } from '@renderer/features/sections/sections-surface'
 import { DesignSurface } from '@renderer/features/design/design-surface'
 import { AssetsSurface } from '@renderer/features/assets/assets-surface'
@@ -158,10 +160,18 @@ export function AppShell() {
       <main className="min-h-0 overflow-auto bg-base">
         {activeSection === 'sections' ? (
           <SectionsSurface />
+        ) : activeSection === 'index' ? (
+          <IndexSurface locale={locale} />
+        ) : activeSection === 'knowledge' ? (
+          <KnowledgeSurface locale={locale} section="knowledge" />
         ) : activeSection === 'posts' ? (
           <PostsSurface locale={locale} section="posts" />
         ) : activeSection === 'drafts' ? (
-          <PostsSurface locale={locale} section="drafts" />
+          siteProjectKind === 'dictionary' ? (
+            <KnowledgeSurface locale={locale} section="drafts" />
+          ) : (
+            <PostsSurface locale={locale} section="drafts" />
+          )
         ) : activeSection === 'assets' ? (
           <AssetsSurface locale={locale} />
         ) : activeSection === 'design' ? (

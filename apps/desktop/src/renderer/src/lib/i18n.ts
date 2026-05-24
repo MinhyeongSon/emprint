@@ -16,6 +16,8 @@ const messages = {
     steps: ['인증', '워크스페이스 유형', '템플릿', '구성', '저장소', '디렉터리'],
     sectionNames: {
       posts: '포스트',
+      index: '인덱스',
+      knowledge: '지식',
       drafts: '드래프트',
       sections: '섹션',
       assets: '에셋',
@@ -25,6 +27,8 @@ const messages = {
     },
     sectionHints: {
       posts: '발행된 글',
+      index: '주제 색인 트리',
+      knowledge: '발행된 지식 항목',
       drafts: '작업 중인 초안',
       sections: '시맨틱 섹션',
       assets: '이미지와 미디어',
@@ -245,6 +249,8 @@ const messages = {
     steps: ['Authenticate', 'Workspace Type', 'Template', 'Configure', 'Repository', 'Directory'],
     sectionNames: {
       posts: 'Posts',
+      index: 'Index',
+      knowledge: 'Knowledge',
       drafts: 'Drafts',
       sections: 'Sections',
       assets: 'Assets',
@@ -254,6 +260,8 @@ const messages = {
     },
     sectionHints: {
       posts: 'Published writing',
+      index: 'Topic index tree',
+      knowledge: 'Published knowledge entries',
       drafts: 'Works in progress',
       sections: 'Semantic sections',
       assets: 'Images and media',

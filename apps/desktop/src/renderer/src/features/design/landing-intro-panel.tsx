@@ -6,8 +6,10 @@ import {
   LANDING_INTRO_VARIANT_META,
   normalizeLandingIntroConfig,
   parseColumnThemeFile,
+  parseDictionaryThemeFile,
   parseMemoirThemeFile,
   serializeColumnThemeFile,
+  serializeDictionaryThemeFile,
   serializeMemoirThemeFile
 } from '@emprint/shared'
 import { Button } from '@renderer/components/ui/button'
@@ -55,7 +57,11 @@ export function LandingIntroPanel({ locale }: { locale: AppLocale }) {
     try {
       const res = await api.read({ path: THEME_JSON_PATH })
       const theme =
-        siteKind === 'memoir' ? parseMemoirThemeFile(res.content) : parseColumnThemeFile(res.content)
+        siteKind === 'memoir'
+          ? parseMemoirThemeFile(res.content)
+          : siteKind === 'dictionary'
+            ? parseDictionaryThemeFile(res.content)
+            : parseColumnThemeFile(res.content)
       const intro = normalizeLandingIntroConfig(theme.landingIntro)
       setDraft(intro)
       setApplied(intro)
@@ -98,13 +104,21 @@ export function LandingIntroPanel({ locale }: { locale: AppLocale }) {
               theme.landingIntro = saved
               return serializeMemoirThemeFile(theme)
             })()
-          : (() => {
-              const theme = parseColumnThemeFile(res.content)
-              const timing = normalizeLandingIntroConfig(theme.landingIntro)
-              saved = designLandingIntroPatch(draft, timing)
-              theme.landingIntro = saved
-              return serializeColumnThemeFile(theme)
-            })()
+          : siteKind === 'dictionary'
+            ? (() => {
+                const theme = parseDictionaryThemeFile(res.content)
+                const timing = normalizeLandingIntroConfig(theme.landingIntro)
+                saved = designLandingIntroPatch(draft, timing)
+                theme.landingIntro = saved
+                return serializeDictionaryThemeFile(theme)
+              })()
+            : (() => {
+                const theme = parseColumnThemeFile(res.content)
+                const timing = normalizeLandingIntroConfig(theme.landingIntro)
+                saved = designLandingIntroPatch(draft, timing)
+                theme.landingIntro = saved
+                return serializeColumnThemeFile(theme)
+              })()
       await api.save({ path: THEME_JSON_PATH, content })
       bumpWorkspaceGitRefresh()
       setApplied(saved)

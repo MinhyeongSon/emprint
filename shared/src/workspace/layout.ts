@@ -6,6 +6,7 @@ import type { AppLocale, SiteProjectKind } from '../types'
  * Workspace on-disk layout — anthology-aware content roots + shared design tree.
  *
  * - **Column content**: `posts/`, `drafts/`, `assets/`
+ * - **Dictionary content**: `knowledge/`, `drafts/`, `assets/`
  * - **Memoir content**: `sections/`, `assets/` (no post timeline folders)
  * - **Design** (all kinds): `src/`, `config/`, site tooling at repo root
  */
@@ -32,6 +33,7 @@ export function draftFlagFromRelativePath(relativePath: string, kind: SiteProjec
   if (kind === 'memoir') return false
   if (normalized.startsWith('drafts/')) return true
   if (normalized.startsWith('posts/')) return false
+  if (normalized.startsWith('knowledge/')) return false
   return false
 }
 
@@ -185,7 +187,9 @@ export function assertContentLoaderBase(
   const forbidden =
     kind === 'column'
       ? [/base:\s*['"]\.\/drafts/, /base:\s*['"]\.\/src/]
-      : [/base:\s*['"]\.\/posts/, /base:\s*['"]\.\/drafts/, /base:\s*['"]\.\/src/]
+      : kind === 'dictionary'
+        ? [/base:\s*['"]\.\/drafts/, /base:\s*['"]\.\/posts/, /base:\s*['"]\.\/sections/, /base:\s*['"]\.\/src/]
+        : [/base:\s*['"]\.\/posts/, /base:\s*['"]\.\/drafts/, /base:\s*['"]\.\/src/]
 
   for (const re of forbidden) {
     if (re.test(content)) {
@@ -210,6 +214,7 @@ export function anthologyKindFromManifest(manifest?: { siteProjectKind?: SitePro
 /** On-disk content roots relative to the workspace folder (bootstrap + IPC). */
 export const WORKSPACE_DIR = {
   posts: 'posts',
+  knowledge: 'knowledge',
   drafts: 'drafts',
   sections: 'sections',
   assets: 'assets',

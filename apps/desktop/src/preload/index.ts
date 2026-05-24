@@ -75,6 +75,22 @@ const api: EmprintDesktopApi = {
     move: (input) => ipcRenderer.invoke(ipcChannels.postsMove, input),
     delete: (input) => ipcRenderer.invoke(ipcChannels.postsDelete, input)
   },
+  knowledge: {
+    list: (input) => ipcRenderer.invoke(ipcChannels.knowledgeList, input),
+    read: (input) => ipcRenderer.invoke(ipcChannels.knowledgeRead, input),
+    save: (input) => ipcRenderer.invoke(ipcChannels.knowledgeSave, input),
+    move: (input) => ipcRenderer.invoke(ipcChannels.knowledgeMove, input),
+    delete: (input) => ipcRenderer.invoke(ipcChannels.knowledgeDelete, input),
+    indexTree: () => ipcRenderer.invoke(ipcChannels.knowledgeIndexTree)
+  },
+  index: {
+    list: () => ipcRenderer.invoke(ipcChannels.indexList),
+    tree: () => ipcRenderer.invoke(ipcChannels.indexTree),
+    create: (input) => ipcRenderer.invoke(ipcChannels.indexCreate, input),
+    update: (input) => ipcRenderer.invoke(ipcChannels.indexUpdate, input),
+    delete: (input) => ipcRenderer.invoke(ipcChannels.indexDelete, input),
+    rename: (input) => ipcRenderer.invoke(ipcChannels.indexRename, input)
+  },
   workspaceSrc: {
     listTree: () => ipcRenderer.invoke(ipcChannels.workspaceSrcListTree),
     read: (input) => ipcRenderer.invoke(ipcChannels.workspaceSrcRead, input),

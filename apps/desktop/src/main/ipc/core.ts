@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { homedir } from 'node:os'
 import { mkdir, readFile, rm, stat, unlink, writeFile, readdir } from 'node:fs/promises'
@@ -42,10 +42,16 @@ import {
   type GitRecoverWorkspaceProgress,
   type GitRecoverWorkspaceResult,
   type GitWorkingTreeSummary,
+  type KnowledgeSummary,
   type PostSummary,
+  type SiteProjectKind,
+  buildIndexTree,
+  normalizeIndexPath,
+  MANIFEST_RELATIVE_PATH,
+  parseWorkspaceManifestJson,
   WORKSPACE_DIR
 } from '@emprint/shared'
-import { parsePostSummary } from '@emprint/core'
+import { parseKnowledgeSummary, parsePostSummary, workspaceRuntime } from '@emprint/core'
 import { readCatalog, writeCatalog } from '../catalog/catalog-store'
 import { setGitBinaryPath, SimpleGitProvider } from '../infrastructure/simple-git-provider'
 import simpleGit from 'simple-git'
@@ -635,10 +641,36 @@ function nonPublishableSetKey(paths: Set<string>): string {
   return [...paths].sort().join('\n')
 }
 
-function postSectionFromPath(postPath: string): 'posts' | 'drafts' | null {
-  if (postPath.startsWith(`${WORKSPACE_DIR.posts}/`)) return 'posts'
-  if (postPath.startsWith(`${WORKSPACE_DIR.drafts}/`)) return 'drafts'
+function publishedMarkdownSection(kind: SiteProjectKind): 'posts' | 'knowledge' {
+  return kind === 'dictionary' ? 'knowledge' : 'posts'
+}
+
+function contentSectionFromPath(
+  relPath: string
+): AssetReference['section'] | null {
+  if (relPath.startsWith(`${WORKSPACE_DIR.posts}/`)) return 'posts'
+  if (relPath.startsWith(`${WORKSPACE_DIR.knowledge}/`)) return 'knowledge'
+  if (relPath.startsWith(`${WORKSPACE_DIR.drafts}/`)) return 'drafts'
   return null
+}
+
+function postSectionFromPath(postPath: string): 'posts' | 'drafts' | 'knowledge' | null {
+  return contentSectionFromPath(postPath)
+}
+
+function resolveWorkspaceSiteProjectKind(workspaceRoot: string): SiteProjectKind {
+  if (workspaceRuntime.mountedRoot && path.resolve(workspaceRuntime.mountedRoot) === path.resolve(workspaceRoot)) {
+    return workspaceRuntime.siteProjectKind
+  }
+  const manifestPath = path.join(workspaceRoot, MANIFEST_RELATIVE_PATH)
+  try {
+    const raw = readFileSync(manifestPath, 'utf8')
+    const manifest = parseWorkspaceManifestJson(raw)
+    if (manifest?.siteProjectKind) return manifest.siteProjectKind
+  } catch {
+    // fall through
+  }
+  return 'column'
 }
 
 /** Drop cached publish-scope index (e.g. migration). */
@@ -683,8 +715,10 @@ async function flatDirFingerprint(dir: string): Promise<string> {
 }
 
 async function publishScopeFingerprint(workspaceRoot: string): Promise<string> {
+  const kind = resolveWorkspaceSiteProjectKind(workspaceRoot)
+  const published = publishedMarkdownSection(kind)
   return [
-    await flatDirFingerprint(path.join(workspaceRoot, WORKSPACE_DIR.posts)),
+    await flatDirFingerprint(path.join(workspaceRoot, published)),
     await flatDirFingerprint(path.join(workspaceRoot, WORKSPACE_DIR.drafts)),
     await flatDirFingerprint(path.join(workspaceRoot, WORKSPACE_DIR.assetsImages))
   ].join('|')
@@ -722,10 +756,11 @@ function unregisterImagePath(index: IncrementalPublishScopeIndex, imagePath: str
 function collectRefsFromMarkdown(
   postRelPath: string,
   content: string,
-  section: 'posts' | 'drafts',
-  imageByKey: Map<string, string>
+  section: AssetReference['section'],
+  imageByKey: Map<string, string>,
+  titleFallback: string
 ): Array<{ imagePath: string; reference: AssetReference }> {
-  const summary = summarizeMarkdown(postRelPath, content, '')
+  const summary = { title: titleFallback }
   const hits: Array<{ imagePath: string; reference: AssetReference }> = []
   for (const ref of extractMarkdownImageRefs(content)) {
     const target = normalizeReferenceTarget(ref)
@@ -804,14 +839,18 @@ async function refreshPostInPublishScopeIndex(
   }
 
   index.postMtimes.set(postPath, mtimeMs)
-  const hits = collectRefsFromMarkdown(postPath, body, section, index.imageByKey)
+  const title =
+    section === 'knowledge'
+      ? parseKnowledgeSummary(postPath, body).title
+      : summarizeMarkdown(postPath, body, '').title
+  const hits = collectRefsFromMarkdown(postPath, body, section, index.imageByKey, title)
   applyPostRefsToIndex(index, hits)
 }
 
 async function incrementalUpdatePostSection(
   workspaceRoot: string,
   index: IncrementalPublishScopeIndex,
-  section: 'posts' | 'drafts'
+  section: 'posts' | 'drafts' | 'knowledge'
 ): Promise<void> {
   const dir = path.join(workspaceRoot, section)
   const present = new Set<string>()
@@ -843,11 +882,13 @@ async function incrementalUpdatePostSection(
   }
 
   const fp = await flatDirFingerprint(dir)
-  if (section === 'posts') index.postsFp = fp
-  else index.draftsFp = fp
+  if (section === 'drafts') index.draftsFp = fp
+  else index.postsFp = fp
 }
 
 async function buildFullPublishScopeIndex(workspaceRoot: string): Promise<IncrementalPublishScopeIndex> {
+  const kind = resolveWorkspaceSiteProjectKind(workspaceRoot)
+  const published = publishedMarkdownSection(kind)
   const index: IncrementalPublishScopeIndex = {
     postsFp: '',
     draftsFp: '',
@@ -859,7 +900,7 @@ async function buildFullPublishScopeIndex(workspaceRoot: string): Promise<Increm
   }
 
   await syncAssetCatalogInIndex(workspaceRoot, index)
-  await incrementalUpdatePostSection(workspaceRoot, index, 'posts')
+  await incrementalUpdatePostSection(workspaceRoot, index, published)
   await incrementalUpdatePostSection(workspaceRoot, index, 'drafts')
   return index
 }
@@ -877,8 +918,9 @@ async function incrementalUpdatePublishScopeIndex(
   if (assetsFp !== index.assetsFp) {
     await syncAssetCatalogInIndex(workspaceRoot, index)
   }
+  const published = publishedMarkdownSection(resolveWorkspaceSiteProjectKind(workspaceRoot))
   if (postsFp !== index.postsFp) {
-    await incrementalUpdatePostSection(workspaceRoot, index, 'posts')
+    await incrementalUpdatePostSection(workspaceRoot, index, published)
   }
   if (draftsFp !== index.draftsFp) {
     await incrementalUpdatePostSection(workspaceRoot, index, 'drafts')
@@ -1907,22 +1949,38 @@ export function resolveSafeSectionsPath(workspaceRoot: string, inputPath: string
 }
 
 export function resolveSafePostsOrDraftsPath(workspaceRoot: string, inputPath: string): string {
+  return resolveSafeKnowledgeOrPostsPath(workspaceRoot, inputPath, 'column')
+}
+
+export function resolveSafeKnowledgeOrPostsPath(
+  workspaceRoot: string,
+  inputPath: string,
+  kind: SiteProjectKind = resolveWorkspaceSiteProjectKind(workspaceRoot)
+): string {
   const normalized = inputPath.replace(/\\/g, '/').replace(/^\/+/, '')
   if (!normalized || hasPathTraversalSegment(normalized)) {
     throw new Error('Invalid path.')
   }
-  if (!normalized.startsWith('posts/') && !normalized.startsWith('drafts/')) {
-    throw new Error('Path must be under posts/ or drafts/.')
+  const publishedPrefix = `${publishedMarkdownSection(kind)}/`
+  if (!normalized.startsWith(publishedPrefix) && !normalized.startsWith('drafts/')) {
+    throw new Error(`Path must be under ${publishedPrefix} or drafts/.`)
   }
   const abs = path.resolve(workspaceRoot, ...normalized.split('/'))
-  const postsRoot = path.resolve(workspaceRoot, WORKSPACE_DIR.posts)
+  const publishedRoot = path.resolve(workspaceRoot, publishedMarkdownSection(kind))
   const draftsRoot = path.resolve(workspaceRoot, WORKSPACE_DIR.drafts)
-  const inPosts = !path.relative(postsRoot, abs).startsWith('..') && !path.isAbsolute(path.relative(postsRoot, abs))
-  const inDrafts = !path.relative(draftsRoot, abs).startsWith('..') && !path.isAbsolute(path.relative(draftsRoot, abs))
-  if (!inPosts && !inDrafts) {
-    throw new Error('Path escapes posts/ and drafts/.')
+  const inPublished =
+    !path.relative(publishedRoot, abs).startsWith('..') &&
+    !path.isAbsolute(path.relative(publishedRoot, abs))
+  const inDrafts =
+    !path.relative(draftsRoot, abs).startsWith('..') && !path.isAbsolute(path.relative(draftsRoot, abs))
+  if (!inPublished && !inDrafts) {
+    throw new Error('Path escapes allowed content folders.')
   }
   return abs
+}
+
+export function resolveSafeKnowledgePath(workspaceRoot: string, inputPath: string): string {
+  return resolveSafeKnowledgeOrPostsPath(workspaceRoot, inputPath, 'dictionary')
 }
 
 
@@ -1940,6 +1998,23 @@ export function summarizeMarkdown(relativePath: string, content: string, fallbac
     return { ...summary, updatedAt: fallbackUpdatedAt }
   }
   return summary
+}
+
+export function summarizeKnowledge(
+  relativePath: string,
+  content: string,
+  fallbackUpdatedAt: string
+): KnowledgeSummary {
+  const summary = parseKnowledgeSummary(relativePath, content)
+  if (!summary.updatedAt && fallbackUpdatedAt) {
+    return { ...summary, updatedAt: fallbackUpdatedAt }
+  }
+  return summary
+}
+
+export async function buildKnowledgeIndexTree(workspaceRoot: string): Promise<import('@emprint/shared').IndexTreeNode[]> {
+  const { buildRegistryIndexTree } = await import('./index-registry-core')
+  return await buildRegistryIndexTree(workspaceRoot)
 }
 
 export function inferTitleFromPath(relativePath: string): string {
@@ -2127,9 +2202,10 @@ export async function listAssetImages(workspaceRoot: string): Promise<AssetImage
     imageByKey.set(img.name, img) // foo.jpg
   }
 
-  // Scan posts/ and drafts/ for references.
-  const sections: Array<{ section: 'posts' | 'drafts'; dir: string }> = [
-    { section: 'posts', dir: path.join(workspaceRoot, WORKSPACE_DIR.posts) },
+  const kind = resolveWorkspaceSiteProjectKind(workspaceRoot)
+  const published = publishedMarkdownSection(kind)
+  const sections: Array<{ section: AssetReference['section']; dir: string }> = [
+    { section: published, dir: path.join(workspaceRoot, published) },
     { section: 'drafts', dir: path.join(workspaceRoot, WORKSPACE_DIR.drafts) }
   ]
 
@@ -2146,17 +2222,19 @@ export async function listAssetImages(workspaceRoot: string): Promise<AssetImage
       } catch {
         continue
       }
-      const summary = summarizeMarkdown(postRelPath, content, '')
+      const title =
+        section === 'knowledge'
+          ? parseKnowledgeSummary(postRelPath, content).title
+          : summarizeMarkdown(postRelPath, content, '').title
       for (const ref of extractMarkdownImageRefs(content)) {
         const target = normalizeReferenceTarget(ref)
         if (!target) continue
         const hit = imageByKey.get(target) ?? imageByKey.get(target.split('/').pop()!)
         if (!hit) continue
-        // De-duplicate per post.
         if (hit.references.some((r) => r.postPath === postRelPath)) continue
         const reference: AssetReference = {
           postPath: postRelPath,
-          postTitle: summary.title,
+          postTitle: title,
           section
         }
         hit.references.push(reference)

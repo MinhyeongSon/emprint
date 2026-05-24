@@ -1,0 +1,848 @@
+/* =============================================================================
+ * Component styles (Dictionary contract)
+ * Class names follow docs/component-contract.md — prefix `ep-dictionary-`, Component-part.
+ * Colors/fonts/radii come from tokens.css (config/theme.json).
+ * ============================================================================= */
+
+/* --- Base / document --- */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--ep-dictionary-color-bg);
+  color: var(--ep-dictionary-color-ink);
+  font-family: var(--ep-dictionary-font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+a {
+  color: var(--ep-dictionary-color-ink);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition:
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+a:hover {
+  border-bottom-color: var(--ep-dictionary-color-accent);
+  color: var(--ep-dictionary-color-accent);
+}
+
+img,
+video {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+.ep-dictionary-Site {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+}
+
+.ep-dictionary-Site > main {
+  flex: 1 1 auto;
+  width: 100%;
+}
+
+/* --- ep-dictionary-u-Container, ep-dictionary-u-Wide (layout utilities) --- */
+.ep-dictionary-u-Container {
+  width: 100%;
+  max-width: min(76rem, 94vw);
+  margin: 0 auto;
+  padding: 2.75rem clamp(1.5rem, 4.5vw, 3.5rem) 4rem;
+  box-sizing: border-box;
+}
+
+.ep-dictionary-u-Wide {
+  width: 100%;
+  max-width: min(76rem, 94vw);
+  margin: 0 auto;
+  padding: 0 clamp(1.5rem, 4.5vw, 3.5rem);
+  box-sizing: border-box;
+}
+
+html[data-ep-layout-composition='alphabet'] .ep-dictionary-u-Container,
+html[data-ep-layout-composition='alphabet'] .ep-dictionary-u-Wide {
+  max-width: min(84rem, 96vw);
+}
+
+html[data-ep-layout-composition='compact'] .ep-dictionary-u-Container,
+html[data-ep-layout-composition='compact'] .ep-dictionary-u-Wide {
+  max-width: min(72rem, 94vw);
+}
+
+/* List / browse / article blocks fill the content shell (not a narrow measure column). */
+.ep-dictionary-Site main .ep-dictionary-u-Container > *,
+.ep-dictionary-HomeWithIndex,
+.ep-dictionary-HomeWithIndex-main,
+.ep-dictionary-PostList,
+.ep-dictionary-PostFeed,
+.ep-dictionary-PostFeed-main,
+.ep-dictionary-Journal {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Index sidebar + entry list (home, archive, index topic pages). */
+.ep-dictionary-HomeWithIndex {
+  display: grid;
+  gap: 2.5rem;
+  align-items: start;
+  width: 100%;
+}
+
+@media (min-width: 52rem) {
+  .ep-dictionary-HomeWithIndex {
+    grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
+    column-gap: 5.5rem;
+    row-gap: 2.5rem;
+  }
+}
+
+.ep-dictionary-HomeWithIndex-aside,
+.ep-dictionary-HomeWithIndex-main {
+  min-width: 0;
+}
+
+.ep-dictionary-HomeWithIndex-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.ep-dictionary-u-Muted {
+  color: var(--ep-dictionary-color-muted);
+}
+
+.ep-dictionary-u-Eyebrow {
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ep-dictionary-color-muted);
+}
+
+.ep-dictionary-u-Title {
+  font-family: var(--ep-dictionary-font-serif);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.18;
+  color: var(--ep-dictionary-color-ink);
+  margin: 0;
+}
+
+/* --- ep-dictionary-PostList --- */
+.ep-dictionary-PostList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ep-dictionary-PostList > li + li {
+  border-top: 1px solid var(--ep-dictionary-color-rule);
+}
+
+/* --- ep-dictionary-KnowledgeCard --- */
+.ep-dictionary-KnowledgeCard {
+  display: block;
+  padding: 2rem 0;
+  border-bottom: 1px solid transparent;
+}
+
+.ep-dictionary-KnowledgeCard:hover {
+  border-bottom-color: transparent;
+}
+
+.ep-dictionary-KnowledgeCard-title {
+  font-family: var(--ep-dictionary-font-serif);
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ep-dictionary-color-ink);
+  margin: 0;
+}
+
+.ep-dictionary-KnowledgeCard-meta {
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--ep-dictionary-color-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ep-dictionary-KnowledgeCard-desc {
+  margin-top: 0.65rem;
+  color: var(--ep-dictionary-color-muted);
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+.ep-dictionary-KnowledgeCard-index {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-family: var(--ep-dictionary-font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  color: var(--ep-dictionary-color-accent);
+}
+
+.ep-dictionary-KnowledgeCard-index a {
+  color: inherit;
+  border-bottom: none;
+}
+
+.ep-dictionary-KnowledgeCard-index a:hover {
+  text-decoration: underline;
+}
+
+/* --- ep-dictionary-Tag, ep-dictionary-TagRow --- */
+.ep-dictionary-Tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.55rem;
+  border-radius: var(--ep-dictionary-radius-pill);
+  background: var(--ep-dictionary-color-accent-soft);
+  color: var(--ep-dictionary-color-accent);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  border-bottom: none;
+}
+
+.ep-dictionary-Tag:hover {
+  color: var(--ep-dictionary-color-accent);
+  border-bottom: none;
+}
+
+.ep-dictionary-TagRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  list-style: none;
+  padding: 0;
+}
+
+/* --- ep-dictionary-Header --- */
+.ep-dictionary-Header {
+  border-bottom: 1px solid var(--ep-dictionary-color-rule);
+  background: var(--ep-dictionary-color-bg);
+}
+
+.ep-dictionary-Header-inner {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 2rem 0 1.75rem;
+}
+
+.ep-dictionary-Header-brand {
+  font-family: var(--ep-dictionary-font-serif);
+  font-weight: 600;
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+  color: var(--ep-dictionary-color-ink);
+  border-bottom: none;
+}
+
+.ep-dictionary-Header-brand:hover {
+  color: var(--ep-dictionary-color-accent);
+  border-bottom: none;
+}
+
+.ep-dictionary-Header-tagline {
+  margin: 0.15rem 0 0;
+  font-size: 0.82rem;
+  color: var(--ep-dictionary-color-muted);
+}
+
+.ep-dictionary-Header-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem 2rem;
+  font-size: 0.92rem;
+}
+
+.ep-dictionary-Header-nav a {
+  color: var(--ep-dictionary-color-muted);
+  border-bottom: none;
+}
+
+.ep-dictionary-Header-nav a:hover {
+  color: var(--ep-dictionary-color-accent);
+  border-bottom: none;
+}
+
+.ep-dictionary-Header-nav a[aria-current='page'] {
+  color: var(--ep-dictionary-color-ink);
+}
+
+/* --- ep-dictionary-ThemeToggle (visitor light / dark / system) --- */
+.ep-dictionary-ThemeToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.15rem;
+  border: 1px solid var(--ep-dictionary-color-rule);
+  border-radius: var(--ep-dictionary-radius-pill);
+  background: var(--ep-dictionary-color-surface);
+}
+
+.ep-dictionary-ThemeToggle-btn {
+  appearance: none;
+  border: none;
+  border-radius: var(--ep-dictionary-radius-pill);
+  padding: 0.28rem 0.55rem;
+  font-family: var(--ep-dictionary-font-sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ep-dictionary-color-muted);
+  background: transparent;
+  cursor: pointer;
+  line-height: 1.2;
+  transition:
+    color 120ms ease,
+    background 120ms ease;
+}
+
+.ep-dictionary-ThemeToggle-btn:hover {
+  color: var(--ep-dictionary-color-ink);
+}
+
+.ep-dictionary-ThemeToggle-btn[aria-pressed='true'] {
+  color: var(--ep-dictionary-color-accent);
+  background: var(--ep-dictionary-color-accent-soft);
+}
+
+.ep-dictionary-Header-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.25rem 1.5rem;
+}
+
+/* --- ep-dictionary-Footer --- */
+.ep-dictionary-Footer {
+  border-top: 1px solid var(--ep-dictionary-color-rule);
+  margin-top: auto;
+  flex-shrink: 0;
+  padding: 2.5rem 0 3.25rem;
+  color: var(--ep-dictionary-color-muted);
+  font-size: 0.82rem;
+}
+
+.ep-dictionary-Footer-inner {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem 2rem;
+}
+
+/* --- ep-dictionary-Prose (article body) --- */
+.ep-dictionary-Prose {
+  width: 100%;
+  max-width: 100%;
+  margin-inline: 0;
+  font-family: var(--ep-dictionary-font-serif);
+  font-size: 1.05rem;
+  line-height: 1.75;
+  color: var(--ep-dictionary-color-ink);
+}
+
+.ep-dictionary-Prose > * + * {
+  margin-top: 1.35rem;
+}
+
+.ep-dictionary-Prose h1,
+.ep-dictionary-Prose h2,
+.ep-dictionary-Prose h3 {
+  font-family: var(--ep-dictionary-font-serif);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  margin-top: 2rem;
+}
+
+.ep-dictionary-Prose h1 {
+  font-size: 1.65rem;
+}
+
+.ep-dictionary-Prose h2 {
+  font-size: 1.35rem;
+}
+
+.ep-dictionary-Prose h3 {
+  font-size: 1.15rem;
+}
+
+.ep-dictionary-Prose p,
+.ep-dictionary-Prose ul,
+.ep-dictionary-Prose ol,
+.ep-dictionary-Prose pre,
+.ep-dictionary-Prose blockquote {
+  margin: 0;
+}
+
+.ep-dictionary-Prose ul,
+.ep-dictionary-Prose ol {
+  padding-left: 1.25rem;
+}
+
+.ep-dictionary-Prose blockquote {
+  border-left: 3px solid var(--ep-dictionary-color-accent);
+  padding: 0.25rem 0 0.25rem 1rem;
+  color: var(--ep-dictionary-color-muted);
+  font-style: italic;
+}
+
+.ep-dictionary-Prose hr {
+  border: none;
+  border-top: 1px solid var(--ep-dictionary-color-rule);
+  margin: 2rem 0;
+}
+
+.ep-dictionary-Prose code {
+  font-family: var(--ep-dictionary-font-mono);
+  font-size: 0.9em;
+  padding: 0.1em 0.35em;
+  background: var(--ep-dictionary-color-accent-soft);
+  color: var(--ep-dictionary-color-accent);
+  border-radius: var(--ep-dictionary-radius-sm);
+}
+
+.ep-dictionary-Prose pre {
+  font-family: var(--ep-dictionary-font-mono);
+  font-size: 0.85rem;
+  line-height: 1.55;
+  padding: 1rem 1.1rem;
+  background: var(--ep-dictionary-color-surface);
+  border: 1px solid var(--ep-dictionary-color-rule);
+  border-radius: var(--ep-dictionary-radius-md);
+  overflow-x: auto;
+}
+
+.ep-dictionary-Prose pre code {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+}
+
+.ep-dictionary-Prose img {
+  border-radius: var(--ep-dictionary-radius-md);
+  border: 1px solid var(--ep-dictionary-color-rule);
+}
+
+/* --- ep-dictionary-PostHeader --- */
+.ep-dictionary-PostHeader {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 0 2.75rem;
+}
+
+.ep-dictionary-PostHeader-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: center;
+  font-size: 0.85rem;
+  color: var(--ep-dictionary-color-muted);
+  margin-bottom: 1rem;
+}
+
+.ep-dictionary-PostHeader-title {
+  font-family: var(--ep-dictionary-font-serif);
+  font-size: 2.1rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin: 0;
+  color: var(--ep-dictionary-color-ink);
+}
+
+.ep-dictionary-PostHeader-desc {
+  margin: 1rem 0 0;
+  color: var(--ep-dictionary-color-muted);
+  font-size: 1.02rem;
+  line-height: 1.65;
+}
+
+/* --- ep-dictionary-SectionHead --- */
+.ep-dictionary-SectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1.25rem;
+  margin: 3.25rem 0 1.5rem;
+}
+
+.ep-dictionary-u-Container > .ep-dictionary-SectionHead:first-child {
+  margin-top: 0;
+}
+
+.ep-dictionary-SectionHead-title {
+  font-family: var(--ep-dictionary-font-serif);
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--ep-dictionary-color-ink);
+}
+
+.ep-dictionary-SectionHead-aside {
+  font-size: 0.85rem;
+  color: var(--ep-dictionary-color-muted);
+}
+
+.ep-dictionary-SectionHead-link {
+  font-size: 0.85rem;
+  color: var(--ep-dictionary-color-muted);
+  border-bottom: none;
+}
+
+.ep-dictionary-SectionHead-link:hover {
+  color: var(--ep-dictionary-color-accent);
+}
+
+/* --- ep-dictionary-Empty --- */
+.ep-dictionary-Empty {
+  padding: 3.5rem 2rem;
+  text-align: center;
+  color: var(--ep-dictionary-color-muted);
+  font-size: 0.95rem;
+  border: 1px dashed var(--ep-dictionary-color-rule);
+  border-radius: var(--ep-dictionary-radius-md);
+  background: var(--ep-dictionary-color-surface);
+}
+
+/* --- Layout composition: reference --- */
+
+html[data-ep-layout-composition='reference'] .ep-dictionary-Header-tagline {
+  display: none;
+}
+
+html[data-ep-layout-composition='reference'] .ep-dictionary-Header-nav {
+  font-size: 0.82rem;
+  gap: 0.85rem;
+}
+
+html[data-ep-layout-composition='reference'] .ep-dictionary-Header-nav a {
+  letter-spacing: 0.02em;
+}
+
+html[data-ep-layout-composition='reference'] .ep-dictionary-SectionHead {
+  margin-top: 2.5rem;
+}
+
+html[data-ep-layout-composition='reference'] .ep-dictionary-SectionHead-title {
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--ep-dictionary-color-muted);
+}
+
+html[data-ep-layout-composition='reference'] .ep-dictionary-PostList > li + li {
+  border-top: none;
+}
+
+html[data-ep-layout-composition='reference'] .ep-dictionary-KnowledgeCard {
+  padding: 2.15rem 0;
+}
+
+html[data-ep-layout-composition='reference'] .ep-dictionary-KnowledgeCard-title {
+  font-size: clamp(1.45rem, 3.2vw, 2rem);
+  line-height: 1.22;
+}
+
+html[data-ep-layout-composition='reference'] .ep-dictionary-KnowledgeCard-desc {
+  font-size: 1rem;
+  line-height: 1.7;
+  max-width: none;
+}
+
+html[data-ep-layout-composition='reference'] .ep-dictionary-KnowledgeCard-meta .ep-dictionary-TagRow {
+  display: none;
+}
+
+/* --- Layout composition: alphabet --- */
+
+html[data-ep-layout-composition='alphabet'] .ep-dictionary-PostFeed {
+  display: grid;
+  gap: 3rem;
+  align-items: start;
+}
+
+@media (min-width: 56rem) {
+  html[data-ep-layout-composition='alphabet'] .ep-dictionary-PostFeed {
+    grid-template-columns: minmax(0, 1fr) 17.5rem;
+  }
+}
+
+html[data-ep-layout-composition='alphabet'] .ep-dictionary-PostFeed-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  min-width: 0;
+}
+
+html[data-ep-layout-composition='alphabet'] .ep-dictionary-Magazine-featured {
+  margin-bottom: 0.25rem;
+}
+
+html[data-ep-layout-composition='alphabet'] .ep-dictionary-KnowledgeCard-featured {
+  padding: 2rem 2.25rem;
+  border: 1px solid var(--ep-dictionary-color-rule);
+  border-radius: var(--ep-dictionary-radius-md);
+  background: var(--ep-dictionary-color-surface);
+  box-shadow:
+    0 1px 2px color-mix(in srgb, var(--ep-dictionary-color-ink) 5%, transparent),
+    0 14px 40px color-mix(in srgb, var(--ep-dictionary-color-ink) 8%, transparent);
+}
+
+html[data-ep-layout-composition='alphabet'] .ep-dictionary-KnowledgeCard-featured .ep-dictionary-KnowledgeCard-title {
+  font-size: clamp(1.65rem, 3.5vw, 2.35rem);
+  line-height: 1.18;
+}
+
+html[data-ep-layout-composition='alphabet'] .ep-dictionary-PostList-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 40rem) {
+  html[data-ep-layout-composition='alphabet'] .ep-dictionary-PostList-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+html[data-ep-layout-composition='alphabet'] .ep-dictionary-PostList-grid > li + li {
+  border-top: none;
+}
+
+html[data-ep-layout-composition='alphabet'] .ep-dictionary-PostList-grid .ep-dictionary-KnowledgeCard {
+  height: 100%;
+  padding: 1.15rem 1.25rem;
+  border: 1px solid var(--ep-dictionary-color-rule);
+  border-radius: var(--ep-dictionary-radius-md);
+  background: var(--ep-dictionary-color-surface);
+}
+
+html[data-ep-layout-composition='alphabet'] .ep-dictionary-PostFeed-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+html[data-ep-layout-composition='alphabet'] .ep-dictionary-Magazine-sidebar-block {
+  padding: 1.15rem 1.25rem;
+  border: 1px solid var(--ep-dictionary-color-rule);
+  border-radius: var(--ep-dictionary-radius-md);
+  background: var(--ep-dictionary-color-surface);
+}
+
+html[data-ep-layout-composition='alphabet'] .ep-dictionary-Magazine-sidebar-title {
+  margin: 0 0 0.85rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ep-dictionary-color-muted);
+}
+
+html[data-ep-layout-composition='alphabet'] .ep-dictionary-Magazine-trending-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.65rem;
+}
+
+html[data-ep-layout-composition='alphabet'] .ep-dictionary-Magazine-trending-item a {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  border-bottom: none;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+html[data-ep-layout-composition='alphabet'] .ep-dictionary-Magazine-trending-item time {
+  font-size: 0.75rem;
+  color: var(--ep-dictionary-color-muted);
+}
+
+/* --- Layout composition: compact --- */
+
+html[data-ep-layout-composition='compact'] .ep-dictionary-Journal {
+  padding: 0.5rem 0 1rem;
+}
+
+html[data-ep-layout-composition='compact'] .ep-dictionary-Journal-year + .ep-dictionary-Journal-year {
+  margin-top: 2.75rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--ep-dictionary-color-rule);
+}
+
+html[data-ep-layout-composition='compact'] .ep-dictionary-Journal-year-label {
+  margin: 0 0 1rem;
+  font-family: var(--ep-dictionary-font-serif);
+  font-size: clamp(2rem, 5vw, 2.75rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+html[data-ep-layout-composition='compact'] .ep-dictionary-Journal-month {
+  margin: 0 0 0 1.25rem;
+  padding-left: 1.25rem;
+  border-left: 2px solid var(--ep-dictionary-color-rule);
+}
+
+html[data-ep-layout-composition='compact'] .ep-dictionary-Journal-month + .ep-dictionary-Journal-month {
+  margin-top: 1.5rem;
+}
+
+html[data-ep-layout-composition='compact'] .ep-dictionary-Journal-month-label {
+  margin: 0 0 0.65rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ep-dictionary-color-muted);
+}
+
+html[data-ep-layout-composition='compact'] .ep-dictionary-Journal-entries {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+html[data-ep-layout-composition='compact'] .ep-dictionary-Journal-entries > li + li {
+  border-top: 1px solid var(--ep-dictionary-color-rule);
+}
+
+html[data-ep-layout-composition='compact'] .ep-dictionary-KnowledgeCard-compact {
+  padding: 0.85rem 0;
+}
+
+html[data-ep-layout-composition='compact'] .ep-dictionary-KnowledgeCard-compact .ep-dictionary-KnowledgeCard-title {
+  font-family: var(--ep-dictionary-font-sans);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+html[data-ep-layout-composition='compact'] .ep-dictionary-KnowledgeCard-compact .ep-dictionary-KnowledgeCard-meta {
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+}
+
+/* --- ep-dictionary-IndexNav --- */
+
+.ep-dictionary-IndexNav {
+  font-size: 0.9rem;
+}
+
+.ep-dictionary-IndexNav-title {
+  margin: 0 0 0.75rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ep-dictionary-color-muted);
+  font-weight: 500;
+}
+
+.ep-dictionary-IndexNav-tree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.ep-dictionary-IndexNav-item {
+  margin: 0;
+}
+
+.ep-dictionary-IndexNav-link {
+  display: inline-block;
+  padding: 0.3rem 0;
+  color: var(--ep-dictionary-color-ink);
+  border-bottom: none;
+  font-family: var(--ep-dictionary-font-mono);
+  font-size: 0.82rem;
+}
+
+.ep-dictionary-IndexNav-link:hover {
+  color: var(--ep-dictionary-color-accent);
+}
+
+.ep-dictionary-IndexNav-link[aria-current='page'] {
+  color: var(--ep-dictionary-color-accent);
+  font-weight: 600;
+}
+
+html[data-ep-layout-composition='alphabet'] .ep-dictionary-PostFeed-aside .ep-dictionary-IndexNav {
+  padding: 1.35rem 1.5rem;
+  border: 1px solid var(--ep-dictionary-color-rule);
+  border-radius: var(--ep-dictionary-radius-md);
+  background: var(--ep-dictionary-color-surface);
+}
+
+html[data-ep-layout-composition='reference'] .ep-dictionary-HomeWithIndex-aside .ep-dictionary-IndexNav {
+  position: sticky;
+  top: 2rem;
+  padding: 1.35rem 1.5rem;
+  border: 1px solid var(--ep-dictionary-color-rule);
+  border-radius: var(--ep-dictionary-radius-md);
+  background: var(--ep-dictionary-color-surface);
+}
+
+html[data-ep-layout-composition='alphabet'] .ep-dictionary-IndexNav--inline {
+  margin-bottom: 2.5rem;
+  padding: 1.5rem 1.75rem;
+  border: 1px solid var(--ep-dictionary-color-rule);
+  border-radius: var(--ep-dictionary-radius-md);
+  background: var(--ep-dictionary-color-surface);
+}
+
+html[data-ep-layout-composition='alphabet'] .ep-dictionary-IndexNav--inline .ep-dictionary-IndexNav-tree {
+  columns: 2;
+  column-gap: 1.5rem;
+}
+
+@media (min-width: 48rem) {
+  html[data-ep-layout-composition='alphabet'] .ep-dictionary-IndexNav--inline .ep-dictionary-IndexNav-tree {
+    columns: 3;
+  }
+}
+
+.ep-dictionary-PostHeader-index {
+  margin: 0 0 0.5rem;
+  font-family: var(--ep-dictionary-font-mono);
+  font-size: 0.85rem;
+}
+
+.ep-dictionary-PostHeader-index a {
+  color: var(--ep-dictionary-color-accent);
+  border-bottom: none;
+}

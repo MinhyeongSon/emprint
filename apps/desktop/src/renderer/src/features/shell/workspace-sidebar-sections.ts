@@ -18,6 +18,18 @@ export const MEMOIR_SIDEBAR_SECTIONS: SidebarSection[] = [
   'settings'
 ]
 
+export const DICTIONARY_SIDEBAR_SECTIONS: SidebarSection[] = [
+  'index',
+  'knowledge',
+  'drafts',
+  'assets',
+  'design',
+  'imprint',
+  'settings'
+]
+
 export function sidebarSectionsForKind(kind: SiteProjectKind): SidebarSection[] {
-  return kind === 'memoir' ? MEMOIR_SIDEBAR_SECTIONS : COLUMN_SIDEBAR_SECTIONS
+  if (kind === 'memoir') return MEMOIR_SIDEBAR_SECTIONS
+  if (kind === 'dictionary') return DICTIONARY_SIDEBAR_SECTIONS
+  return COLUMN_SIDEBAR_SECTIONS
 }

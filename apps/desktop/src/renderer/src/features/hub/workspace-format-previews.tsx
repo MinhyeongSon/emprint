@@ -50,6 +50,33 @@ export function ColumnReadingRoomPreview() {
   )
 }
 
+/** Dictionary · index tree + entry cards. */
+export function DictionaryLayoutPreview() {
+  return (
+    <div className={previewShell}>
+      <PreviewWindowChrome />
+      <div className="flex gap-2">
+        <div className="w-[38%] space-y-1 border-r border-border/40 pr-2">
+          <div className="h-1 w-10 rounded-sm bg-ink/14" />
+          <div className="ml-1 h-0.5 w-8 rounded-full bg-muted/35" />
+          <div className="ml-2 h-0.5 w-7 rounded-full bg-muted/30" />
+          <div className="ml-1 h-0.5 w-9 rounded-full bg-muted/35" />
+          <div className="ml-3 h-0.5 w-6 rounded-full bg-accent/40" />
+        </div>
+        <div className="min-w-0 flex-1 space-y-2">
+          {[0, 1].map((i) => (
+            <div key={i} className="rounded-md border border-border/70 bg-panel/90 p-2">
+              <div className="h-1 w-[70%] rounded-sm bg-ink/16" />
+              <div className="mt-1 h-0.5 w-12 rounded-full bg-muted/35" />
+              <div className="mt-1.5 h-0.5 w-full rounded-full bg-ink/8" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /** Memoir · timeline — spine, nodes, floating section cards. */
 export function MemoirLayoutPreview() {
   return (

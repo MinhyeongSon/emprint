@@ -25,8 +25,8 @@ export const COLOR_PALETTES: ColorPaletteMeta[] = [
     id: 'paperInk',
     labelEn: 'Paper & Ink',
     labelKo: 'Paper & Ink',
-    hintEn: 'Newsprint cream, sharp rules, high-contrast ink.',
-    hintKo: '신문 인쇄지 크림, 선명한 구분선, 고대비 잉크.'
+    hintEn: 'Black & white mono — crisp rules, ink-on-paper contrast.',
+    hintKo: '흑백 모노톤 — 선명한 구분선, 종이 위 잉크 대비.'
   }
 ]
 

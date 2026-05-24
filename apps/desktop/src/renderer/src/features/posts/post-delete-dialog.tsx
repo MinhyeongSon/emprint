@@ -11,7 +11,7 @@ interface PostDeleteDialogProps {
   open: boolean
   locale: AppLocale
   /** Section the post lives in. Used to tailor the warning copy. */
-  section: 'posts' | 'drafts'
+  section: 'posts' | 'drafts' | 'knowledge'
   /** Human-friendly title surfaced in the body. Falls back to the path. */
   title: string
   /** Workspace-relative path of the post being deleted (e.g. `posts/2024-01-01-hello.md`). */

@@ -13,6 +13,8 @@ import {
 import type { FileSystemGateway } from '../fs/file-system-gateway'
 import type { GitProviderFactory } from '../git/contracts'
 import type { SiteProjectGeneratorRegistry } from '../site/site-project-generator'
+import { createStarterIndexRegistryArtifact } from './starter-index-registry'
+import { createStarterKnowledgeArtifact } from './starter-knowledge'
 import { createStarterMemoirArtifacts } from './starter-memoir'
 import { createStarterPostArtifact, createWorkspaceCacheReadme } from './starter-post'
 
@@ -85,12 +87,17 @@ export class WorkspaceBootstrapper {
 
     const memoirStarters = siteKind === 'memoir' ? createStarterMemoirArtifacts(config) : []
     const columnStarter = siteKind === 'column' ? createStarterPostArtifact(config) : null
+    const dictionaryStarter = siteKind === 'dictionary' ? createStarterKnowledgeArtifact(config) : null
+    const dictionaryIndexRegistry =
+      siteKind === 'dictionary' ? createStarterIndexRegistryArtifact(config) : null
 
     const createdFiles: string[] = []
     let starterPost: InitializeWorkspaceResult['starterPost']
     let starterPostContent: string | undefined
     let starterSection: InitializeWorkspaceResult['starterSection']
     let starterSectionContent: string | undefined
+    let starterKnowledge: InitializeWorkspaceResult['starterKnowledge']
+    let starterKnowledgeContent: string | undefined
 
     const staticArtifacts = [
       {
@@ -126,11 +133,17 @@ export class WorkspaceBootstrapper {
         relativePath: 'README.md',
         content: createWorkspaceReadme(config)
       },
-      ...(siteKind === 'column'
+      ...(siteKind === 'column' || siteKind === 'dictionary'
         ? [{ relativePath: `${WORKSPACE_DIR.drafts}/.gitkeep`, content: '' }]
         : []),
       ...(columnStarter
         ? [{ relativePath: columnStarter.relativePath, content: columnStarter.content }]
+        : []),
+      ...(dictionaryStarter
+        ? [{ relativePath: dictionaryStarter.relativePath, content: dictionaryStarter.content }]
+        : []),
+      ...(dictionaryIndexRegistry
+        ? [{ relativePath: dictionaryIndexRegistry.relativePath, content: dictionaryIndexRegistry.content }]
         : []),
       ...memoirStarters.map((a) => ({ relativePath: a.relativePath, content: a.content }))
     ]
@@ -149,6 +162,9 @@ export class WorkspaceBootstrapper {
     if (columnStarter) {
       starterPost = columnStarter.summary
       starterPostContent = columnStarter.content
+    } else if (dictionaryStarter) {
+      starterKnowledge = dictionaryStarter.summary
+      starterKnowledgeContent = dictionaryStarter.content
     } else if (memoirStarters[0]) {
       starterSection = memoirStarters[0].summary
       starterSectionContent = memoirStarters[0].content
@@ -166,6 +182,10 @@ export class WorkspaceBootstrapper {
     if (starterSection) {
       result.starterSection = starterSection
       if (starterSectionContent) result.starterSectionContent = starterSectionContent
+    }
+    if (starterKnowledge) {
+      result.starterKnowledge = starterKnowledge
+      if (starterKnowledgeContent) result.starterKnowledgeContent = starterKnowledgeContent
     }
     return result
   }
@@ -210,7 +230,7 @@ function buildGitignore(kind: SiteProjectKind): string {
     'public/assets',
     ...EMPRINT_GITIGNORE_LINES.filter((line) => line !== 'drafts/')
   ]
-  if (kind === 'column') {
+  if (kind === 'column' || kind === 'dictionary') {
     lines.push(WORKSPACE_DIR.drafts)
   }
   return lines.join('\n') + '\n'

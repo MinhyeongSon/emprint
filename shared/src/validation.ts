@@ -23,7 +23,7 @@ const knownTemplateIdStrings = new Set<string>([
   'dev-blog',
   'portfolio-blog'
 ])
-const siteProjectKinds = new Set<SiteProjectKind>(['column', 'memoir'])
+const siteProjectKinds = new Set<SiteProjectKind>(['column', 'memoir', 'dictionary'])
 const layoutStyles = new Set<WorkspaceLayoutStyle>(['editorial', 'notebook', 'magazine'])
 const providerIds = new Set<GitRemoteProviderId>([
   'github',

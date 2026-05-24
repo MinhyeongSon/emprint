@@ -9,7 +9,16 @@ import type {
 } from '@emprint/shared'
 import { leaveAnthologySession } from '@renderer/lib/leave-anthology-session'
 
-export type SidebarSection = 'posts' | 'drafts' | 'sections' | 'assets' | 'design' | 'imprint' | 'settings'
+export type SidebarSection =
+  | 'posts'
+  | 'index'
+  | 'knowledge'
+  | 'drafts'
+  | 'sections'
+  | 'assets'
+  | 'design'
+  | 'imprint'
+  | 'settings'
 
 export type WorkspaceSurface = 'list' | 'viewer' | 'editor'
 
@@ -147,7 +156,7 @@ export const useAppStore = create<AppState>()(
           activeWorkspaceId: workspaceId,
           workspaceConfig,
           workspaceResult,
-          activeSection: kind === 'memoir' ? 'sections' : 'posts',
+          activeSection: kind === 'memoir' ? 'sections' : kind === 'dictionary' ? 'index' : 'posts',
           surface: 'list',
           activeDocumentPath: undefined,
           activeDocumentTitle: undefined,

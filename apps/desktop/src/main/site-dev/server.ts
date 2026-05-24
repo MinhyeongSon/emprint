@@ -6,7 +6,11 @@ import { promisify } from 'node:util'
 import { shell } from 'electron'
 import type { SiteDevServerPhase, SiteDevServerState, SiteDevServerStatus } from '@emprint/shared'
 import { resolveWindowsSystemExecutable, spawnNode, spawnNpm } from './node-toolchain'
-import { ensureWorkspaceSyncThemeScript } from '../workspace/theme-script'
+import {
+  ensureDictionaryIndexRegistry,
+  ensureDictionarySiteTemplates,
+  ensureWorkspaceSyncThemeScript
+} from '../workspace/theme-script'
 
 export const SITE_DEV_PREVIEW_URL = 'http://localhost:4321/'
 const DEFAULT_PREVIEW_PORT = 4321
@@ -406,6 +410,8 @@ async function startSiteDevServer(root: string): Promise<SiteDevServerState> {
   await ensureWorkspaceNpmScripts(resolved)
   await ensureDependencies(resolved)
   await ensureWorkspaceSyncThemeScript(resolved)
+  await ensureDictionarySiteTemplates(resolved)
+  await ensureDictionaryIndexRegistry(resolved)
 
   currentPreviewUrl = SITE_DEV_PREVIEW_URL
   await releasePreviewPorts()

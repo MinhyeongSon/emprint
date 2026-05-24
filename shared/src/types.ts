@@ -17,7 +17,7 @@ export interface SiteDevServerState {
 export type WorkspaceType = 'creator' | 'developer' | 'ai'
 /** Astro site scaffold: GitHub-oriented blog vs portfolio. */
 /** Astro site scaffold / semantic content format. */
-export type SiteProjectKind = 'column' | 'memoir'
+export type SiteProjectKind = 'column' | 'memoir' | 'dictionary'
 /**
  * A single workspace template (blog). Kept as a named type rather than a
  * literal so workspaces with older manifest values still round-trip through
@@ -75,7 +75,7 @@ export interface AssetReference {
   /** Workspace-relative POSIX path to the referencing post, e.g. `posts/2024-01-01-hello.md`. */
   postPath: string
   postTitle: string
-  section: 'posts' | 'drafts'
+  section: 'posts' | 'drafts' | 'knowledge'
 }
 
 /** A single image file under `assets/images/` plus posts that reference it. */
@@ -110,6 +110,21 @@ export interface PostSummary {
   updatedAt: string
 }
 
+/** Dictionary knowledge entry summary (markdown under knowledge/ or drafts/). */
+export interface KnowledgeSummary {
+  path: string
+  title: string
+  description: string
+  /** Hierarchical index path, e.g. "Science/Physics". */
+  index: string
+  tags: string[]
+  draft: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export type { IndexTreeNode } from './dictionary/index-path'
+
 export interface InitializeWorkspaceResult {
   workspaceRoot: string
   createdFiles: string[]
@@ -118,6 +133,8 @@ export interface InitializeWorkspaceResult {
   starterPostContent?: string
   starterSection?: MemoirSectionSummary
   starterSectionContent?: string
+  starterKnowledge?: KnowledgeSummary
+  starterKnowledgeContent?: string
 }
 
 export type { MemoirSectionFile, MemoirSectionType } from './memoir/sections'

@@ -40,9 +40,18 @@ const MEMOIR_LAYOUT: AnthologyContentLayout = {
   contentCollectionId: 'sections'
 }
 
+const DICTIONARY_LAYOUT: AnthologyContentLayout = {
+  kind: 'dictionary',
+  contentTopLevelDirs: ['knowledge', 'drafts', 'assets', '.workspace'],
+  contentConfigPath: 'src/content.config.ts',
+  contentLoaderBase: './knowledge',
+  contentCollectionId: 'knowledge'
+}
+
 const LAYOUT_BY_KIND: Record<AnthologyKind, AnthologyContentLayout> = {
   column: COLUMN_LAYOUT,
-  memoir: MEMOIR_LAYOUT
+  memoir: MEMOIR_LAYOUT,
+  dictionary: DICTIONARY_LAYOUT
 }
 
 export function getAnthologyContentLayout(kind: AnthologyKind): AnthologyContentLayout {

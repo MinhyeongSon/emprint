@@ -20,6 +20,10 @@ export function assertMemoirWorkspace(): void {
   workspaceRuntime.assertMemoir()
 }
 
+export function assertDictionaryWorkspace(): void {
+  workspaceRuntime.assertDictionary()
+}
+
 export function getMountedWorkspaceRoot(): string | null {
   return workspaceRuntime.mountedRoot
 }

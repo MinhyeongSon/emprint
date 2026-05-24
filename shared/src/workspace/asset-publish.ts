@@ -3,7 +3,7 @@ import type { AssetPublishScope, AssetReference } from '../types'
 /** Classify whether an image should be included in the publish commit. */
 export function classifyAssetPublishScope(references: AssetReference[]): AssetPublishScope {
   if (references.length === 0) return 'orphan'
-  if (references.some((ref) => ref.section === 'posts')) return 'published'
+  if (references.some((ref) => ref.section === 'posts' || ref.section === 'knowledge')) return 'published'
   return 'draft-only'
 }
 

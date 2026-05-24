@@ -49,6 +49,16 @@ const memoirSections: Array<{ id: SidebarSection; shortcut: string }> = [
   { id: 'settings', shortcut: '5' }
 ]
 
+const dictionarySections: Array<{ id: SidebarSection; shortcut: string }> = [
+  { id: 'index', shortcut: '1' },
+  { id: 'knowledge', shortcut: '2' },
+  { id: 'drafts', shortcut: '3' },
+  { id: 'assets', shortcut: '4' },
+  { id: 'design', shortcut: '5' },
+  { id: 'imprint', shortcut: '6' },
+  { id: 'settings', shortcut: '7' }
+]
+
 export { sidebarSectionsForKind } from './workspace-sidebar-sections'
 
 export function Sidebar({
@@ -64,7 +74,12 @@ export function Sidebar({
   footer
 }: SidebarProps) {
   const m = getLocaleMessages(locale)
-  const visibleSections = siteProjectKind === 'memoir' ? memoirSections : columnSections
+  const visibleSections =
+    siteProjectKind === 'memoir'
+      ? memoirSections
+      : siteProjectKind === 'dictionary'
+        ? dictionarySections
+        : columnSections
 
   return (
     <aside className="flex h-full flex-col border-r border-border bg-panel">

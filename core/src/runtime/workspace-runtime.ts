@@ -44,6 +44,12 @@ export class WorkspaceRuntime {
       throw new Error('Sections are only available in Memoir workspaces.')
     }
   }
+
+  assertDictionary(): void {
+    if (this.#siteProjectKind !== 'dictionary') {
+      throw new Error('This action is only available for Dictionary workspaces.')
+    }
+  }
 }
 
 export const workspaceRuntime = new WorkspaceRuntime()
