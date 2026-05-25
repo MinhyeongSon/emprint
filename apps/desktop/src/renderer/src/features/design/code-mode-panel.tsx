@@ -46,8 +46,8 @@ function languageForPath(filePath: string): string {
 }
 
 function monacoTheme(): 'vs-dark' | 'light' {
-  const theme = document.documentElement.getAttribute('data-theme')
-  return theme === 'light' ? 'light' : 'vs-dark'
+  const scheme = document.documentElement.getAttribute('data-color-scheme')
+  return scheme === 'light' ? 'light' : 'vs-dark'
 }
 
 type PendingCreate = {

@@ -2,51 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Default theme: dark */
+/* Default: Emprint palette + dark scheme (sync with canonical-palettes.ts) */
 :root {
-  /* Theme tokens */
-  --base: 15 17 21; /* #0f1115 */
-  --panel: 17 19 23; /* ~#111317 */
-  --panel2: 24 27 33; /* ~#181b21 */
-  --surface: 20 23 28; /* ~#14171c */
-  --border: 34 37 43; /* #22252b */
-  --accent: 205 123 0; /* #cd7b00 */
-  --ink: 243 244 246; /* #f3f4f6 */
-  --muted: 156 163 175; /* #9ca3af */
-  --danger: 239 68 68; /* #ef4444 (base red) */
-  --dangerBg: 45 15 15; /* deep red background */
-  --dangerInk: 253 186 186; /* soft red text */
-  /* Typography */
-  --font-ui: 'Pretendard Variable', 'Pretendard', 'Inter', 'SF Pro Text', 'Segoe UI', system-ui,
-    sans-serif;
-  --font-editor: 'Inter', 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
-  color: rgb(var(--ink));
-  background: rgb(var(--base));
-  color-scheme: dark;
-  font-family: var(--font-ui);
-}
-
-/* Light theme overrides */
-html[data-theme='light'] {
-  --base: 243 244 246; /* #f3f4f6 */
-  --panel: 255 255 255; /* #ffffff */
-  /* Slightly darker than pure white for separation */
-  --panel2: 243 244 246; /* #f3f4f6 */
-  --surface: 255 255 255; /* #ffffff */
-  /* Stronger border for small UI controls */
-  --border: 209 213 219; /* #d1d5db */
-  --accent: 205 123 0; /* keep brand accent */
-  --ink: 15 17 21; /* #0f1115 */
-  /* Darker muted for readability at small sizes */
-  --muted: 55 65 81; /* #374151 */
-  --danger: 220 38 38; /* #dc2626 */
-  --dangerBg: 254 242 242; /* #fef2f2 */
-  --dangerInk: 153 27 27; /* #991b1b */
-  color-scheme: light;
-}
-
-/* Warm / brown-tone theme (original Emprint feel) */
-html[data-theme='warm'] {
   --base: 26 22 18; /* #1a1612 */
   --panel: 35 31 26; /* #231f1a */
   --panel2: 42 37 32; /* #2a2520 */
@@ -58,28 +15,78 @@ html[data-theme='warm'] {
   --danger: 239 68 68;
   --dangerBg: 55 28 24;
   --dangerInk: 253 186 186;
+  --font-ui: 'Pretendard Variable', 'Pretendard', 'Inter', 'SF Pro Text', 'Segoe UI', system-ui,
+    sans-serif;
+  --font-editor: 'Inter', 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  color: rgb(var(--ink));
+  background: rgb(var(--base));
+  color-scheme: dark;
+  font-family: var(--font-ui);
+}
+
+/* Emprint + light */
+html[data-palette='emprint'][data-color-scheme='light'] {
+  --base: 244 240 232; /* #f4f0e8 */
+  --panel: 235 228 214; /* #ebe4d6 */
+  --panel2: 238 232 220;
+  --surface: 255 255 255;
+  --border: 201 191 176; /* #c9bfb0 */
+  --accent: 205 123 0;
+  --ink: 26 24 20; /* #1a1814 */
+  --muted: 92 86 76; /* #5c564c */
+  --danger: 220 38 38;
+  --dangerBg: 254 242 242;
+  --dangerInk: 153 27 27;
+  color-scheme: light;
+}
+
+/* Paper & Ink + light */
+html[data-palette='paperInk'][data-color-scheme='light'] {
+  --base: 243 244 246; /* #f3f4f6 */
+  --panel: 255 255 255;
+  --panel2: 243 244 246;
+  --surface: 255 255 255;
+  --border: 209 213 219; /* #d1d5db */
+  --accent: 205 123 0;
+  --ink: 15 17 21; /* #0f1115 */
+  --muted: 55 65 81; /* #374151 */
+  --danger: 220 38 38;
+  --dangerBg: 254 242 242;
+  --dangerInk: 153 27 27;
+  color-scheme: light;
+}
+
+/* Paper & Ink + dark */
+html[data-palette='paperInk'][data-color-scheme='dark'] {
+  --base: 15 17 21; /* #0f1115 */
+  --panel: 17 19 23;
+  --panel2: 24 27 33;
+  --surface: 20 23 28;
+  --border: 34 37 43; /* #22252b */
+  --accent: 205 123 0;
+  --ink: 243 244 246;
+  --muted: 156 163 175;
+  --danger: 239 68 68;
+  --dangerBg: 45 15 15;
+  --dangerInk: 253 186 186;
   color-scheme: dark;
 }
 
-/* Theme-aware modal scrim (fixes light-mode legibility) */
 .emprint-scrim {
   background: rgba(0, 0, 0, 0.55);
 }
 
-html[data-theme='light'] .emprint-scrim {
+html[data-color-scheme='light'] .emprint-scrim {
   background: rgba(0, 0, 0, 0.22);
 }
 
-/* Command palette: stronger scrim in light mode (less “see-through”) */
-html[data-theme='light'] .emprint-scrim-command {
+html[data-color-scheme='light'] .emprint-scrim-command {
   background: rgba(0, 0, 0, 0.5);
 }
 
-/* Command palette: force primary copy to pure black in light mode */
-html[data-theme='light'] .emprint-command-palette {
+html[data-color-scheme='light'] .emprint-command-palette {
   --ink: 0 0 0;
   --muted: 0 0 0;
-  /* Solid frosted surface (reads more opaque than flat white on scrim) */
   background-color: rgba(255, 255, 255, 0.97) !important;
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -88,11 +95,11 @@ html[data-theme='light'] .emprint-command-palette {
     0 16px 48px rgba(0, 0, 0, 0.14) !important;
 }
 
-html[data-theme='light'] .emprint-command-palette > div.border-b {
+html[data-color-scheme='light'] .emprint-command-palette > div.border-b {
   background-color: transparent !important;
 }
 
-html[data-theme='light'] .emprint-command-palette input {
+html[data-color-scheme='light'] .emprint-command-palette input {
   background-color: transparent !important;
 }
 
@@ -115,7 +122,6 @@ body {
   overflow: hidden;
 }
 
-/* Exclusions: keep editor & code blocks on their own fonts */
 .tiptap,
 .prose-emprint {
   font-family: var(--font-editor);
@@ -137,7 +143,6 @@ samp {
   -webkit-app-region: no-drag;
 }
 
-/* Accent scrollbars (Chromium/Electron) */
 *::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -153,7 +158,7 @@ samp {
   border: 2px solid rgba(15, 17, 21, 0.9);
 }
 
-html[data-theme='warm'] *::-webkit-scrollbar-thumb {
+html[data-palette='emprint'] *::-webkit-scrollbar-thumb {
   border-color: rgba(26, 22, 18, 0.92);
 }
 

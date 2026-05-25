@@ -1,4 +1,6 @@
 import type { IpcContext } from '../context'
+import { registerArtworkHandlers } from './artwork'
+import { registerStoryHandlers } from './story'
 import { registerAssetsHandlers } from './assets'
 import { registerAuthHandlers } from './auth'
 import { registerCatalogHandlers } from './catalog'
@@ -27,5 +29,7 @@ export function registerAllIpcHandlers(ctx: IpcContext): void {
   registerWorkspaceSrcHandlers()
   registerMigrationHandlers()
   registerAssetsHandlers()
+  registerArtworkHandlers()
+  registerStoryHandlers()
   registerWindowHandlers()
 }

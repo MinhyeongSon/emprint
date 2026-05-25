@@ -48,10 +48,30 @@ const DICTIONARY_LAYOUT: AnthologyContentLayout = {
   contentCollectionId: 'knowledge'
 }
 
+/** Fragments: each artwork is a JPEG under `artwork/` (no separate posts/assets authoring). */
+const FRAGMENTS_LAYOUT: AnthologyContentLayout = {
+  kind: 'fragments',
+  contentTopLevelDirs: ['artwork', '.workspace'],
+  contentConfigPath: 'src/content.config.ts',
+  contentLoaderBase: './artwork',
+  contentCollectionId: 'artwork'
+}
+
+/** Book: single markdown story under `story/`. */
+const BOOK_LAYOUT: AnthologyContentLayout = {
+  kind: 'book',
+  contentTopLevelDirs: ['story', '.workspace'],
+  contentConfigPath: 'src/content.config.ts',
+  contentLoaderBase: './story',
+  contentCollectionId: 'story'
+}
+
 const LAYOUT_BY_KIND: Record<AnthologyKind, AnthologyContentLayout> = {
   column: COLUMN_LAYOUT,
   memoir: MEMOIR_LAYOUT,
-  dictionary: DICTIONARY_LAYOUT
+  dictionary: DICTIONARY_LAYOUT,
+  fragments: FRAGMENTS_LAYOUT,
+  book: BOOK_LAYOUT
 }
 
 export function getAnthologyContentLayout(kind: AnthologyKind): AnthologyContentLayout {

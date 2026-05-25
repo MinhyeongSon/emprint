@@ -3,8 +3,13 @@ import { AppShell } from '@renderer/features/shell/app-shell'
 import { WorkspaceHub } from '@renderer/features/hub/workspace-hub'
 import { WorkspaceWizard } from '@renderer/features/wizard/workspace-wizard'
 import type { AppLocale } from '@emprint/shared'
+import { COLOR_PALETTES } from '@emprint/shared'
 import { createCommandRegistry } from '@emprint/core'
-import { useAppStore, type AppTheme } from '@renderer/state/app-store'
+import {
+  useAppStore,
+  type AppColorPalette,
+  type AppColorScheme
+} from '@renderer/state/app-store'
 import { Titlebar } from '@renderer/components/titlebar/titlebar'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
@@ -13,7 +18,6 @@ import {
   Command,
   FolderOpen,
   LayoutGrid,
-  Coffee,
   Loader2,
   LogOut,
   Moon,
@@ -28,8 +32,10 @@ import { HubRecoveryRunner } from '@renderer/features/hub/hub-recovery-runner'
 export function App() {
   const locale = useAppStore((state) => state.locale)
   const setLocale = useAppStore((state) => state.setLocale)
-  const theme = useAppStore((state) => state.theme)
-  const setTheme = useAppStore((state) => state.setTheme)
+  const colorPalette = useAppStore((state) => state.colorPalette)
+  const colorScheme = useAppStore((state) => state.colorScheme)
+  const setColorPalette = useAppStore((state) => state.setColorPalette)
+  const setColorScheme = useAppStore((state) => state.setColorScheme)
   const mode = useAppStore((state) => state.mode)
   const setRuntimeInfo = useAppStore((state) => state.setRuntimeInfo)
   const enterHub = useAppStore((state) => state.enterHub)
@@ -85,7 +91,8 @@ export function App() {
       useAppStore.setState({
         mode: 'hub',
         locale: 'en',
-        theme: 'warm',
+        colorPalette: 'emprint',
+        colorScheme: 'dark',
         githubConnected,
         ...(githubLogin ? { githubLogin } : {}),
         ...(workspaceRootDir ? { workspaceRootDir } : {})
@@ -101,8 +108,9 @@ export function App() {
   }, [locale])
 
   useEffect(() => {
-    document.documentElement.dataset.theme = theme
-  }, [theme])
+    document.documentElement.dataset.palette = colorPalette
+    document.documentElement.dataset.colorScheme = colorScheme
+  }, [colorPalette, colorScheme])
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -178,10 +186,9 @@ export function App() {
       <Badge>Setup</Badge>
     )
 
-  const themeOptions: { value: AppTheme; label: string; Icon: typeof Moon }[] = [
-    { value: 'dark', label: 'Dark', Icon: Moon },
-    { value: 'light', label: 'Light', Icon: Sun },
-    { value: 'warm', label: 'Warm', Icon: Coffee }
+  const schemeOptions: { value: AppColorScheme; label: string; Icon: typeof Moon }[] = [
+    { value: 'dark', label: locale === 'ko' ? '다크' : 'Dark', Icon: Moon },
+    { value: 'light', label: locale === 'ko' ? '라이트' : 'Light', Icon: Sun }
   ]
 
   const localeOptions: { value: AppLocale; label: string }[] = [
@@ -322,18 +329,40 @@ export function App() {
               </div>
 
               <div className="space-y-2">
-                <div className="text-[11px] uppercase tracking-[0.16em] text-muted">Theme</div>
+                <div className="text-[11px] uppercase tracking-[0.16em] text-muted">
+                  {locale === 'ko' ? '색감' : 'Color palette'}
+                </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  {themeOptions.map(({ value, label, Icon }) => (
+                  {COLOR_PALETTES.map((item) => (
+                    <Button
+                      key={item.id}
+                      variant={colorPalette === item.id ? 'primary' : 'outline'}
+                      type="button"
+                      className="h-8 px-2.5"
+                      aria-pressed={colorPalette === item.id}
+                      onClick={() => setColorPalette(item.id as AppColorPalette)}
+                    >
+                      <span className="text-xs">{locale === 'ko' ? item.labelKo : item.labelEn}</span>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-[11px] uppercase tracking-[0.16em] text-muted">
+                  {locale === 'ko' ? '밝기' : 'Brightness'}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {schemeOptions.map(({ value, label, Icon }) => (
                     <Button
                       key={value}
-                      variant={theme === value ? 'primary' : 'outline'}
+                      variant={colorScheme === value ? 'primary' : 'outline'}
                       type="button"
                       className="h-8 gap-1.5 px-2.5"
-                      aria-pressed={theme === value}
-                      aria-label={`${label} theme`}
+                      aria-pressed={colorScheme === value}
+                      aria-label={label}
                       title={label}
-                      onClick={() => setTheme(value)}
+                      onClick={() => setColorScheme(value)}
                     >
                       <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
                       <span className="text-xs">{label}</span>

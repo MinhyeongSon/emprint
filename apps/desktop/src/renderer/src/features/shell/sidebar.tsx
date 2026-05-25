@@ -59,6 +59,20 @@ const dictionarySections: Array<{ id: SidebarSection; shortcut: string }> = [
   { id: 'settings', shortcut: '7' }
 ]
 
+const fragmentsSections: Array<{ id: SidebarSection; shortcut: string }> = [
+  { id: 'artwork', shortcut: '1' },
+  { id: 'design', shortcut: '2' },
+  { id: 'imprint', shortcut: '3' },
+  { id: 'settings', shortcut: '4' }
+]
+
+const bookSections: Array<{ id: SidebarSection; shortcut: string }> = [
+  { id: 'story', shortcut: '1' },
+  { id: 'design', shortcut: '2' },
+  { id: 'imprint', shortcut: '3' },
+  { id: 'settings', shortcut: '4' }
+]
+
 export { sidebarSectionsForKind } from './workspace-sidebar-sections'
 
 export function Sidebar({
@@ -79,7 +93,11 @@ export function Sidebar({
       ? memoirSections
       : siteProjectKind === 'dictionary'
         ? dictionarySections
-        : columnSections
+        : siteProjectKind === 'fragments'
+          ? fragmentsSections
+          : siteProjectKind === 'book'
+            ? bookSections
+            : columnSections
 
   return (
     <aside className="flex h-full flex-col border-r border-border bg-panel">

@@ -42,6 +42,16 @@ export function DesignSurface({ locale }: { locale: AppLocale }) {
   const [previewError, setPreviewError] = useState<string | null>(null)
   const [aiPromptOpen, setAiPromptOpen] = useState(false)
   const workspaceConfig = useAppStore((state) => state.workspaceConfig)
+  const workspaceResult = useAppStore((state) => state.workspaceResult)
+  const siteKind =
+    workspaceConfig?.siteProjectKind ?? workspaceResult?.manifest.siteProjectKind ?? 'column'
+  const templateOnly = siteKind === 'book'
+
+  useEffect(() => {
+    if (templateOnly && uiMode === 'code') {
+      setUiMode('template')
+    }
+  }, [templateOnly, uiMode])
 
   useEffect(() => {
     try {
@@ -104,10 +114,12 @@ export function DesignSurface({ locale }: { locale: AppLocale }) {
     }
   }
 
-  const modeTabs: { id: DesignUiMode; label: string }[] = [
-    { id: 'template', label: pick(locale, 'Template', '템플릿') },
-    { id: 'code', label: pick(locale, 'Code', '코드') }
-  ]
+  const modeTabs: { id: DesignUiMode; label: string }[] = templateOnly
+    ? [{ id: 'template', label: pick(locale, 'Template', '템플릿') }]
+    : [
+        { id: 'template', label: pick(locale, 'Template', '템플릿') },
+        { id: 'code', label: pick(locale, 'Code', '코드') }
+      ]
 
   return (
     <div

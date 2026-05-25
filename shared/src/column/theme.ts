@@ -1,5 +1,6 @@
 /** Column anthology theme contract — `config/theme.json` schema and presets. */
 
+import { getCanonicalSiteColors, inferColorPaletteFromSiteTokens } from '../cross/canonical-palettes'
 import {
   DEFAULT_COLUMN_LAYOUT_COMPOSITION,
   normalizeColumnLayoutComposition,
@@ -54,6 +55,7 @@ export interface ColumnThemeFile {
   contractVersion: 1
   anthology: 'column'
   classPrefix: ColumnClassPrefix
+  paletteId?: ColumnThemePresetId
   /** Structural layout for home / archive post listings. */
   layoutComposition?: ColumnLayoutComposition
   /** Default visitor theme when localStorage is empty (`system` = follow OS). */
@@ -80,6 +82,7 @@ const READING_ROOM_LAYOUT: ColumnThemeLayoutTokens = { measure: '36rem', wide: '
 const MAGAZINE_LAYOUT: ColumnThemeLayoutTokens = { measure: '40rem', wide: '68rem' }
 const JOURNAL_LAYOUT: ColumnThemeLayoutTokens = { measure: '38rem', wide: '52rem' }
 const RADIUS: ColumnThemeRadiusTokens = { sm: '4px', md: '8px', pill: '999px' }
+const PAPER_INK_RADIUS: ColumnThemeRadiusTokens = { sm: '0px', md: '2px', pill: '2px' }
 
 const COMPOSITION_LAYOUT: Record<ColumnLayoutComposition, ColumnThemeLayoutTokens> = {
   readingRoom: READING_ROOM_LAYOUT,
@@ -87,90 +90,32 @@ const COMPOSITION_LAYOUT: Record<ColumnLayoutComposition, ColumnThemeLayoutToken
   journal: JOURNAL_LAYOUT
 }
 
-/** Emprint — warm paper & ink (default column bootstrap). */
-const EMPRINT_LIGHT: ColumnThemeColorTokens = {
-  bg: '#faf8f4',
-  surface: '#ffffff',
-  ink: '#181715',
-  muted: '#6c6962',
-  rule: '#e8e4dc',
-  accent: '#c4713f',
-  accentSoft: 'rgba(196, 113, 63, 0.12)'
-}
-
-const EMPRINT_DARK: Partial<ColumnThemeColorTokens> = {
-  bg: '#14130f',
-  surface: '#1a1814',
-  ink: '#f1ece2',
-  muted: '#948d80',
-  rule: '#2a261f',
-  accent: '#e08a4a',
-  accentSoft: 'rgba(224, 138, 74, 0.14)'
-}
-
-/** Paper & Ink — neutral editorial light + cool dark ink. */
-const PAPER_INK_LIGHT: ColumnThemeColorTokens = {
-  bg: '#ffffff',
-  surface: '#f4f6fb',
-  ink: '#111827',
-  muted: '#6b7280',
-  rule: '#e5e7eb',
-  accent: '#2563eb',
-  accentSoft: 'rgba(37, 99, 235, 0.12)'
-}
-
-const PAPER_INK_DARK: Partial<ColumnThemeColorTokens> = {
-  bg: '#0c0d10',
-  surface: '#14151a',
-  ink: '#eceef4',
-  muted: '#9aa3b2',
-  rule: '#252a34',
-  accent: '#7dd3fc',
-  accentSoft: 'rgba(125, 211, 252, 0.12)'
+function columnPresetBase(presetId: ColumnThemePresetId): Omit<ColumnThemeFile, 'layoutComposition'> {
+  const { light, dark } = getCanonicalSiteColors(presetId)
+  const radius = presetId === 'paperInk' ? PAPER_INK_RADIUS : RADIUS
+  return {
+    contractVersion: 1,
+    anthology: 'column',
+    classPrefix: COLUMN_CLASS_PREFIX,
+    paletteId: presetId,
+    colorMode: 'system',
+    tokens: {
+      color: { ...light },
+      font: FONT,
+      layout: COMPOSITION_LAYOUT.readingRoom,
+      radius
+    },
+    modes: { dark: { color: { ...dark } } },
+    landingIntro: { ...DEFAULT_LANDING_INTRO }
+  }
 }
 
 export const DEFAULT_COLUMN_THEME_PRESET_ID: ColumnThemePresetId = 'emprint'
 export { DEFAULT_COLUMN_LAYOUT_COMPOSITION }
 
 export const COLUMN_THEME_PRESETS: Record<ColumnThemePresetId, ColumnThemeFile> = {
-  emprint: {
-    contractVersion: 1,
-    anthology: 'column',
-    classPrefix: COLUMN_CLASS_PREFIX,
-    layoutComposition: DEFAULT_COLUMN_LAYOUT_COMPOSITION,
-    colorMode: 'system',
-    tokens: {
-      color: EMPRINT_LIGHT,
-      font: FONT,
-      layout: COMPOSITION_LAYOUT.readingRoom,
-      radius: RADIUS
-    },
-    modes: {
-      dark: {
-        color: EMPRINT_DARK
-      }
-    },
-    landingIntro: { ...DEFAULT_LANDING_INTRO }
-  },
-  paperInk: {
-    contractVersion: 1,
-    anthology: 'column',
-    classPrefix: COLUMN_CLASS_PREFIX,
-    layoutComposition: DEFAULT_COLUMN_LAYOUT_COMPOSITION,
-    colorMode: 'system',
-    tokens: {
-      color: PAPER_INK_LIGHT,
-      font: FONT,
-      layout: COMPOSITION_LAYOUT.readingRoom,
-      radius: RADIUS
-    },
-    modes: {
-      dark: {
-        color: PAPER_INK_DARK
-      }
-    },
-    landingIntro: { ...DEFAULT_LANDING_INTRO }
-  }
+  emprint: { ...columnPresetBase('emprint'), layoutComposition: DEFAULT_COLUMN_LAYOUT_COMPOSITION },
+  paperInk: { ...columnPresetBase('paperInk'), layoutComposition: DEFAULT_COLUMN_LAYOUT_COMPOSITION }
 }
 
 export const DEFAULT_COLUMN_COLOR_MODE: ColumnColorMode = 'system'
@@ -207,6 +152,7 @@ export function buildColumnTheme(
   const preset = structuredClone(COLUMN_THEME_PRESETS[presetId])
   return {
     ...preset,
+    paletteId: presetId,
     layoutComposition,
     colorMode,
     tokens: {
@@ -238,6 +184,9 @@ export function parseColumnThemeFile(raw: string): ColumnThemeFile {
   parsed.layoutComposition = inferColumnLayoutComposition(parsed)
   parsed.colorMode = normalizeColumnColorMode(parsed.colorMode)
   parsed.landingIntro = normalizeLandingIntroConfig(parsed.landingIntro)
+  if (!parsed.paletteId) {
+    parsed.paletteId = inferColumnThemePresetId(parsed)
+  }
   if (parsed.layoutComposition) {
     parsed.tokens = {
       ...parsed.tokens,
@@ -249,17 +198,13 @@ export function parseColumnThemeFile(raw: string): ColumnThemeFile {
 
 /** Match Template mode selection from theme token accents. */
 export function inferColumnThemePresetId(theme: ColumnThemeFile): ColumnThemePresetId {
-  const lightAccent = theme.tokens.color.accent.toLowerCase()
-  const darkAccent = theme.modes?.dark?.color?.accent?.toLowerCase()
-
-  if (lightAccent === '#2563eb' || darkAccent === '#7dd3fc') {
-    return 'paperInk'
+  if (theme.paletteId === 'emprint' || theme.paletteId === 'paperInk') {
+    return theme.paletteId
   }
-  if (lightAccent === '#7dd3fc' && !theme.modes?.dark?.color) {
-    return 'paperInk'
-  }
-
-  return 'emprint'
+  return inferColorPaletteFromSiteTokens({
+    accent: theme.tokens.color.accent,
+    bg: theme.tokens.color.bg
+  })
 }
 
 export function serializeColumnThemeFile(theme: ColumnThemeFile): string {

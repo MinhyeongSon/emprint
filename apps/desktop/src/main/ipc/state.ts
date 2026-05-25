@@ -24,6 +24,10 @@ export function assertDictionaryWorkspace(): void {
   workspaceRuntime.assertDictionary()
 }
 
+export function assertFragmentsWorkspace(): void {
+  workspaceRuntime.assertFragments()
+}
+
 export function getMountedWorkspaceRoot(): string | null {
   return workspaceRuntime.mountedRoot
 }

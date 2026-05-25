@@ -12,6 +12,7 @@ import {
   setMountedWorkspaceRoot
 } from '../state'
 import { ensureEmprintGitignore, untrackEmprintIgnoredPaths } from '../core'
+import { syncSiteCopyrightHolder } from '../../workspace/site-config-sync'
 
 export function registerWorkspaceHandlers(ctx: IpcContext): void {
   ipcMain.handle(ipcChannels.workspaceInitialize, async (_event, payload: unknown) => {
@@ -26,6 +27,7 @@ export function registerWorkspaceHandlers(ctx: IpcContext): void {
     setMountedSiteProjectKind(
       initializedWorkspace.manifest.siteProjectKind ?? config.siteProjectKind ?? 'column'
     )
+    await syncSiteCopyrightHolder(initializedWorkspace.workspaceRoot)
 
     return initializedWorkspace
   })
@@ -48,6 +50,7 @@ export function registerWorkspaceHandlers(ctx: IpcContext): void {
 
     setMountedWorkspaceRoot(workspaceRoot)
     setMountedSiteProjectKind(manifest.siteProjectKind ?? 'column')
+    await syncSiteCopyrightHolder(workspaceRoot)
 
     return {
       workspaceRoot,

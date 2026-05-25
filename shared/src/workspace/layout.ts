@@ -34,6 +34,8 @@ export function draftFlagFromRelativePath(relativePath: string, kind: SiteProjec
   if (normalized.startsWith('drafts/')) return true
   if (normalized.startsWith('posts/')) return false
   if (normalized.startsWith('knowledge/')) return false
+  if (normalized.startsWith('artwork/')) return false
+  if (normalized.startsWith('story/')) return false
   return false
 }
 
@@ -169,6 +171,41 @@ export function assertContentLoaderBase(
   kind: SiteProjectKind,
   locale: AppLocale = 'en'
 ): void {
+  if (kind === 'book') {
+    const layout = getAnthologyContentLayout('book')
+    const base = layout.contentLoaderBase.replace(/\./g, '\\.')
+    const pattern = new RegExp(`base:\\s*['"]${base}['"]`)
+    if (!pattern.test(content)) {
+      throw new Error(
+        locale === 'ko'
+          ? `src/content.config.ts는 반드시 ${layout.contentLoaderBase} 에서만 콘텐츠를 불러와야 합니다.`
+          : `src/content.config.ts must load content from ${layout.contentLoaderBase} only.`
+      )
+    }
+    const forbidden = [/base:\s*['"]\.\/posts/, /base:\s*['"]\.\/drafts/, /base:\s*['"]\.\/knowledge/, /base:\s*['"]\.\/sections/, /base:\s*['"]\.\/src/]
+    for (const re of forbidden) {
+      if (re.test(content)) {
+        throw new Error(
+          locale === 'ko'
+            ? '콘텐츠 로더가 허용되지 않은 경로를 가리킬 수 없습니다.'
+            : 'The content loader cannot target a forbidden content path.'
+        )
+      }
+    }
+    return
+  }
+
+  if (kind === 'fragments') {
+    if (!/export\s+const\s+collections\s*=\s*\{\s*\}/.test(content)) {
+      throw new Error(
+        locale === 'ko'
+          ? 'Fragments 워크스페이스의 content.config.ts는 빈 collections만 허용합니다.'
+          : 'Fragments content.config.ts must export an empty collections object.'
+      )
+    }
+    return
+  }
+
   const layout = getAnthologyContentLayout(kind)
   const base = layout.contentLoaderBase.replace(/'/g, "\\'")
   const pattern = new RegExp(`base:\\s*['"]${layout.contentLoaderBase.replace(/\./g, '\\.')}['"]`)
@@ -189,7 +226,11 @@ export function assertContentLoaderBase(
       ? [/base:\s*['"]\.\/drafts/, /base:\s*['"]\.\/src/]
       : kind === 'dictionary'
         ? [/base:\s*['"]\.\/drafts/, /base:\s*['"]\.\/posts/, /base:\s*['"]\.\/sections/, /base:\s*['"]\.\/src/]
-        : [/base:\s*['"]\.\/posts/, /base:\s*['"]\.\/drafts/, /base:\s*['"]\.\/src/]
+        : kind === 'memoir'
+          ? [/base:\s*['"]\.\/posts/, /base:\s*['"]\.\/drafts/, /base:\s*['"]\.\/src/]
+          : kind === 'book'
+            ? [/base:\s*['"]\.\/posts/, /base:\s*['"]\.\/drafts/, /base:\s*['"]\.\/knowledge/, /base:\s*['"]\.\/sections/, /base:\s*['"]\.\/src/]
+            : [/base:\s*['"]\.\/posts/, /base:\s*['"]\.\/drafts/, /base:\s*['"]\.\/src/]
 
   for (const re of forbidden) {
     if (re.test(content)) {
@@ -217,11 +258,16 @@ export const WORKSPACE_DIR = {
   knowledge: 'knowledge',
   drafts: 'drafts',
   sections: 'sections',
+  artwork: 'artwork',
+  story: 'story',
   assets: 'assets',
   assetsImages: 'assets/images',
   workspace: '.workspace',
   config: 'config'
 } as const
+
+/** Ordered manifest for Fragments gallery (workspace-relative JPEG paths). */
+export const ARTWORK_MANIFEST_RELATIVE_PATH = `${WORKSPACE_DIR.config}/artwork-manifest.json`
 
 export const MANIFEST_RELATIVE_PATH = `${WORKSPACE_DIR.workspace}/manifest.json`
 

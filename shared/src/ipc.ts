@@ -44,6 +44,13 @@ import type {
 } from './types'
 import type { IndexEntrySummary, IndexRegistryEntry } from './dictionary/index-registry'
 import type {
+  ArtworkDeleteInput,
+  ArtworkImageInfo,
+  ArtworkReorderInput,
+  ArtworkSaveInput,
+  ArtworkUpdateInput
+} from './fragments/artwork'
+import type {
   MarkdownMigrationRunInput,
   MarkdownMigrationRunResult,
   MarkdownMigrationScanInput,
@@ -108,6 +115,13 @@ export const ipcChannels = {
   assetsSaveImage: 'assets:save-image',
   assetsListImages: 'assets:list-images',
   assetsDeleteImage: 'assets:delete-image',
+  artworkList: 'artwork:list',
+  artworkSave: 'artwork:save',
+  artworkUpdate: 'artwork:update',
+  artworkDelete: 'artwork:delete',
+  artworkReorder: 'artwork:reorder',
+  storyRead: 'story:read',
+  storySave: 'story:save',
   catalogList: 'catalog:list',
   catalogReconcile: 'catalog:reconcile',
   catalogAdd: 'catalog:add',
@@ -289,6 +303,19 @@ export interface EmprintDesktopApi {
     listImages(): Promise<AssetImageInfo[]>
     /** Delete a single image under `assets/images/`. */
     deleteImage(input: { path: string }): Promise<void>
+  }
+  /** Fragments anthology — JPEG artworks under `artwork/` (max 50). */
+  artwork: {
+    list(): Promise<ArtworkImageInfo[]>
+    save(input: ArtworkSaveInput): Promise<ArtworkImageInfo>
+    update(input: ArtworkUpdateInput): Promise<ArtworkImageInfo>
+    delete(input: ArtworkDeleteInput): Promise<void>
+    reorder(input: ArtworkReorderInput): Promise<ArtworkImageInfo[]>
+  }
+  /** Book anthology — single markdown at story/story.md. */
+  story: {
+    read(): Promise<{ path: string; content: string }>
+    save(input: { content: string }): Promise<{ path: string }>
   }
   window: {
     minimize(): Promise<void>

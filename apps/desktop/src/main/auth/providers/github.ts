@@ -363,6 +363,13 @@ export const githubAuthProvider: AuthProvider = {
       createdAt: new Date().toISOString()
     })
 
+    const { workspaceRuntime } = await import('@emprint/core')
+    const mountedRoot = workspaceRuntime.mountedRoot
+    if (mountedRoot) {
+      const { syncSiteCopyrightHolder } = await import('../../workspace/site-config-sync')
+      await syncSiteCopyrightHolder(mountedRoot)
+    }
+
     return { connected: true, login }
   },
 

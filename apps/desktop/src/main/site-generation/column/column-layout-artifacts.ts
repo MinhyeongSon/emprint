@@ -11,6 +11,7 @@ import { columnThemeToTokensCss } from '@emprint/shared'
 import { createColumnPageArtifacts } from './column-page-artifacts'
 import syncThemeScript from './sync-theme.mjs?raw'
 import { createLandingIntroArtifacts } from '../shared/landing-intro-artifacts'
+import { footerAstroContent, sitePublicLibArtifact } from '../shared/footer-artifacts'
 
 export function createColumnThemeArtifacts(ctx: SiteGenerationContext): WorkspaceArtifact[] {
   const theme = createDefaultColumnTheme(ctx)
@@ -45,6 +46,7 @@ export function createColumnLayoutArtifacts(ctx: SiteGenerationContext): Workspa
 
   return [
     ...createColumnThemeArtifacts(ctx),
+    sitePublicLibArtifact(),
     {
       relativePath: 'src/lib/site.ts',
       content: `import siteConfig from '../../config/site.json'
@@ -227,18 +229,13 @@ const { current } = Astro.props
 }
 
 function footerAstro(lang: 'ko' | 'en'): string {
-  return `---
-import { SITE_TITLE } from '../lib/site'
-const year = new Date().getFullYear()
----
-
-<footer class="${EpColumnClasses.Footer}">
-  <div class="${EpColumnClasses.FooterInner} ${EpColumnClasses.Wide}">
-    <span>© {year} {SITE_TITLE}</span>
-    <span>${lang === 'ko' ? 'Emprint로 발행됨' : 'Published with Emprint'}</span>
-  </div>
-</footer>
-`
+  return footerAstroContent({
+    footerClass: EpColumnClasses.Footer,
+    footerInnerClass: EpColumnClasses.FooterInner,
+    wideClass: EpColumnClasses.Wide,
+    lang,
+    publishedWithEmprint: true
+  })
 }
 
 function postCardAstro(): string {

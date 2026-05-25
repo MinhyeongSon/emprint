@@ -117,6 +117,17 @@ const api: EmprintDesktopApi = {
     listImages: () => ipcRenderer.invoke(ipcChannels.assetsListImages),
     deleteImage: (input) => ipcRenderer.invoke(ipcChannels.assetsDeleteImage, input)
   },
+  story: {
+    read: () => ipcRenderer.invoke(ipcChannels.storyRead),
+    save: (input) => ipcRenderer.invoke(ipcChannels.storySave, input)
+  },
+  artwork: {
+    list: () => ipcRenderer.invoke(ipcChannels.artworkList),
+    save: (input) => ipcRenderer.invoke(ipcChannels.artworkSave, input),
+    update: (input) => ipcRenderer.invoke(ipcChannels.artworkUpdate, input),
+    delete: (input) => ipcRenderer.invoke(ipcChannels.artworkDelete, input),
+    reorder: (input) => ipcRenderer.invoke(ipcChannels.artworkReorder, input)
+  },
   window: {
     minimize: () => ipcRenderer.invoke(ipcChannels.windowMinimize),
     toggleMaximize: () => ipcRenderer.invoke(ipcChannels.windowToggleMaximize),

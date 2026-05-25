@@ -16,16 +16,21 @@ import { Input } from '@renderer/components/ui/input'
 import { Textarea } from '@renderer/components/ui/textarea'
 import { useAppStore } from '@renderer/state/app-store'
 import {
+  isValidPublicationSlug,
   parseGithubRepoFromRemoteUrl,
+  publicationSlugFromTitle,
   resolveGithubPagesUrl,
+  slugifyPublicationSlug,
   type WorkspaceCatalogEntry,
   type SiteProjectKind,
   type WorkspaceConfig
 } from '@emprint/shared'
 import { Sidebar } from '@renderer/features/shell/sidebar'
 import {
+  BookPagesPreview,
   ColumnReadingRoomPreview,
   DictionaryLayoutPreview,
+  FragmentsShelfPreview,
   MemoirLayoutPreview
 } from '@renderer/features/hub/workspace-format-previews'
 import { cn } from '@renderer/lib/cn'
@@ -35,19 +40,6 @@ function formatDate(value: string): string {
   if (Number.isNaN(date.getTime())) return value
   return date.toISOString().slice(0, 10)
 }
-
-function slugifyRepoName(value: string): string {
-  return (
-    value
-      .normalize('NFKC')
-      .trim()
-      .toLowerCase()
-      // allow unicode letters/numbers so Korean titles still produce stable slugs
-      .replace(/[^\p{Letter}\p{Number}]+/gu, '-')
-      .replace(/^-+|-+$/g, '') || 'emprint-workspace'
-  )
-}
-
 
 export function WorkspaceHub() {
   const locale = useAppStore((state) => state.locale)
@@ -66,6 +58,10 @@ export function WorkspaceHub() {
   const [creating, setCreating] = useState(false)
   const [createSiteProjectKind, setCreateSiteProjectKind] = useState<SiteProjectKind>('column')
   const [createTitle, setCreateTitle] = useState(locale === 'ko' ? '새 앤솔로지' : 'New anthology')
+  const [createPublicationSlug, setCreatePublicationSlug] = useState(
+    publicationSlugFromTitle(locale === 'ko' ? '새 앤솔로지' : 'New anthology')
+  )
+  const [publicationSlugTouched, setPublicationSlugTouched] = useState(false)
   const [createDescription, setCreateDescription] = useState('')
   const [createRemoteUrl, setCreateRemoteUrl] = useState('')
   const [createOnGithub, setCreateOnGithub] = useState(true)
@@ -136,9 +132,9 @@ export function WorkspaceHub() {
   )
 
   useEffect(() => {
-    // keep title as the single source of truth
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    if (publicationSlugTouched) return
+    setCreatePublicationSlug(publicationSlugFromTitle(createTitle))
+  }, [createTitle, publicationSlugTouched])
 
   async function openWorkspace(localDirectory: string, workspaceId: string) {
     setError(null)
@@ -195,8 +191,17 @@ export function WorkspaceHub() {
       return
     }
 
-    const repoName = slugifyRepoName(createTitle)
-    const localDirectory = `${workspaceRootDir.replace(/\/+$/g, '')}/${repoName}`
+    const publicationSlug = slugifyPublicationSlug(createPublicationSlug)
+    if (!isValidPublicationSlug(publicationSlug)) {
+      setError(
+        locale === 'ko'
+          ? '발행 슬러그는 글자·숫자와 하이픈만 사용할 수 있습니다.'
+          : 'Publication slug may only use letters, numbers, and hyphens.'
+      )
+      return
+    }
+
+    const localDirectory = `${workspaceRootDir.replace(/\/+$/g, '')}/${publicationSlug}`
     const now = new Date().toISOString()
     let remoteUrl = createRemoteUrl.trim() || undefined
     setCreating(true)
@@ -215,7 +220,7 @@ export function WorkspaceHub() {
         }
         const created = await api.github.repoCreate({
           owner,
-          name: repoName,
+          name: publicationSlug,
           visibility: 'public',
           ...(createDescription.trim() ? { description: createDescription.trim() } : {})
         })
@@ -227,8 +232,9 @@ export function WorkspaceHub() {
         locale,
         workspaceType: 'creator' as const,
         siteProjectKind: createSiteProjectKind,
+        publicationSlug,
         templateId: 'blog',
-        title: createTitle.trim() || repoName,
+        title: createTitle.trim() || publicationSlug,
         description: createDescription.trim(),
         themeColor: '#f97316',
         layoutStyle: 'editorial' as const,
@@ -236,7 +242,7 @@ export function WorkspaceHub() {
         repository: {
           mode: 'create' as const,
           providerId: 'github' as const,
-          repositoryName: repoName,
+          repositoryName: publicationSlug,
           ...(remoteUrl ? { remoteUrl } : {})
         }
       }
@@ -272,18 +278,18 @@ export function WorkspaceHub() {
       const message = caught instanceof Error ? caught.message : ''
       if (message.includes('Repository name already exists')) {
         const suffix = String(new Date().toISOString().slice(0, 10)).replace(/-/g, '')
-        const nextName = `${repoName}-${suffix}`
-        setSuggestedRepoName(nextName)
+        const nextSlug = `${publicationSlug}-${suffix}`
+        setSuggestedRepoName(nextSlug)
         setError(
           locale === 'ko'
-            ? '같은 이름의 GitHub 레포가 이미 있습니다. 레포 이름을 바꿔 주세요.'
-            : 'A GitHub repository with this name already exists. Please choose a different name.'
+            ? '같은 이름의 GitHub 레포가 이미 있습니다. 발행 슬러그를 바꿔 주세요.'
+            : 'A GitHub repository with this name already exists. Please choose a different publication slug.'
         )
       } else if (message.includes('Select an empty directory') || message.includes('비어 있는 디렉터리')) {
         setError(
           locale === 'ko'
-            ? `앤솔로지는 비어 있는 폴더에만 만들 수 있습니다. "${localDirectory}"에 이미 파일이 있습니다. 그 폴더를 삭제하거나 비운 뒤 다시 시도하거나, 제목을 바꿔 다른 폴더 이름을 쓰세요.`
-            : `New anthologies need an empty folder. "${localDirectory}" already has files. Delete or empty that folder and try again, or change the anthology title to use a different folder name.`
+            ? `앤솔로지는 비어 있는 폴더에만 만들 수 있습니다. "${localDirectory}"에 이미 파일이 있습니다. 그 폴더를 삭제하거나 비운 뒤 다시 시도하거나, 발행 슬러그를 바꿔 주세요.`
+            : `New anthologies need an empty folder. "${localDirectory}" already has files. Delete or empty that folder and try again, or change the publication slug.`
         )
       } else {
         setError(message || (locale === 'ko' ? '앤솔로지 생성에 실패했습니다.' : 'Failed to create anthology.'))
@@ -377,8 +383,8 @@ export function WorkspaceHub() {
                         : `Use suggested name: ${suggestedRepoName}`
                     }
                     onClick={() => {
-                      // apply suggestion by updating the title (single source of truth)
-                      setCreateTitle(suggestedRepoName)
+                      setPublicationSlugTouched(true)
+                      setCreatePublicationSlug(suggestedRepoName)
                       setSuggestedRepoName(null)
                       setError(null)
                     }}
@@ -419,7 +425,7 @@ export function WorkspaceHub() {
                 <div className="text-[11px] uppercase tracking-[0.16em] text-muted">
                   {locale === 'ko' ? '사이트 형식' : 'Site format'}
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4">
                   {(
                     [
                       {
@@ -448,6 +454,24 @@ export function WorkspaceHub() {
                           locale === 'ko'
                             ? 'sections/ 아래 시맨틱 JSON 섹션으로 프로필·작업을 구성합니다.'
                             : 'Compose semantic JSON sections under sections/.'
+                      },
+                      {
+                        kind: 'fragments' as const,
+                        title: 'Fragments',
+                        subtitle: locale === 'ko' ? '이미지 전시 · LP 선반' : 'Image gallery · LP shelf',
+                        body:
+                          locale === 'ko'
+                            ? 'artwork/에 JPEG 작품을 올리면 공개 사이트 선반에 표시됩니다. (최대 50)'
+                            : 'Upload JPEG artworks under artwork/ for an interactive public shelf. (max 50)'
+                      },
+                      {
+                        kind: 'book' as const,
+                        title: 'Book',
+                        subtitle: locale === 'ko' ? '단일 이야기 · 책 읽기' : 'Single story · book reading',
+                        body:
+                          locale === 'ko'
+                            ? 'story/story.md 한 파일에 글과 이미지를 담고, Pages 또는 Scroll 레이아웃으로 공개합니다.'
+                            : 'One narrative in story/story.md — publish with Pages (flip) or Scroll layout.'
                       }
                     ] as const
                   ).map((format) => {
@@ -480,6 +504,10 @@ export function WorkspaceHub() {
                           <ColumnReadingRoomPreview />
                         ) : format.kind === 'dictionary' ? (
                           <DictionaryLayoutPreview />
+                        ) : format.kind === 'fragments' ? (
+                          <FragmentsShelfPreview />
+                        ) : format.kind === 'book' ? (
+                          <BookPagesPreview />
                         ) : (
                           <MemoirLayoutPreview />
                         )}
@@ -492,23 +520,49 @@ export function WorkspaceHub() {
 
               <div className="grid gap-3 lg:grid-cols-2">
                 <div className="space-y-1.5">
-                  <div className="text-[11px] uppercase tracking-[0.16em] text-muted">{locale === 'ko' ? '제목' : 'Title'}</div>
-                  <Input value={createTitle} onChange={(e) => setCreateTitle(e.target.value)} placeholder={locale === 'ko' ? '예: 나의 글쓰기' : 'e.g. My writing'} />
-                </div>
-                <div className="space-y-1.5">
-                  <div className="text-[11px] uppercase tracking-[0.16em] text-muted">{locale === 'ko' ? '저장 위치' : 'Location'}</div>
-                  <div className="rounded-md border border-border bg-panel px-3 py-2.5 font-mono text-[11px] text-muted">
-                    {workspaceRootDir
-                      ? `${workspaceRootDir.replace(/\/+$/g, '')}/${slugifyRepoName(createTitle)}`
-                      : locale === 'ko'
-                        ? '루트를 먼저 선택해 주세요.'
-                        : 'Select a root folder first.'}
+                  <div className="text-[11px] uppercase tracking-[0.16em] text-muted">
+                    {locale === 'ko' ? '발행 제목' : 'Publication title'}
                   </div>
+                  <Input
+                    value={createTitle}
+                    onChange={(e) => setCreateTitle(e.target.value)}
+                    placeholder={locale === 'ko' ? '예: 나의 글쓰기' : 'e.g. My writing'}
+                  />
                   <div className="text-[11px] text-muted">
                     {locale === 'ko'
-                      ? '제목을 기반으로 폴더/원격 이름을 자동으로 만듭니다.'
-                      : 'Folder and remote name are derived from the title.'}
+                      ? '사이트와 허브에 표시되는 이름입니다. 폴더 이름과는 별도입니다.'
+                      : 'Shown on your site and in the Hub. Separate from the folder slug.'}
                   </div>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="text-[11px] uppercase tracking-[0.16em] text-muted">
+                    {locale === 'ko' ? '발행 슬러그' : 'Publication slug'}
+                  </div>
+                  <Input
+                    value={createPublicationSlug}
+                    onChange={(e) => {
+                      setPublicationSlugTouched(true)
+                      setCreatePublicationSlug(e.target.value)
+                    }}
+                    placeholder={locale === 'ko' ? '예: my-writing' : 'e.g. my-writing'}
+                    className="font-mono text-[12px]"
+                  />
+                  <div className="text-[11px] text-muted">
+                    {locale === 'ko'
+                      ? '로컬 폴더와 GitHub 저장소 이름에 사용됩니다. 형식(Column 등)과 무관합니다.'
+                      : 'Used for the local folder and GitHub repo name. Independent of format (Column, etc.).'}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="text-[11px] uppercase tracking-[0.16em] text-muted">{locale === 'ko' ? '저장 위치' : 'Location'}</div>
+                <div className="rounded-md border border-border bg-panel px-3 py-2.5 font-mono text-[11px] text-muted">
+                  {workspaceRootDir
+                    ? `${workspaceRootDir.replace(/\/+$/g, '')}/${slugifyPublicationSlug(createPublicationSlug)}`
+                    : locale === 'ko'
+                      ? '루트를 먼저 선택해 주세요.'
+                      : 'Select a root folder first.'}
                 </div>
               </div>
 

@@ -2,6 +2,7 @@
 
 import type { AnthologyColorMode, AnthologyThemeFile, AnthologyThemeTokens } from '../anthology/theme'
 import { ANTHOLOGY_THEME_CONTRACT_VERSION } from '../anthology/types'
+import { getCanonicalSiteColors } from '../cross/canonical-palettes'
 import { DEFAULT_LANDING_INTRO, normalizeLandingIntroConfig } from '../cross/landing-intro'
 import { normalizeColorPalette, type ColorPaletteId } from '../cross/color-palette'
 import { normalizeLayoutComposition, type LayoutCompositionId } from '../cross/layout-composition'
@@ -41,66 +42,14 @@ const EDITORIAL_LAYOUT: AnthologyThemeTokens['layout'] = { measure: '46rem', wid
 const EMPRINT_RADIUS: AnthologyThemeTokens['radius'] = { sm: '4px', md: '10px', pill: '999px' }
 const PAPER_INK_RADIUS: AnthologyThemeTokens['radius'] = { sm: '0px', md: '2px', pill: '2px' }
 
-const EMPRINT_LIGHT = {
-  bg: '#f7f5f0',
-  surface: '#ffffff',
-  ink: '#141210',
-  muted: '#6a6560',
-  rule: '#e6e1d8',
-  accent: '#2d6a4f',
-  accentSoft: 'rgba(45, 106, 79, 0.12)'
-}
-
-const EMPRINT_DARK = {
-  bg: '#121110',
-  surface: '#1c1a18',
-  ink: '#f2efe8',
-  muted: '#9a948c',
-  rule: '#2e2b28',
-  accent: '#52b788',
-  accentSoft: 'rgba(82, 183, 136, 0.15)'
-}
-
-const PAPER_INK_LIGHT = {
-  bg: '#f4f1ea',
-  surface: '#fffef9',
-  ink: '#111111',
-  muted: '#5c5c5c',
-  rule: '#1a1a1a',
-  accent: '#111111',
-  accentSoft: 'rgba(0, 0, 0, 0.06)'
-}
-
-const PAPER_INK_DARK = {
-  bg: '#0a0a0a',
-  surface: '#141414',
-  ink: '#f5f5f5',
-  muted: '#a3a3a3',
-  rule: '#d4d4d4',
-  accent: '#fafafa',
-  accentSoft: 'rgba(255, 255, 255, 0.08)'
-}
-
-interface PaletteTokens {
-  color: AnthologyThemeTokens['color']
+interface PaletteStyle {
   font: AnthologyThemeTokens['font']
   radius: AnthologyThemeTokens['radius']
-  dark: Partial<AnthologyThemeTokens['color']>
 }
 
-const PALETTE_TOKENS: Record<MemoirColorPaletteId, PaletteTokens> = {
-  emprint: {
-    color: EMPRINT_LIGHT,
-    font: EMPRINT_FONT,
-    radius: EMPRINT_RADIUS,
-    dark: EMPRINT_DARK
-  },
-  paperInk: {
-    color: PAPER_INK_LIGHT,
-    font: PAPER_INK_FONT,
-    radius: PAPER_INK_RADIUS,
-    dark: PAPER_INK_DARK
-  }
+const PALETTE_STYLE: Record<MemoirColorPaletteId, PaletteStyle> = {
+  emprint: { font: EMPRINT_FONT, radius: EMPRINT_RADIUS },
+  paperInk: { font: PAPER_INK_FONT, radius: PAPER_INK_RADIUS }
 }
 
 const COMPOSITION_LAYOUT: Record<MemoirLayoutComposition, AnthologyThemeTokens['layout']> = {
@@ -118,7 +67,8 @@ export function buildMemoirTheme(
   colorPalette: MemoirColorPaletteId,
   colorMode: MemoirThemeFile['colorMode'] = 'system'
 ): MemoirThemeFile {
-  const palette = PALETTE_TOKENS[colorPalette]
+  const { light, dark } = getCanonicalSiteColors(colorPalette)
+  const style = PALETTE_STYLE[colorPalette]
   return {
     contractVersion: ANTHOLOGY_THEME_CONTRACT_VERSION,
     anthology: 'memoir',
@@ -127,12 +77,12 @@ export function buildMemoirTheme(
     colorPalette,
     colorMode,
     tokens: {
-      color: palette.color,
-      font: palette.font,
+      color: { ...light },
+      font: style.font,
       layout: COMPOSITION_LAYOUT[layoutComposition],
-      radius: palette.radius
+      radius: style.radius
     },
-    modes: { dark: { color: palette.dark } },
+    modes: { dark: { color: { ...dark } } },
     landingIntro: { ...DEFAULT_LANDING_INTRO }
   }
 }

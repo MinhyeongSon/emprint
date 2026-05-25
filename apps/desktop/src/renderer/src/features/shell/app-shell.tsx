@@ -13,6 +13,8 @@ import { IndexSurface } from '@renderer/features/index/index-surface'
 import { KnowledgeSurface } from '@renderer/features/knowledge/knowledge-surface'
 import { SectionsSurface } from '@renderer/features/sections/sections-surface'
 import { DesignSurface } from '@renderer/features/design/design-surface'
+import { ArtworkSurface } from '@renderer/features/artwork/artwork-surface'
+import { StorySurface } from '@renderer/features/story/story-surface'
 import { AssetsSurface } from '@renderer/features/assets/assets-surface'
 import { ImprintSurface } from '@renderer/features/imprint/imprint-surface'
 import { PlatformMigrationPanel } from '@renderer/features/settings/platform-migration-panel'
@@ -172,6 +174,10 @@ export function AppShell() {
           ) : (
             <PostsSurface locale={locale} section="drafts" />
           )
+        ) : activeSection === 'artwork' ? (
+          <ArtworkSurface locale={locale} />
+        ) : activeSection === 'story' ? (
+          <StorySurface locale={locale} />
         ) : activeSection === 'assets' ? (
           <AssetsSurface locale={locale} />
         ) : activeSection === 'design' ? (

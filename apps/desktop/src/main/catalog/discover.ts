@@ -2,7 +2,7 @@ import { readdir, readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import simpleGit from 'simple-git'
 import type { CatalogReconcileResult, WorkspaceCatalogEntry, WorkspaceManifest } from '@emprint/shared'
-import { parseWorkspaceManifestJson } from '@emprint/shared'
+import { parseWorkspaceManifestJson, resolveManifestPublicationSlug } from '@emprint/shared'
 import type { Dirent } from 'node:fs'
 import { MANIFEST_RELATIVE_PATH } from '@emprint/shared'
 import { readCatalog, writeCatalog } from './catalog-store'
@@ -140,7 +140,7 @@ export async function reconcileWorkspaceCatalog(workspaceRootDir: string): Promi
   for (const item of scanned) {
     const resolvedDir = path.resolve(item.localDirectory)
     const prev = byPath.get(resolvedDir)
-    const baseId = item.manifest.name.trim()
+    const baseId = resolveManifestPublicationSlug(item.manifest)
     const id = prev?.id ?? uniqueCatalogId(baseId, resolvedDir, usedIds)
     if (prev?.id) usedIds.add(id)
 

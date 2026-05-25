@@ -61,14 +61,20 @@ export function registerAssetProtocolHandler(): void {
       return new Response('Forbidden', { status: 403 })
     }
 
-    // Only files under `assets/` are addressable via this scheme.
-    if (normalized !== WORKSPACE_DIR.assets && !normalized.startsWith(`${WORKSPACE_DIR.assets}/`)) {
+    const underAssets =
+      normalized === WORKSPACE_DIR.assets || normalized.startsWith(`${WORKSPACE_DIR.assets}/`)
+    const underArtwork =
+      normalized === WORKSPACE_DIR.artwork || normalized.startsWith(`${WORKSPACE_DIR.artwork}/`)
+    if (!underAssets && !underArtwork) {
       return new Response('Forbidden', { status: 403 })
     }
 
     const abs = path.resolve(workspaceRoot, ...normalized.split('/'))
-    const assetsRoot = path.resolve(workspaceRoot, WORKSPACE_DIR.assets)
-    const rel = path.relative(assetsRoot, abs)
+    const contentRoot = path.resolve(
+      workspaceRoot,
+      underArtwork ? WORKSPACE_DIR.artwork : WORKSPACE_DIR.assets
+    )
+    const rel = path.relative(contentRoot, abs)
     if (rel.startsWith('..') || path.isAbsolute(rel)) {
       return new Response('Forbidden', { status: 403 })
     }

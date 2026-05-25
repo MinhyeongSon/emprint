@@ -9,8 +9,10 @@ import { resolveWindowsSystemExecutable, spawnNode, spawnNpm } from './node-tool
 import {
   ensureDictionaryIndexRegistry,
   ensureDictionarySiteTemplates,
-  ensureWorkspaceSyncThemeScript
+  ensureWorkspaceSyncThemeScript,
+  readWorkspaceAnthology
 } from '../workspace/theme-script'
+import { syncWorkspaceThemeFromFile } from '../workspace/theme-sync'
 
 export const SITE_DEV_PREVIEW_URL = 'http://localhost:4321/'
 const DEFAULT_PREVIEW_PORT = 4321
@@ -339,9 +341,13 @@ function runNodeScript(scriptPath: string, cwd: string): Promise<void> {
 
 async function runWorkspacePredev(root: string): Promise<void> {
   const themeScript = path.join(root, 'scripts', 'sync-theme.mjs')
+  const artworkScript = path.join(root, 'scripts', 'sync-artwork.mjs')
   const assetsScript = path.join(root, 'scripts', 'sync-assets.mjs')
   if (existsSync(themeScript)) {
     await runNodeScript(themeScript, root)
+  }
+  if (existsSync(artworkScript)) {
+    await runNodeScript(artworkScript, root)
   }
   if (existsSync(assetsScript)) {
     await runNodeScript(assetsScript, root)
@@ -412,6 +418,12 @@ async function startSiteDevServer(root: string): Promise<SiteDevServerState> {
   await ensureWorkspaceSyncThemeScript(resolved)
   await ensureDictionarySiteTemplates(resolved)
   await ensureDictionaryIndexRegistry(resolved)
+  try {
+    const kind = await readWorkspaceAnthology(resolved)
+    await syncWorkspaceThemeFromFile(resolved, kind)
+  } catch {
+    /* theme.json missing or invalid — predev may still fail downstream */
+  }
 
   currentPreviewUrl = SITE_DEV_PREVIEW_URL
   await releasePreviewPorts()

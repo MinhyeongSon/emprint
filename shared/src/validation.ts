@@ -9,6 +9,11 @@ import type {
   WorkspaceType,
   WorkspaceTemplateId
 } from './types'
+import {
+  isValidPublicationSlug,
+  normalizePublicationSlug,
+  resolveManifestPublicationSlug
+} from './workspace/publication-slug'
 
 const locales = new Set<AppLocale>(['ko', 'en'])
 const workspaceTypes = new Set<WorkspaceType>(['creator', 'developer', 'ai'])
@@ -23,7 +28,7 @@ const knownTemplateIdStrings = new Set<string>([
   'dev-blog',
   'portfolio-blog'
 ])
-const siteProjectKinds = new Set<SiteProjectKind>(['column', 'memoir', 'dictionary'])
+const siteProjectKinds = new Set<SiteProjectKind>(['column', 'memoir', 'dictionary', 'fragments', 'book'])
 const layoutStyles = new Set<WorkspaceLayoutStyle>(['editorial', 'notebook', 'magazine'])
 const providerIds = new Set<GitRemoteProviderId>([
   'github',
@@ -52,8 +57,14 @@ export function parseWorkspaceManifest(input: unknown): WorkspaceManifest | null
   if (!workspaceType || !templateId || !themeColor || !layoutStyle) return null
 
   const siteProjectKind = parseSiteProjectKind(record.siteProjectKind)
-  const manifest: WorkspaceManifest = {
+  const publicationSlug = resolveManifestPublicationSlug({
+    publicationSlug: typeof record.publicationSlug === 'string' ? record.publicationSlug : undefined,
     name,
+    title
+  })
+  const manifest: WorkspaceManifest = {
+    name: publicationSlug,
+    publicationSlug,
     title,
     description,
     locale,
@@ -79,13 +90,24 @@ export function parseWorkspaceConfig(input: unknown): WorkspaceConfig {
   const locale = coerceAppLocale(record.locale)
   const repository = assertRecord(record.repository, 'workspace repository', locale)
 
+  const title = assertNonEmptyString(record.title, 'title', locale)
+  const publicationSlug = normalizePublicationSlug(record.publicationSlug, title)
+  if (!isValidPublicationSlug(publicationSlug)) {
+    throw new Error(
+      locale === 'ko'
+        ? '발행 슬러그는 영문·숫자와 하이픈만 사용할 수 있습니다.'
+        : 'Publication slug may only use letters, numbers, and hyphens.'
+    )
+  }
+
   const config: WorkspaceConfig = {
     authProvider: assertGitHubAuthProvider(record.authProvider, locale),
     locale,
     workspaceType: assertWorkspaceType(record.workspaceType, locale),
     siteProjectKind: coerceSiteProjectKind(record.siteProjectKind, locale),
+    publicationSlug,
     templateId: assertWorkspaceTemplateId(record.templateId, locale),
-    title: assertNonEmptyString(record.title, 'title', locale),
+    title,
     description: assertNonEmptyString(record.description, 'description', locale),
     themeColor: assertNonEmptyString(record.themeColor, 'themeColor', locale),
     layoutStyle: assertWorkspaceLayoutStyle(record.layoutStyle, locale),

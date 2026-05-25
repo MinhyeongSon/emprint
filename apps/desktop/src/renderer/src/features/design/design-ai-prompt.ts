@@ -24,7 +24,7 @@ You are helping customize the **public Astro site** inside an **Emprint antholog
 - **Drafts** live in \`drafts/\` and are **gitignored** — never published.
 - **Images** live in \`assets/images/\`. A sync script copies them to \`public/assets/\` before dev/build so markdown can reference \`/assets/...\`.
 - **Publishing**: user commits in Emprint → push to GitHub → GitHub Actions builds Astro → GitHub Pages. Site URL pattern: \`https://<github-user>.github.io/<repo-name>/\`.
-- **Template mode** applies **Emprint** or **Paper & Ink** presets via \`config/theme.json\` (each includes light + dark). Prefer editing \`theme.json\` tokens; run \`npm run theme:sync\` or save in Design → Code to regenerate \`src/styles/tokens.css\`.
+- **Template mode** applies **Emprint** or **Paper & Ink** palettes + layout via \`config/theme.json\` (canonical colors in \`shared/src/cross/canonical-palettes.ts\` — do not invent hex). Site **colorMode** is unchanged on Template apply; visitors toggle light/dark on the live site. Run \`npm run theme:sync\` after edits. See \`docs/COLOR_PALETTES.md\`.
 
 ### Anthology site stack
 - **Astro 6** static site (\`output: 'static'\`), \`trailingSlash: 'always'\`

@@ -17,7 +17,7 @@ export interface SiteDevServerState {
 export type WorkspaceType = 'creator' | 'developer' | 'ai'
 /** Astro site scaffold: GitHub-oriented blog vs portfolio. */
 /** Astro site scaffold / semantic content format. */
-export type SiteProjectKind = 'column' | 'memoir' | 'dictionary'
+export type SiteProjectKind = 'column' | 'memoir' | 'dictionary' | 'fragments' | 'book'
 /**
  * A single workspace template (blog). Kept as a named type rather than a
  * literal so workspaces with older manifest values still round-trip through
@@ -42,6 +42,11 @@ export interface WorkspaceConfig {
   workspaceType: WorkspaceType
   /** Astro `src/` + tooling; extensible via site generators in core. */
   siteProjectKind: SiteProjectKind
+  /**
+   * Stable id for local folder + GitHub repo (`{root}/{publicationSlug}/`).
+   * Distinct from display `title` and from `siteProjectKind` (format).
+   */
+  publicationSlug: string
   templateId: WorkspaceTemplateId
   title: string
   description: string
@@ -52,7 +57,10 @@ export interface WorkspaceConfig {
 }
 
 export interface WorkspaceManifest {
+  /** Legacy catalog id; equals `publicationSlug` when set. */
   name: string
+  /** Stable folder + remote repo slug (see `publicationSlug`). */
+  publicationSlug?: string
   title: string
   description: string
   locale: AppLocale
@@ -75,7 +83,7 @@ export interface AssetReference {
   /** Workspace-relative POSIX path to the referencing post, e.g. `posts/2024-01-01-hello.md`. */
   postPath: string
   postTitle: string
-  section: 'posts' | 'drafts' | 'knowledge'
+  section: 'posts' | 'drafts' | 'knowledge' | 'story'
 }
 
 /** A single image file under `assets/images/` plus posts that reference it. */

@@ -13,10 +13,12 @@ import {
 import type { FileSystemGateway } from '../fs/file-system-gateway'
 import type { GitProviderFactory } from '../git/contracts'
 import type { SiteProjectGeneratorRegistry } from '../site/site-project-generator'
+import { createStarterArtworkManifestArtifact } from './starter-artwork'
 import { createStarterIndexRegistryArtifact } from './starter-index-registry'
 import { createStarterKnowledgeArtifact } from './starter-knowledge'
 import { createStarterMemoirArtifacts } from './starter-memoir'
 import { createStarterPostArtifact, createWorkspaceCacheReadme } from './starter-post'
+import { createStarterStoryArtifact } from './starter-story'
 
 export interface WorkspaceBootstrapperDependencies {
   fileSystem: FileSystemGateway
@@ -90,6 +92,9 @@ export class WorkspaceBootstrapper {
     const dictionaryStarter = siteKind === 'dictionary' ? createStarterKnowledgeArtifact(config) : null
     const dictionaryIndexRegistry =
       siteKind === 'dictionary' ? createStarterIndexRegistryArtifact(config) : null
+    const fragmentsArtworkManifest =
+      siteKind === 'fragments' ? createStarterArtworkManifestArtifact() : null
+    const bookStarter = siteKind === 'book' ? createStarterStoryArtifact(config) : null
 
     const createdFiles: string[] = []
     let starterPost: InitializeWorkspaceResult['starterPost']
@@ -121,10 +126,12 @@ export class WorkspaceBootstrapper {
           2
         )
       },
-      {
-        relativePath: `${WORKSPACE_DIR.assets}/.gitkeep`,
-        content: ''
-      },
+      ...(siteKind !== 'fragments' && siteKind !== 'book'
+        ? [{ relativePath: `${WORKSPACE_DIR.assets}/.gitkeep`, content: '' }]
+        : []),
+      ...(siteKind === 'fragments'
+        ? [{ relativePath: `${WORKSPACE_DIR.artwork}/.gitkeep`, content: '' }]
+        : []),
       {
         relativePath: '.gitignore',
         content: buildGitignore(siteKind)
@@ -144,6 +151,12 @@ export class WorkspaceBootstrapper {
         : []),
       ...(dictionaryIndexRegistry
         ? [{ relativePath: dictionaryIndexRegistry.relativePath, content: dictionaryIndexRegistry.content }]
+        : []),
+      ...(fragmentsArtworkManifest
+        ? [{ relativePath: fragmentsArtworkManifest.relativePath, content: fragmentsArtworkManifest.content }]
+        : []),
+      ...(bookStarter
+        ? [{ relativePath: bookStarter.relativePath, content: bookStarter.content }]
         : []),
       ...memoirStarters.map((a) => ({ relativePath: a.relativePath, content: a.content }))
     ]
@@ -206,8 +219,10 @@ export class WorkspaceBootstrapper {
   }
 
   private createManifest(config: WorkspaceConfig): WorkspaceManifest {
+    const publicationSlug = config.publicationSlug.trim()
     return {
-      name: slugify(config.title),
+      name: publicationSlug,
+      publicationSlug,
       title: config.title,
       description: config.description,
       locale: config.locale,
@@ -236,17 +251,6 @@ function buildGitignore(kind: SiteProjectKind): string {
   return lines.join('\n') + '\n'
 }
 
-function slugify(value: string): string {
-  return (
-    value
-      .normalize('NFKC')
-      .trim()
-      .toLowerCase()
-      .replace(/[^\p{Letter}\p{Number}]+/gu, '-')
-      .replace(/^-+|-+$/g, '') || 'workspace'
-  )
-}
-
 function createWorkspaceReadme(config: WorkspaceConfig): string {
   if (config.locale === 'ko') {
     return [
@@ -258,7 +262,9 @@ function createWorkspaceReadme(config: WorkspaceConfig): string {
       '',
       config.siteProjectKind === 'memoir'
         ? '콘텐츠는 `sections/` 아래 시맨틱 JSON 섹션으로 구성됩니다.'
-        : '글은 `posts/`와 `drafts/`에서 관리합니다.',
+        : config.siteProjectKind === 'book'
+          ? '이야기는 `story/story.md` 한 파일에 담깁니다.'
+          : '글은 `posts/`와 `drafts/`에서 관리합니다.',
       '',
       '이 README.md 문서는 GitHub 저장소에서 마크다운 형식으로 확인할 수 있습니다.'
     ].join('\n')
@@ -273,7 +279,9 @@ function createWorkspaceReadme(config: WorkspaceConfig): string {
     '',
     config.siteProjectKind === 'memoir'
       ? 'Content lives as semantic JSON sections under `sections/`.'
-      : 'Writing lives under `posts/` and `drafts/`.',
+      : config.siteProjectKind === 'book'
+        ? 'The narrative lives in a single file at `story/story.md`.'
+        : 'Writing lives under `posts/` and `drafts/`.',
     '',
     'You can read this README.md on GitHub as rendered Markdown.'
   ].join('\n')

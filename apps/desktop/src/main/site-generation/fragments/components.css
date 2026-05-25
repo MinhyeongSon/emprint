@@ -1,0 +1,540 @@
+/* Fragments LP Shelf — vinyl carousel + side preview */
+
+html[data-ep-layout-composition='lpShelf'] .ep-fragments-Site,
+html[data-ep-layout-composition='gallery'] .ep-fragments-Site {
+  min-height: 100dvh;
+  background: var(--ep-fragments-color-bg);
+  color: var(--ep-fragments-color-ink);
+  font-family: var(--ep-fragments-font-sans);
+}
+
+.ep-fragments-Header {
+  border-bottom: 1px solid var(--ep-fragments-color-rule);
+  background: color-mix(in srgb, var(--ep-fragments-color-bg) 92%, transparent);
+  backdrop-filter: blur(8px);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.ep-fragments-Header-inner,
+.ep-fragments-Footer-inner,
+.ep-fragments-u-Container {
+  max-width: var(--ep-fragments-layout-wide);
+  margin-inline: auto;
+  padding-inline: clamp(1rem, 4vw, 2rem);
+}
+
+.ep-fragments-Header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 3.25rem;
+}
+
+.ep-fragments-Header-brand {
+  font-family: var(--ep-fragments-font-serif);
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  color: inherit;
+}
+
+.ep-fragments-Header-nav a {
+  text-decoration: none;
+  color: var(--ep-fragments-color-muted);
+  font-size: 0.9rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: color 0.15s ease;
+}
+
+.ep-fragments-Header-nav a:hover,
+.ep-fragments-Header-nav a:focus-visible {
+  color: var(--ep-fragments-color-accent);
+}
+
+.ep-fragments-Header-nav-script {
+  font-family: 'Caveat', 'Segoe Script', 'Apple Chancery', cursive;
+  font-size: 1.45rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  color: var(--ep-fragments-color-accent);
+}
+
+/* Emprint palette — brand orange on site title + Shelf nav */
+html[data-ep-palette='emprint'] .ep-fragments-Header-brand {
+  color: var(--ep-fragments-color-accent);
+}
+
+html[data-ep-palette='emprint'] .ep-fragments-Header-nav a {
+  color: var(--ep-fragments-color-accent);
+}
+
+html[data-ep-palette='emprint'] .ep-fragments-Header-nav a:hover,
+html[data-ep-palette='emprint'] .ep-fragments-Header-nav a:focus-visible {
+  color: color-mix(in srgb, var(--ep-fragments-color-accent) 72%, var(--ep-fragments-color-ink));
+}
+
+html[data-ep-palette='emprint'] .ep-fragments-Shelf-preview-meta strong {
+  color: var(--ep-fragments-color-accent);
+}
+
+.ep-fragments-Gallery {
+  padding: clamp(2rem, 6vw, 4rem) 0 5rem;
+}
+
+.ep-fragments-Gallery-inner {
+  max-width: var(--ep-fragments-layout-wide);
+  margin-inline: auto;
+  padding-inline: clamp(1rem, 4vw, 2rem);
+}
+
+/* --- Vinyl carousel --- */
+
+.ep-fragments-Shelf-carousel {
+  width: 100%;
+}
+
+.ep-fragments-Shelf-layout {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto minmax(14rem, 32%);
+  gap: clamp(0.75rem, 2.5vw, 1.75rem);
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .ep-fragments-Shelf-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    justify-items: center;
+  }
+
+  .ep-fragments-Shelf-nav-btn[data-carousel-prev] {
+    grid-row: 2;
+    grid-column: 1;
+    justify-self: start;
+  }
+
+  .ep-fragments-Shelf-stage {
+    grid-row: 2;
+    grid-column: 1;
+  }
+
+  .ep-fragments-Shelf-nav-btn[data-carousel-next] {
+    grid-row: 2;
+    grid-column: 1;
+    justify-self: end;
+  }
+
+  .ep-fragments-Shelf-preview {
+    grid-row: 1;
+    width: min(100%, 20rem);
+  }
+}
+
+.ep-fragments-Shelf-nav-btn {
+  appearance: none;
+  border: 1px solid var(--ep-fragments-color-rule);
+  background: var(--ep-fragments-color-surface);
+  color: var(--ep-fragments-color-ink);
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: var(--ep-fragments-radius-pill);
+  font-size: 1.65rem;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+  flex-shrink: 0;
+}
+
+.ep-fragments-Shelf-nav-btn:hover,
+.ep-fragments-Shelf-nav-btn:focus-visible {
+  border-color: var(--ep-fragments-color-accent);
+  background: var(--ep-fragments-color-accent-soft);
+  outline: none;
+}
+
+.ep-fragments-Shelf-nav-btn:active {
+  transform: scale(0.96);
+}
+
+.ep-fragments-Shelf-nav-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.ep-fragments-Shelf-stage {
+  position: relative;
+  width: min(72vw, 20rem);
+  aspect-ratio: 1;
+  margin-inline: auto;
+  justify-self: center;
+}
+
+.ep-fragments-Shelf-hub {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 14%;
+  height: 14%;
+  min-width: 1.75rem;
+  min-height: 1.75rem;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  z-index: 2;
+  background: radial-gradient(
+    circle at 35% 35%,
+    color-mix(in srgb, var(--ep-fragments-color-ink) 18%, #fff),
+    var(--ep-fragments-color-shelf) 55%,
+    #000 100%
+  );
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb, var(--ep-fragments-color-ink) 25%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--ep-fragments-color-shelf-shadow) 80%, transparent);
+}
+
+.ep-fragments-Shelf-disc {
+  position: absolute;
+  inset: 0;
+  transition: transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.ep-fragments-Shelf-disc::before {
+  content: '';
+  position: absolute;
+  inset: 8%;
+  border-radius: 50%;
+  border: 1px dashed color-mix(in srgb, var(--ep-fragments-color-muted) 35%, transparent);
+  pointer-events: none;
+}
+
+.ep-fragments-Record {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: clamp(3.25rem, 22%, 5.25rem);
+  margin-left: calc(clamp(3.25rem, 22%, 5.25rem) / -2);
+  margin-top: calc(clamp(3.25rem, 22%, 5.25rem) / -2);
+  transform-origin: center center;
+  transition:
+    filter 280ms ease,
+    opacity 280ms ease;
+  z-index: 1;
+}
+
+.ep-fragments-Record:not(.ep-fragments-Record-active) {
+  opacity: 0.72;
+  filter: saturate(0.85) brightness(0.92);
+}
+
+.ep-fragments-Record-active {
+  opacity: 1;
+  filter: none;
+  z-index: 3;
+}
+
+.ep-fragments-Record:hover,
+.ep-fragments-Record:focus-visible {
+  opacity: 1;
+  outline: none;
+}
+
+.ep-fragments-Record-cover {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 50%;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--ep-fragments-color-ink) 15%, transparent),
+    0 8px 20px var(--ep-fragments-color-shelf-shadow);
+  transition: box-shadow 280ms ease;
+}
+
+.ep-fragments-Record-active .ep-fragments-Record-cover {
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb, var(--ep-fragments-color-accent) 55%, transparent),
+    0 12px 28px var(--ep-fragments-color-shelf-shadow);
+}
+
+.ep-fragments-Record-spine {
+  display: none;
+}
+
+.ep-fragments-Record-title {
+  display: none;
+}
+
+/* Side preview — click to enlarge */
+.ep-fragments-Shelf-preview {
+  min-width: 0;
+  align-self: stretch;
+  display: flex;
+}
+
+.ep-fragments-Shelf-preview-btn {
+  appearance: none;
+  border: 1px solid var(--ep-fragments-color-rule);
+  background: var(--ep-fragments-color-surface);
+  border-radius: var(--ep-fragments-radius-md);
+  padding: 0.75rem;
+  width: 100%;
+  cursor: zoom-in;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  text-align: left;
+  color: inherit;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.ep-fragments-Shelf-preview-btn:hover,
+.ep-fragments-Shelf-preview-btn:focus-visible {
+  border-color: var(--ep-fragments-color-accent);
+  box-shadow: 0 12px 32px var(--ep-fragments-color-shelf-shadow);
+  outline: none;
+}
+
+.ep-fragments-Shelf-preview-btn .ep-fragments-Record-cover {
+  border-radius: var(--ep-fragments-radius-md);
+  width: 100%;
+  max-height: min(42vh, 18rem);
+  aspect-ratio: 1;
+}
+
+.ep-fragments-Shelf-preview-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.ep-fragments-Shelf-preview-meta strong {
+  font-family: var(--ep-fragments-font-serif);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.ep-fragments-Shelf-preview-meta span {
+  font-size: 0.8rem;
+  color: var(--ep-fragments-color-muted);
+  line-height: 1.4;
+}
+
+.ep-fragments-Empty {
+  text-align: center;
+  color: var(--ep-fragments-color-muted);
+  padding: 4rem 1rem;
+  font-size: 0.95rem;
+}
+
+/* --- Gallery masonry (infinite scroll) --- */
+
+html[data-ep-layout-composition='gallery'] .ep-fragments-Gallery {
+  padding-bottom: 3rem;
+}
+
+.ep-fragments-Masonry-scroller {
+  width: 100%;
+}
+
+.ep-fragments-Masonry-wall {
+  position: relative;
+  width: 100%;
+  min-height: 12rem;
+  transition: height 320ms ease;
+}
+
+.ep-fragments-Masonry-item {
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin: 0;
+  will-change: transform;
+  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ep-fragments-Masonry-item[hidden] {
+  display: none !important;
+}
+
+.ep-fragments-Masonry-item-btn {
+  appearance: none;
+  border: none;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  cursor: zoom-in;
+  display: block;
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--ep-fragments-radius-sm);
+  background: var(--ep-fragments-color-surface);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--ep-fragments-color-ink) 8%, transparent),
+    0 4px 14px var(--ep-fragments-color-shelf-shadow);
+  transition:
+    box-shadow 200ms ease,
+    transform 200ms ease;
+}
+
+.ep-fragments-Masonry-item-btn:hover,
+.ep-fragments-Masonry-item-btn:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--ep-fragments-color-accent) 45%, transparent),
+    0 10px 24px var(--ep-fragments-color-shelf-shadow);
+  transform: scale(1.01);
+}
+
+.ep-fragments-Masonry-item-btn .ep-fragments-Record-cover {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
+.ep-fragments-Masonry-item-caption {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  padding: 0.45rem 0.5rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-align: left;
+  color: #fff;
+  background: linear-gradient(to top, color-mix(in srgb, #000 72%, transparent), transparent);
+  opacity: 0;
+  transition: opacity 180ms ease;
+  pointer-events: none;
+}
+
+.ep-fragments-Masonry-item-btn:hover .ep-fragments-Masonry-item-caption,
+.ep-fragments-Masonry-item-btn:focus-visible .ep-fragments-Masonry-item-caption {
+  opacity: 1;
+}
+
+.ep-fragments-Masonry-sentinel {
+  width: 100%;
+  height: 1px;
+  margin-top: 2rem;
+}
+
+.ep-fragments-Masonry-status {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--ep-fragments-color-muted);
+  padding: 1rem 0 2rem;
+}
+
+/* Lightbox */
+.ep-fragments-Lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms ease;
+}
+
+.ep-fragments-Lightbox[data-open='true'] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.ep-fragments-Lightbox-backdrop {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--ep-fragments-color-ink) 72%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+.ep-fragments-Lightbox-panel {
+  position: relative;
+  z-index: 1;
+  max-width: min(92vw, 56rem);
+  max-height: 88dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  transform: scale(0.94);
+  transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ep-fragments-Lightbox[data-open='true'] .ep-fragments-Lightbox-panel {
+  transform: scale(1);
+}
+
+.ep-fragments-Lightbox-image {
+  max-width: 100%;
+  max-height: calc(88dvh - 4rem);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: var(--ep-fragments-radius-md);
+  box-shadow: 0 24px 48px var(--ep-fragments-color-shelf-shadow);
+}
+
+.ep-fragments-Lightbox-caption {
+  color: color-mix(in srgb, var(--ep-fragments-color-bg) 92%, var(--ep-fragments-color-ink));
+  font-size: 0.9rem;
+  text-align: center;
+  max-width: 36rem;
+}
+
+.ep-fragments-Lightbox-close {
+  position: absolute;
+  top: -2.5rem;
+  right: 0;
+  appearance: none;
+  border: 1px solid color-mix(in srgb, var(--ep-fragments-color-ink) 25%, transparent);
+  background: color-mix(in srgb, var(--ep-fragments-color-ink) 8%, var(--ep-fragments-color-bg));
+  color: var(--ep-fragments-color-ink);
+  border-radius: var(--ep-fragments-radius-pill);
+  padding: 0.35rem 0.85rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.ep-fragments-Lightbox-close:hover {
+  background: color-mix(in srgb, var(--ep-fragments-color-ink) 14%, var(--ep-fragments-color-bg));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ep-fragments-Shelf-disc,
+  .ep-fragments-Record,
+  .ep-fragments-Masonry-item,
+  .ep-fragments-Masonry-wall,
+  .ep-fragments-Lightbox,
+  .ep-fragments-Lightbox-panel,
+  .ep-fragments-Shelf-preview-btn,
+  .ep-fragments-Masonry-item-btn {
+    transition: none;
+  }
+}

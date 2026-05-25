@@ -8,12 +8,17 @@ import {
   type SiteProjectKind,
   type WorkspaceConfig
 } from '@emprint/shared'
+import bookSyncThemeScript from '../site-generation/book/sync-theme.mjs?raw'
 import columnSyncThemeScript from '../site-generation/column/sync-theme.mjs?raw'
 import { getDictionarySiteTemplateArtifacts } from '../site-generation/dictionary/dictionary-layout-artifacts'
 import dictionarySyncThemeScript from '../site-generation/dictionary/sync-theme.mjs?raw'
+import fragmentsSyncThemeScript from '../site-generation/fragments/sync-theme.mjs?raw'
 
 function syncThemeScriptForKind(kind: SiteProjectKind): string {
-  return kind === 'dictionary' ? dictionarySyncThemeScript : columnSyncThemeScript
+  if (kind === 'dictionary') return dictionarySyncThemeScript
+  if (kind === 'fragments') return fragmentsSyncThemeScript
+  if (kind === 'book') return bookSyncThemeScript
+  return columnSyncThemeScript
 }
 
 /** Keep workspace scripts/sync-theme.mjs in sync with the app (fixes older bootstraps). */
@@ -69,6 +74,8 @@ export async function readWorkspaceAnthology(workspaceRoot: string): Promise<Sit
     const theme = JSON.parse(raw) as { anthology?: string }
     if (theme.anthology === 'memoir') return 'memoir'
     if (theme.anthology === 'dictionary') return 'dictionary'
+    if (theme.anthology === 'fragments') return 'fragments'
+    if (theme.anthology === 'book') return 'book'
     return 'column'
   } catch {
     return 'column'

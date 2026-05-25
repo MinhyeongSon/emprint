@@ -50,6 +50,18 @@ export class WorkspaceRuntime {
       throw new Error('This action is only available for Dictionary workspaces.')
     }
   }
+
+  assertFragments(): void {
+    if (this.#siteProjectKind !== 'fragments') {
+      throw new Error('This action is only available for Fragments workspaces.')
+    }
+  }
+
+  assertBook(): void {
+    if (this.#siteProjectKind !== 'book') {
+      throw new Error('This action is only available for Book workspaces.')
+    }
+  }
 }
 
 export const workspaceRuntime = new WorkspaceRuntime()

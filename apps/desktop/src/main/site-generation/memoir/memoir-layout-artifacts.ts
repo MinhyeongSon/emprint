@@ -12,6 +12,7 @@ import {
 import { createMemoirPageArtifacts } from './memoir-page-artifacts'
 import { createMemoirRichTextArtifacts } from './memoir-rich-text-artifact'
 import { createLandingIntroArtifacts } from '../shared/landing-intro-artifacts'
+import { footerAstroContent, sitePublicLibArtifact } from '../shared/footer-artifacts'
 
 export function createMemoirThemeArtifacts(ctx: SiteGenerationContext): WorkspaceArtifact[] {
   const theme = createDefaultMemoirTheme(ctx)
@@ -31,6 +32,7 @@ export function createMemoirLayoutArtifacts(ctx: SiteGenerationContext): Workspa
 
   return [
     ...createMemoirThemeArtifacts(ctx),
+    sitePublicLibArtifact(),
     {
       relativePath: 'src/lib/site.ts',
       content: `import siteConfig from '../../config/site.json'
@@ -145,18 +147,13 @@ import ThemeToggle from './ThemeToggle.astro'
 }
 
 function footerAstro(lang: 'ko' | 'en'): string {
-  return `---
-import { SITE_TITLE } from '../lib/site'
-const year = new Date().getFullYear()
----
-
-<footer class="${EpMemoirClasses.Footer}">
-  <div class="${EpMemoirClasses.FooterInner} ${EpMemoirClasses.Wide}">
-    <span>© {year} {SITE_TITLE}</span>
-    <span>${lang === 'ko' ? 'Emprint Memoir' : 'Emprint Memoir'}</span>
-  </div>
-</footer>
-`
+  return footerAstroContent({
+    footerClass: EpMemoirClasses.Footer,
+    footerInnerClass: EpMemoirClasses.FooterInner,
+    wideClass: EpMemoirClasses.Wide,
+    lang,
+    publishedWithEmprint: true
+  })
 }
 
 function layoutAstro(): string {

@@ -65,6 +65,7 @@ export function anthologyThemeToTokensCss(theme: AnthologyThemeFile): string {
     ' * AUTO-GENERATED from config/theme.json',
     ' * Visitor theme: data-ep-color-mode on <html> (system | light | dark)',
     ` * Default when unset: ${defaultMode} (theme.json colorMode)`,
+    ' * Colors: docs/COLOR_PALETTES.md (canonical-palettes.ts)',
     ' * Component class names: docs/component-contract.md',
     ' */',
     ''

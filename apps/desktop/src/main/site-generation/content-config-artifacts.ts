@@ -50,6 +50,35 @@ export const collections = { posts }
     }
   }
 
+  if (kind === 'book') {
+    const layout = getAnthologyContentLayout('book')
+    return {
+      relativePath: layout.contentConfigPath,
+      content: `import { defineCollection, z } from 'astro:content'
+import { glob } from 'astro/loaders'
+
+const story = defineCollection({
+  loader: glob({ pattern: '*.md', base: './story' }),
+  schema: z.object({
+    title: z.string(),
+    description: z.string().optional().default('')
+  })
+})
+
+export const collections = { story }
+`
+    }
+  }
+
+  if (kind === 'fragments') {
+    return {
+      relativePath: 'src/content.config.ts',
+      content: `/** Fragments uses config/artwork-manifest.json — no Astro markdown collections. */
+export const collections = {}
+`
+    }
+  }
+
   if (kind === 'memoir') {
     const layout = getAnthologyContentLayout('memoir')
     return {

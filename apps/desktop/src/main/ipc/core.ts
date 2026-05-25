@@ -641,8 +641,10 @@ function nonPublishableSetKey(paths: Set<string>): string {
   return [...paths].sort().join('\n')
 }
 
-function publishedMarkdownSection(kind: SiteProjectKind): 'posts' | 'knowledge' {
-  return kind === 'dictionary' ? 'knowledge' : 'posts'
+function publishedMarkdownSection(kind: SiteProjectKind): 'posts' | 'knowledge' | 'story' {
+  if (kind === 'dictionary') return 'knowledge'
+  if (kind === 'book') return 'story'
+  return 'posts'
 }
 
 function contentSectionFromPath(
@@ -651,10 +653,11 @@ function contentSectionFromPath(
   if (relPath.startsWith(`${WORKSPACE_DIR.posts}/`)) return 'posts'
   if (relPath.startsWith(`${WORKSPACE_DIR.knowledge}/`)) return 'knowledge'
   if (relPath.startsWith(`${WORKSPACE_DIR.drafts}/`)) return 'drafts'
+  if (relPath.startsWith(`${WORKSPACE_DIR.story}/`)) return 'story'
   return null
 }
 
-function postSectionFromPath(postPath: string): 'posts' | 'drafts' | 'knowledge' | null {
+function postSectionFromPath(postPath: string): 'posts' | 'drafts' | 'knowledge' | 'story' | null {
   return contentSectionFromPath(postPath)
 }
 
@@ -716,6 +719,21 @@ async function flatDirFingerprint(dir: string): Promise<string> {
 
 async function publishScopeFingerprint(workspaceRoot: string): Promise<string> {
   const kind = resolveWorkspaceSiteProjectKind(workspaceRoot)
+  if (kind === 'book') {
+    return flatDirFingerprint(path.join(workspaceRoot, WORKSPACE_DIR.story))
+  }
+  if (kind === 'fragments') {
+    const manifestPath = path.join(workspaceRoot, 'config', 'artwork-manifest.json')
+    let manifestFp = '0:0'
+    if (existsSync(manifestPath)) {
+      const st = await stat(manifestPath)
+      manifestFp = `1:${st.mtimeMs}`
+    }
+    return [
+      await flatDirFingerprint(path.join(workspaceRoot, WORKSPACE_DIR.artwork)),
+      manifestFp
+    ].join('|')
+  }
   const published = publishedMarkdownSection(kind)
   return [
     await flatDirFingerprint(path.join(workspaceRoot, published)),
@@ -850,7 +868,7 @@ async function refreshPostInPublishScopeIndex(
 async function incrementalUpdatePostSection(
   workspaceRoot: string,
   index: IncrementalPublishScopeIndex,
-  section: 'posts' | 'drafts' | 'knowledge'
+  section: 'posts' | 'drafts' | 'knowledge' | 'story'
 ): Promise<void> {
   const dir = path.join(workspaceRoot, section)
   const present = new Set<string>()
@@ -899,6 +917,17 @@ async function buildFullPublishScopeIndex(workspaceRoot: string): Promise<Increm
     postMtimes: new Map()
   }
 
+  if (kind === 'fragments') {
+    index.postsFp = await flatDirFingerprint(path.join(workspaceRoot, WORKSPACE_DIR.artwork))
+    return index
+  }
+
+  if (kind === 'book') {
+    index.postsFp = await flatDirFingerprint(path.join(workspaceRoot, WORKSPACE_DIR.story))
+    await incrementalUpdatePostSection(workspaceRoot, index, 'story')
+    return index
+  }
+
   await syncAssetCatalogInIndex(workspaceRoot, index)
   await incrementalUpdatePostSection(workspaceRoot, index, published)
   await incrementalUpdatePostSection(workspaceRoot, index, 'drafts')
@@ -909,8 +938,25 @@ async function incrementalUpdatePublishScopeIndex(
   workspaceRoot: string,
   index: IncrementalPublishScopeIndex
 ): Promise<IncrementalPublishScopeIndex> {
-  const [postsFp, draftsFp, assetsFp] = await Promise.all([
-    flatDirFingerprint(path.join(workspaceRoot, WORKSPACE_DIR.posts)),
+  const kind = resolveWorkspaceSiteProjectKind(workspaceRoot)
+  if (kind === 'fragments') {
+    const artworkFp = await flatDirFingerprint(path.join(workspaceRoot, WORKSPACE_DIR.artwork))
+    if (artworkFp !== index.postsFp) index.postsFp = artworkFp
+    return index
+  }
+
+  if (kind === 'book') {
+    const storyFp = await flatDirFingerprint(path.join(workspaceRoot, WORKSPACE_DIR.story))
+    if (storyFp !== index.postsFp) {
+      index.postsFp = storyFp
+      await incrementalUpdatePostSection(workspaceRoot, index, 'story')
+    }
+    return index
+  }
+
+  const published = publishedMarkdownSection(kind)
+  const [publishedFp, draftsFp, assetsFp] = await Promise.all([
+    flatDirFingerprint(path.join(workspaceRoot, published)),
     flatDirFingerprint(path.join(workspaceRoot, WORKSPACE_DIR.drafts)),
     flatDirFingerprint(path.join(workspaceRoot, WORKSPACE_DIR.assetsImages))
   ])
@@ -918,8 +964,7 @@ async function incrementalUpdatePublishScopeIndex(
   if (assetsFp !== index.assetsFp) {
     await syncAssetCatalogInIndex(workspaceRoot, index)
   }
-  const published = publishedMarkdownSection(resolveWorkspaceSiteProjectKind(workspaceRoot))
-  if (postsFp !== index.postsFp) {
+  if (publishedFp !== index.postsFp) {
     await incrementalUpdatePostSection(workspaceRoot, index, published)
   }
   if (draftsFp !== index.draftsFp) {
@@ -1981,6 +2026,20 @@ export function resolveSafeKnowledgeOrPostsPath(
 
 export function resolveSafeKnowledgePath(workspaceRoot: string, inputPath: string): string {
   return resolveSafeKnowledgeOrPostsPath(workspaceRoot, inputPath, 'dictionary')
+}
+
+/** Book — only `story/story.md`. */
+export function resolveSafeStoryPath(workspaceRoot: string, inputPath: string): string {
+  const normalized = inputPath.replace(/\\/g, '/').replace(/^\/+/, '')
+  if (normalized !== 'story/story.md') {
+    throw new Error('Book workspaces only support story/story.md.')
+  }
+  const abs = path.resolve(workspaceRoot, ...normalized.split('/'))
+  const storyRoot = path.resolve(workspaceRoot, WORKSPACE_DIR.story)
+  if (path.relative(storyRoot, abs).startsWith('..') || path.isAbsolute(path.relative(storyRoot, abs))) {
+    throw new Error('Path escapes allowed content folders.')
+  }
+  return abs
 }
 
 

@@ -2,12 +2,40 @@ import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import type {
   AppLocale,
+  ColorPaletteId,
   InitializeWorkspaceResult,
   RuntimeDiagnostics,
   WorkspaceConfig,
   WorkspaceCatalogEntry
 } from '@emprint/shared'
+import type { AppColorScheme } from '@emprint/shared'
 import { leaveAnthologySession } from '@renderer/lib/leave-anthology-session'
+
+export type { AppColorScheme }
+export type AppColorPalette = ColorPaletteId
+
+/** @deprecated Replaced by colorPalette + colorScheme — migrated on rehydrate. */
+type LegacyAppTheme = 'dark' | 'light' | 'warm'
+
+export const DEFAULT_APP_COLOR_PALETTE: AppColorPalette = 'emprint'
+export const DEFAULT_APP_COLOR_SCHEME: AppColorScheme = 'dark'
+
+function normalizeColorPalette(value: unknown): AppColorPalette {
+  if (value === 'emprint' || value === 'paperInk') return value
+  return DEFAULT_APP_COLOR_PALETTE
+}
+
+function normalizeColorScheme(value: unknown): AppColorScheme {
+  if (value === 'light' || value === 'dark') return value
+  return DEFAULT_APP_COLOR_SCHEME
+}
+
+function migrateLegacyTheme(theme: unknown): { colorPalette: AppColorPalette; colorScheme: AppColorScheme } {
+  if (theme === 'warm') return { colorPalette: 'emprint', colorScheme: 'dark' }
+  if (theme === 'dark') return { colorPalette: 'paperInk', colorScheme: 'dark' }
+  if (theme === 'light') return { colorPalette: 'paperInk', colorScheme: 'light' }
+  return { colorPalette: DEFAULT_APP_COLOR_PALETTE, colorScheme: DEFAULT_APP_COLOR_SCHEME }
+}
 
 export type SidebarSection =
   | 'posts'
@@ -15,6 +43,8 @@ export type SidebarSection =
   | 'knowledge'
   | 'drafts'
   | 'sections'
+  | 'artwork'
+  | 'story'
   | 'assets'
   | 'design'
   | 'imprint'
@@ -22,21 +52,10 @@ export type SidebarSection =
 
 export type WorkspaceSurface = 'list' | 'viewer' | 'editor'
 
-export type AppTheme = 'dark' | 'light' | 'warm'
-
-function normalizeTheme(value: unknown): AppTheme {
-  if (value === 'dark' || value === 'light' || value === 'warm') return value
-  return 'warm'
-}
-
-function normalizeLocale(value: unknown): AppLocale {
-  if (value === 'ko' || value === 'en') return value
-  return 'en'
-}
-
 interface AppState {
   locale: AppLocale
-  theme: AppTheme
+  colorPalette: AppColorPalette
+  colorScheme: AppColorScheme
   mode: 'wizard' | 'hub' | 'workspace'
   activeSection: SidebarSection
   surface: WorkspaceSurface
@@ -61,7 +80,8 @@ interface AppState {
   /** Bumped when workspace files change on disk (save, design edit, publish, etc.). */
   workspaceGitRefreshToken: number
   setLocale(locale: AppLocale): void
-  setTheme(theme: AppTheme): void
+  setColorPalette(colorPalette: AppColorPalette): void
+  setColorScheme(colorScheme: AppColorScheme): void
   setRuntimeInfo(runtimeInfo: RuntimeDiagnostics): void
   setGithubSession(input: { connected: boolean; login?: string | undefined }): void
   setWorkspaceRootDir(dir?: string | undefined): void
@@ -92,7 +112,8 @@ export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
       locale: 'en',
-      theme: 'warm',
+      colorPalette: DEFAULT_APP_COLOR_PALETTE,
+      colorScheme: DEFAULT_APP_COLOR_SCHEME,
       mode: 'wizard',
       activeSection: 'posts',
       surface: 'list',
@@ -107,7 +128,8 @@ export const useAppStore = create<AppState>()(
       hubCatalogRefreshToken: 0,
       workspaceGitRefreshToken: 0,
       setLocale: (locale) => set({ locale: normalizeLocale(locale) }),
-      setTheme: (theme) => set({ theme: normalizeTheme(theme) }),
+      setColorPalette: (colorPalette) => set({ colorPalette: normalizeColorPalette(colorPalette) }),
+      setColorScheme: (colorScheme) => set({ colorScheme: normalizeColorScheme(colorScheme) }),
       setRuntimeInfo: (runtimeInfo) => set({ runtimeInfo }),
       setGithubSession: ({ connected, login }) => set({ githubConnected: connected, githubLogin: login }),
       setWorkspaceRootDir: (workspaceRootDir) => set({ workspaceRootDir }),
@@ -156,8 +178,17 @@ export const useAppStore = create<AppState>()(
           activeWorkspaceId: workspaceId,
           workspaceConfig,
           workspaceResult,
-          activeSection: kind === 'memoir' ? 'sections' : kind === 'dictionary' ? 'index' : 'posts',
-          surface: 'list',
+          activeSection:
+            kind === 'memoir'
+              ? 'sections'
+              : kind === 'dictionary'
+                ? 'index'
+                : kind === 'fragments'
+                  ? 'artwork'
+                  : kind === 'book'
+                    ? 'story'
+                    : 'posts',
+          surface: kind === 'book' ? 'editor' : 'list',
           activeDocumentPath: undefined,
           activeDocumentTitle: undefined,
           activeDocumentDirty: false
@@ -215,22 +246,30 @@ export const useAppStore = create<AppState>()(
       partialize: (state) => ({
         mode: state.mode === 'workspace' ? 'hub' : state.mode,
         locale: state.locale,
-        theme: state.theme,
+        colorPalette: state.colorPalette,
+        colorScheme: state.colorScheme,
         workspaceRootDir: state.workspaceRootDir,
         githubConnected: state.githubConnected,
         githubLogin: state.githubLogin
       }),
       storage: createJSONStorage(() => localStorage),
       merge: (persisted, current) => {
-        const p = persisted as Partial<AppState> | undefined
+        const p = persisted as (Partial<AppState> & { theme?: LegacyAppTheme }) | undefined
         if (!p) return current
+        const migrated = p.theme !== undefined ? migrateLegacyTheme(p.theme) : null
         return {
           ...current,
           ...p,
           locale: normalizeLocale(p.locale),
-          theme: normalizeTheme(p.theme)
+          colorPalette: normalizeColorPalette(p.colorPalette ?? migrated?.colorPalette),
+          colorScheme: normalizeColorScheme(p.colorScheme ?? migrated?.colorScheme)
         }
       }
     }
   )
 )
+
+function normalizeLocale(value: unknown): AppLocale {
+  if (value === 'ko' || value === 'en') return value
+  return 'en'
+}

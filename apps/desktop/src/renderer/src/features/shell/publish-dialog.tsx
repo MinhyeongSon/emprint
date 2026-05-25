@@ -25,11 +25,25 @@ export function PublishDialog({ open, locale, refreshToken, onClose, onPublished
   const [result, setResult] = useState<GitPublishResult | null>(null)
   const [message, setMessage] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  /** Skip snapshot reload while publish is in flight or success UI is showing. */
+  const holdSnapshotRef = useRef(false)
+
+  // Reset when closed so the next open starts from a clean slate.
+  useEffect(() => {
+    if (open) return
+    holdSnapshotRef.current = false
+    setPhase('idle')
+    setResult(null)
+    setError(null)
+    setMessage('')
+    setSummary(null)
+  }, [open])
 
   // Re-fetch the working-tree snapshot every time the dialog opens so the
   // user isn't publishing against a stale view.
   useEffect(() => {
     if (!open) return
+    if (holdSnapshotRef.current) return
     let cancelled = false
     setPhase('loading')
     setError(null)
@@ -87,6 +101,7 @@ export function PublishDialog({ open, locale, refreshToken, onClose, onPublished
 
   const handleSubmit = async () => {
     if (!canPublish) return
+    holdSnapshotRef.current = true
     setPhase('submitting')
     setError(null)
     try {
@@ -101,6 +116,7 @@ export function PublishDialog({ open, locale, refreshToken, onClose, onPublished
       setPhase('done')
       onPublished?.(res)
     } catch (caught) {
+      holdSnapshotRef.current = false
       const m = caught instanceof Error ? caught.message : String(caught)
       setError(m)
       setPhase('error')

@@ -25,6 +25,7 @@ import {
   DEFAULT_MEMOIR_COLOR_PALETTE,
   DEFAULT_MEMOIR_LAYOUT_COMPOSITION,
   DICTIONARY_LAYOUT_COMPOSITIONS,
+  normalizeSiteColorMode,
   inferColumnLayoutComposition,
   inferColumnThemePresetId,
   inferDictionaryLayoutComposition,
@@ -33,12 +34,30 @@ import {
   inferMemoirLayoutComposition,
   LAYOUT_COMPOSITIONS,
   buildDictionaryTheme,
+  buildFragmentsTheme,
+  DEFAULT_FRAGMENTS_LAYOUT_COMPOSITION,
+  FRAGMENTS_LAYOUT_COMPOSITIONS,
+  inferFragmentsLayoutComposition,
+  BOOK_LAYOUT_COMPOSITIONS,
+  DEFAULT_BOOK_LAYOUT_COMPOSITION,
+  buildBookTheme,
+  inferBookLayoutComposition,
+  inferBookThemePresetId,
+  parseBookThemeFile,
   parseColumnThemeFile,
   parseDictionaryThemeFile,
+  parseFragmentsThemeFile,
   parseMemoirThemeFile,
+  serializeBookThemeFile,
   serializeColumnThemeFile,
   serializeDictionaryThemeFile,
-  serializeMemoirThemeFile
+  serializeFragmentsThemeFile,
+  serializeMemoirThemeFile,
+  inferFragmentsThemePresetId,
+  type BookLayoutCompositionId,
+  type BookThemePresetId,
+  type FragmentsLayoutCompositionId,
+  type FragmentsThemePresetId
 } from '@emprint/shared'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
@@ -47,30 +66,9 @@ import { LandingIntroPanel } from './landing-intro-panel'
 import { THEME_JSON_PATH } from './design-workspace-paths'
 import { useAppStore } from '@renderer/state/app-store'
 import { pick } from '@renderer/lib/i18n'
+import type { SiteColorMode } from '@emprint/shared'
 
-
-const COLUMN_COLOR_PRESETS: {
-  id: ColumnThemePresetId
-  labelEn: string
-  labelKo: string
-  hintEn: string
-  hintKo: string
-}[] = [
-  {
-    id: 'emprint',
-    labelEn: 'Emprint',
-    labelKo: 'Emprint',
-    hintEn: 'Warm paper and copper ink.',
-    hintKo: '따뜻한 종이 톤과 구리빛 잉크.'
-  },
-  {
-    id: 'paperInk',
-    labelEn: 'Paper & Ink',
-    labelKo: 'Paper & Ink',
-    hintEn: 'Neutral editorial light and cool dark ink.',
-    hintKo: '편집형 라이트와 차가운 다크 잉크.'
-  }
-]
+const DEFAULT_SITE_COLOR_MODE: SiteColorMode = 'system'
 
 export function TemplateModePanel({ locale }: { locale: AppLocale }) {
   const bumpWorkspaceGitRefresh = useAppStore((state) => state.bumpWorkspaceGitRefresh)
@@ -125,8 +123,27 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
     draftDictionaryComposition !== appliedDictionaryComposition ||
     draftDictionaryPreset !== appliedDictionaryPreset
 
-  const memoirDirty =
-    draftComposition !== appliedComposition || draftPalette !== appliedPalette
+  const memoirDirty = draftComposition !== appliedComposition || draftPalette !== appliedPalette
+
+  const [appliedFragmentsComposition, setAppliedFragmentsComposition] =
+    useState<FragmentsLayoutCompositionId>(DEFAULT_FRAGMENTS_LAYOUT_COMPOSITION)
+  const [draftFragmentsComposition, setDraftFragmentsComposition] =
+    useState<FragmentsLayoutCompositionId>(DEFAULT_FRAGMENTS_LAYOUT_COMPOSITION)
+  const [appliedFragmentsPreset, setAppliedFragmentsPreset] =
+    useState<FragmentsThemePresetId>('emprint')
+  const [draftFragmentsPreset, setDraftFragmentsPreset] = useState<FragmentsThemePresetId>('emprint')
+  const fragmentsDirty =
+    draftFragmentsPreset !== appliedFragmentsPreset ||
+    draftFragmentsComposition !== appliedFragmentsComposition
+
+  const [appliedBookComposition, setAppliedBookComposition] =
+    useState<BookLayoutCompositionId>(DEFAULT_BOOK_LAYOUT_COMPOSITION)
+  const [draftBookComposition, setDraftBookComposition] =
+    useState<BookLayoutCompositionId>(DEFAULT_BOOK_LAYOUT_COMPOSITION)
+  const [appliedBookPreset, setAppliedBookPreset] = useState<BookThemePresetId>('emprint')
+  const [draftBookPreset, setDraftBookPreset] = useState<BookThemePresetId>('emprint')
+  const bookDirty =
+    draftBookComposition !== appliedBookComposition || draftBookPreset !== appliedBookPreset
 
   const loadAppliedTheme = useCallback(async () => {
     const api = window.emprint?.workspaceSrc
@@ -145,6 +162,22 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
         setAppliedPalette(palette)
         setDraftComposition(composition)
         setDraftPalette(palette)
+      } else if (siteKind === 'book') {
+        const theme = parseBookThemeFile(res.content)
+        const composition = inferBookLayoutComposition(theme.layoutComposition)
+        const preset = inferBookThemePresetId(theme)
+        setAppliedBookComposition(composition)
+        setDraftBookComposition(composition)
+        setAppliedBookPreset(preset)
+        setDraftBookPreset(preset)
+      } else if (siteKind === 'fragments') {
+        const theme = parseFragmentsThemeFile(res.content)
+        const preset = inferFragmentsThemePresetId(theme)
+        const composition = inferFragmentsLayoutComposition(theme.layoutComposition)
+        setAppliedFragmentsPreset(preset)
+        setDraftFragmentsPreset(preset)
+        setAppliedFragmentsComposition(composition)
+        setDraftFragmentsComposition(composition)
       } else if (siteKind === 'dictionary') {
         const theme = parseDictionaryThemeFile(res.content)
         const composition = inferDictionaryLayoutComposition(theme)
@@ -168,6 +201,16 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
         setAppliedPalette(DEFAULT_MEMOIR_COLOR_PALETTE)
         setDraftComposition(DEFAULT_MEMOIR_LAYOUT_COMPOSITION)
         setDraftPalette(DEFAULT_MEMOIR_COLOR_PALETTE)
+      } else if (siteKind === 'book') {
+        setAppliedBookComposition(DEFAULT_BOOK_LAYOUT_COMPOSITION)
+        setDraftBookComposition(DEFAULT_BOOK_LAYOUT_COMPOSITION)
+        setAppliedBookPreset('emprint')
+        setDraftBookPreset('emprint')
+      } else if (siteKind === 'fragments') {
+        setAppliedFragmentsPreset('emprint')
+        setDraftFragmentsPreset('emprint')
+        setAppliedFragmentsComposition(DEFAULT_FRAGMENTS_LAYOUT_COMPOSITION)
+        setDraftFragmentsComposition(DEFAULT_FRAGMENTS_LAYOUT_COMPOSITION)
       } else if (siteKind === 'dictionary') {
         setAppliedDictionaryComposition(DEFAULT_DICTIONARY_LAYOUT_COMPOSITION)
         setAppliedDictionaryPreset(DEFAULT_DICTIONARY_THEME_PRESET_ID)
@@ -205,8 +248,9 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
           if (existing.landingIntro) {
             built.landingIntro = existing.landingIntro
           }
+          built.colorMode = normalizeSiteColorMode(existing.colorMode)
         } catch {
-          /* keep preset default */
+          built.colorMode = DEFAULT_SITE_COLOR_MODE
         }
       }
       await api.save({
@@ -240,8 +284,9 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
           if (existing.landingIntro) {
             built.landingIntro = existing.landingIntro
           }
+          built.colorMode = normalizeSiteColorMode(existing.colorMode)
         } catch {
-          /* keep preset default */
+          built.colorMode = DEFAULT_SITE_COLOR_MODE
         }
       }
       await api.save({
@@ -251,6 +296,81 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
       bumpWorkspaceGitRefresh()
       setAppliedDictionaryComposition(draftDictionaryComposition)
       setAppliedDictionaryPreset(draftDictionaryPreset)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function applyBookTheme() {
+    if (!bookDirty) return
+    const api = window.emprint?.workspaceSrc
+    if (!api?.save) {
+      setError(pick(locale, 'Workspace API unavailable.', '워크스페이스 API를 사용할 수 없습니다.'))
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      const built = buildBookTheme({
+        presetId: draftBookPreset,
+        layoutComposition: draftBookComposition
+      })
+      if (api.read) {
+        try {
+          const existing = parseBookThemeFile((await api.read({ path: THEME_JSON_PATH })).content)
+          built.colorMode = normalizeSiteColorMode(existing.colorMode)
+        } catch {
+          built.colorMode = DEFAULT_SITE_COLOR_MODE
+        }
+      }
+      await api.save({
+        path: THEME_JSON_PATH,
+        content: serializeBookThemeFile(built)
+      })
+      bumpWorkspaceGitRefresh()
+      setAppliedBookComposition(draftBookComposition)
+      setAppliedBookPreset(draftBookPreset)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function applyFragmentsTheme() {
+    if (!fragmentsDirty) return
+    const api = window.emprint?.workspaceSrc
+    if (!api?.save) {
+      setError(pick(locale, 'Workspace API unavailable.', '워크스페이스 API를 사용할 수 없습니다.'))
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      const built = buildFragmentsTheme({
+        presetId: draftFragmentsPreset,
+        layoutComposition: draftFragmentsComposition
+      })
+      if (api.read) {
+        try {
+          const existing = parseFragmentsThemeFile((await api.read({ path: THEME_JSON_PATH })).content)
+          if (existing.landingIntro) {
+            built.landingIntro = existing.landingIntro
+          }
+          built.colorMode = normalizeSiteColorMode(existing.colorMode)
+        } catch {
+          built.colorMode = DEFAULT_SITE_COLOR_MODE
+        }
+      }
+      await api.save({
+        path: THEME_JSON_PATH,
+        content: serializeFragmentsThemeFile(built)
+      })
+      bumpWorkspaceGitRefresh()
+      setAppliedFragmentsPreset(draftFragmentsPreset)
+      setAppliedFragmentsComposition(draftFragmentsComposition)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught))
     } finally {
@@ -275,8 +395,9 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
           if (existing.landingIntro) {
             built.landingIntro = existing.landingIntro
           }
+          built.colorMode = normalizeSiteColorMode(existing.colorMode)
         } catch {
-          /* keep preset default */
+          built.colorMode = DEFAULT_SITE_COLOR_MODE
         }
       }
       await api.save({
@@ -300,17 +421,29 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
           {pick(locale, 'Template', '템플릿')}
         </div>
         <p className="mt-1 text-sm text-muted">
-          {siteKind === 'memoir'
+          {siteKind === 'book'
             ? pick(
                 locale,
-                'Choose how sections are composed on the page, then pick a color palette. Both are stored in config/theme.json.',
-                '페이지에서 섹션을 어떻게 배치할지(레이아웃 컴포지션)와 색감(팔레트)을 고릅니다. 둘 다 config/theme.json에 저장됩니다.'
+                'Choose Pages (page-turn) or Scroll (continuous), then a color palette.',
+                'Pages(넘기기) 또는 Scroll(스크롤) 레이아웃과 색감을 고릅니다.'
               )
-            : pick(
+            : siteKind === 'fragments'
+            ? pick(
                 locale,
-                'Choose how posts are laid out on the homepage and archive, then pick a color palette. Both are stored in config/theme.json.',
-                '홈·아카이브에서 글 목록을 어떻게 배치할지(레이아웃 컴포지션)와 색감(팔레트)을 고릅니다. 둘 다 config/theme.json에 저장됩니다.'
-              )}
+                'Choose a public layout (LP Shelf or Gallery masonry), then a color palette.',
+                '공개 레이아웃(LP 선반 또는 갤러리 메이슨리)과 색감을 고릅니다.'
+              )
+            : siteKind === 'memoir'
+              ? pick(
+                  locale,
+                  'Choose how sections are composed on the page, then pick a color palette. Both are stored in config/theme.json.',
+                  '페이지에서 섹션을 어떻게 배치할지(레이아웃 컴포지션)와 색감(팔레트)을 고릅니다. 둘 다 config/theme.json에 저장됩니다.'
+                )
+              : pick(
+                  locale,
+                  'Choose how posts are laid out on the homepage and archive, then pick a color palette. Both are stored in config/theme.json.',
+                  '홈·아카이브에서 글 목록을 어떻게 배치할지(레이아웃 컴포지션)와 색감(팔레트)을 고릅니다. 둘 다 config/theme.json에 저장됩니다.'
+                )}
         </p>
       </div>
 
@@ -318,7 +451,177 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
         <div className="rounded-md border border-danger/50 bg-dangerBg px-3 py-2 text-xs text-dangerInk">{error}</div>
       ) : null}
 
-      {siteKind === 'memoir' ? (
+      {siteKind === 'book' ? (
+        <>
+          <section className="space-y-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">
+              {pick(locale, 'Pages', 'Pages')}
+            </h2>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {BOOK_LAYOUT_COMPOSITIONS.map((item) => {
+                const selected = draftBookComposition === item.id
+                return (
+                  <Card
+                    key={item.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setDraftBookComposition(item.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setDraftBookComposition(item.id)
+                      }
+                    }}
+                    className={cn(
+                      'cursor-pointer space-y-2 border p-4 transition outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
+                      selected ? 'border-accent/50 bg-panel2/60' : 'border-border bg-panel hover:border-accent/30'
+                    )}
+                  >
+                    <div className="text-sm font-semibold text-ink">
+                      {locale === 'ko' ? item.labelKo : item.labelEn}
+                    </div>
+                    <p className="text-xs leading-relaxed text-muted">
+                      {locale === 'ko' ? item.descriptionKo : item.descriptionEn}
+                    </p>
+                  </Card>
+                )
+              })}
+            </div>
+          </section>
+          <section className="space-y-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">
+              {pick(locale, 'Color palette', '색감')}
+            </h2>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {COLOR_PALETTES.map((item) => {
+                const selected = draftBookPreset === item.id
+                return (
+                  <Card
+                    key={item.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setDraftBookPreset(item.id as BookThemePresetId)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setDraftBookPreset(item.id as BookThemePresetId)
+                      }
+                    }}
+                    className={cn(
+                      'cursor-pointer space-y-2 border p-4 transition outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
+                      selected ? 'border-accent/50 bg-panel2/60' : 'border-border bg-panel hover:border-accent/30'
+                    )}
+                  >
+                    <div className="text-sm font-semibold text-ink">
+                      {locale === 'ko' ? item.labelKo : item.labelEn}
+                    </div>
+                    <p className="text-xs leading-relaxed text-muted">
+                      {locale === 'ko' ? item.hintKo : item.hintEn}
+                    </p>
+                  </Card>
+                )
+              })}
+            </div>
+          </section>
+          <Button
+            type="button"
+            className="w-full sm:w-auto"
+            disabled={loadingApplied || busy || !bookDirty}
+            onClick={() => void applyBookTheme()}
+          >
+            {busy
+              ? pick(locale, 'Applying…', '적용 중…')
+              : bookDirty
+                ? pick(locale, 'Apply template', '템플릿 적용')
+                : pick(locale, 'Applied', '적용됨')}
+          </Button>
+        </>
+      ) : siteKind === 'fragments' ? (
+        <>
+          <section className="space-y-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">
+              {pick(locale, 'Layout', '레이아웃')}
+            </h2>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {FRAGMENTS_LAYOUT_COMPOSITIONS.map((item) => {
+                const selected = draftFragmentsComposition === item.id
+                return (
+                  <Card
+                    key={item.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setDraftFragmentsComposition(item.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setDraftFragmentsComposition(item.id)
+                      }
+                    }}
+                    className={cn(
+                      'cursor-pointer space-y-2 border p-4 transition outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
+                      selected ? 'border-accent/50 bg-panel2/60' : 'border-border bg-panel hover:border-accent/30'
+                    )}
+                  >
+                    <div className="text-sm font-semibold text-ink">
+                      {locale === 'ko' ? item.labelKo : item.labelEn}
+                    </div>
+                    <p className="text-xs leading-relaxed text-muted">
+                      {locale === 'ko' ? item.descriptionKo : item.descriptionEn}
+                    </p>
+                  </Card>
+                )
+              })}
+            </div>
+          </section>
+          <section className="space-y-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">
+              {pick(locale, 'Color palette', '색감')}
+            </h2>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {COLOR_PALETTES.map((item) => {
+                const selected = draftFragmentsPreset === item.id
+                return (
+                  <Card
+                    key={item.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setDraftFragmentsPreset(item.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setDraftFragmentsPreset(item.id)
+                      }
+                    }}
+                    className={cn(
+                      'cursor-pointer space-y-2 border p-4 transition outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
+                      selected ? 'border-accent/50 bg-panel2/60' : 'border-border bg-panel hover:border-accent/30'
+                    )}
+                  >
+                    <div className="text-sm font-semibold text-ink">
+                      {locale === 'ko' ? item.labelKo : item.labelEn}
+                    </div>
+                    <p className="text-xs leading-relaxed text-muted">
+                      {locale === 'ko' ? item.hintKo : item.hintEn}
+                    </p>
+                  </Card>
+                )
+              })}
+            </div>
+          </section>
+          <Button
+            type="button"
+            className="w-full sm:w-auto"
+            disabled={loadingApplied || busy || !fragmentsDirty}
+            onClick={() => void applyFragmentsTheme()}
+          >
+            {busy
+              ? pick(locale, 'Applying…', '적용 중…')
+              : fragmentsDirty
+                ? pick(locale, 'Apply template', '템플릿 적용')
+                : pick(locale, 'Applied', '적용됨')}
+          </Button>
+        </>
+      ) : siteKind === 'memoir' ? (
         <>
           <section className="space-y-3">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">
@@ -391,7 +694,6 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
               })}
             </div>
           </section>
-
           <Button
             type="button"
             className="w-full sm:w-auto"
@@ -448,7 +750,7 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
               {pick(locale, 'Color palette', '색감')}
             </h2>
             <div className="grid gap-3 sm:grid-cols-2">
-              {COLUMN_COLOR_PRESETS.map((item) => {
+              {COLOR_PALETTES.map((item) => {
                 const selected = draftDictionaryPreset === item.id
                 return (
                   <Card
@@ -478,7 +780,6 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
               })}
             </div>
           </section>
-
           <Button
             type="button"
             className="w-full sm:w-auto"
@@ -535,7 +836,7 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
               {pick(locale, 'Color palette', '색감')}
             </h2>
             <div className="grid gap-3 sm:grid-cols-2">
-              {COLUMN_COLOR_PRESETS.map((item) => {
+              {COLOR_PALETTES.map((item) => {
                 const selected = draftColumnPreset === item.id
                 return (
                   <Card
@@ -565,7 +866,6 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
               })}
             </div>
           </section>
-
           <Button
             type="button"
             className="w-full sm:w-auto"
@@ -581,7 +881,7 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
         </>
       )}
 
-      <LandingIntroPanel locale={locale} />
+      {siteKind !== 'book' ? <LandingIntroPanel locale={locale} /> : null}
     </div>
   )
 }

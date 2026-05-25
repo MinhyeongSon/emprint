@@ -11,6 +11,7 @@ import { dictionaryThemeToTokensCss } from '@emprint/shared'
 import { createDictionaryPageArtifacts } from './dictionary-page-artifacts'
 import syncThemeScript from './sync-theme.mjs?raw'
 import { createLandingIntroArtifacts } from '../shared/landing-intro-artifacts'
+import { footerAstroContent, sitePublicLibArtifact } from '../shared/footer-artifacts'
 
 export function createDictionaryThemeArtifacts(ctx: SiteGenerationContext): WorkspaceArtifact[] {
   const theme = createDefaultDictionaryTheme(ctx)
@@ -59,6 +60,7 @@ export function createDictionaryLayoutArtifacts(ctx: SiteGenerationContext): Wor
 
   return [
     ...createDictionaryThemeArtifacts(ctx),
+    sitePublicLibArtifact(),
     {
       relativePath: 'src/lib/site.ts',
       content: `import siteConfig from '../../config/site.json'
@@ -427,18 +429,13 @@ const { current } = Astro.props
 }
 
 function footerAstro(lang: 'ko' | 'en'): string {
-  return `---
-import { SITE_TITLE } from '../lib/site'
-const year = new Date().getFullYear()
----
-
-<footer class="${EpDictionaryClasses.Footer}">
-  <div class="${EpDictionaryClasses.FooterInner} ${EpDictionaryClasses.Wide}">
-    <span>© {year} {SITE_TITLE}</span>
-    <span>${lang === 'ko' ? 'Emprint로 발행됨' : 'Published with Emprint'}</span>
-  </div>
-</footer>
-`
+  return footerAstroContent({
+    footerClass: EpDictionaryClasses.Footer,
+    footerInnerClass: EpDictionaryClasses.FooterInner,
+    wideClass: EpDictionaryClasses.Wide,
+    lang,
+    publishedWithEmprint: true
+  })
 }
 
 function postCardAstro(): string {

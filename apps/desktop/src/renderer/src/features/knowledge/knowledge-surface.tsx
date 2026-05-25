@@ -84,8 +84,41 @@ function parseKnowledge(content: string): { data: Record<string, unknown>; body:
   }
 }
 
+/** js-yaml (used by gray-matter) cannot serialize `undefined` values. */
+function frontmatterForYaml(data: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(data)) {
+    if (value !== undefined) {
+      out[key] = value
+    }
+  }
+  return out
+}
+
 function buildKnowledgeMarkdown(input: { data: Record<string, unknown>; body: string }): string {
-  return matter.stringify(input.body ?? '', input.data ?? {})
+  return matter.stringify(input.body ?? '', frontmatterForYaml(input.data ?? {}))
+}
+
+function knowledgeFrontmatterFromEditor(input: {
+  existing: Record<string, unknown>
+  title: string
+  tags: string[]
+  index: string
+  draft: boolean
+}): Record<string, unknown> {
+  const indexPath = normalizeIndexPath(input.index)
+  const nextData: Record<string, unknown> = {
+    ...input.existing,
+    title: input.title.trim() || input.existing.title,
+    tags: normalizeTagArray(input.tags),
+    draft: input.draft
+  }
+  if (indexPath) {
+    nextData.index = indexPath
+  } else {
+    delete nextData.index
+  }
+  return nextData
 }
 
 function normalizeTagArray(tags: string[]): string[] {
@@ -483,13 +516,13 @@ export function KnowledgeSurface({ locale, section }: { locale: AppLocale; secti
       const targetPath = `${targetSection}/${fileName}`
 
       const existing = parseKnowledge(activeContent)
-      const nextData: Record<string, unknown> = {
-        ...existing.data,
-        title: editorTitle.trim() || existing.data.title,
-        tags: normalizeTagArray(editorTags),
-        index: normalizeIndexPath(editorIndex) || undefined,
+      const nextData = knowledgeFrontmatterFromEditor({
+        existing: existing.data,
+        title: editorTitle,
+        tags: editorTags,
+        index: editorIndex,
         draft: targetSection === 'drafts'
-      }
+      })
       const bodyForDisk = rewriteAssetUrlsForDisk(editorBody)
       const nextMarkdown = buildKnowledgeMarkdown({ data: nextData, body: bodyForDisk })
 
@@ -901,13 +934,13 @@ export function KnowledgeSurface({ locale, section }: { locale: AppLocale; secti
                 void (async () => {
                   try {
                     const existing = parseKnowledge(activeContent)
-                    const nextData: Record<string, unknown> = {
-                      ...existing.data,
-                      title: editorTitle.trim() || existing.data.title,
-                      tags: normalizeTagArray(editorTags),
-                      index: normalizeIndexPath(editorIndex) || undefined,
+                    const nextData = knowledgeFrontmatterFromEditor({
+                      existing: existing.data,
+                      title: editorTitle,
+                      tags: editorTags,
+                      index: editorIndex,
                       draft: isDraftSection
-                    }
+                    })
                     // Transform `emprint-asset://...` URLs back to root-relative paths
                     // so the markdown on disk is portable to static-site builds.
                     const bodyForDisk = rewriteAssetUrlsForDisk(editorBody)

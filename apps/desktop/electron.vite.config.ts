@@ -23,9 +23,17 @@ const workspaceAliases = {
   '@emprint/core': path.resolve(repoRoot, 'core/src')
 }
 
-const nodeProcessBuild = (subdir: 'main' | 'preload', entry: string) => ({
+/** Native addons must stay external (bundling breaks dynamic .node loading in Electron). */
+const mainExternals = ['sharp']
+
+const nodeProcessBuild = (
+  subdir: 'main' | 'preload',
+  entry: string,
+  externals: string[] = [],
+) => ({
   outDir: path.join(desktopOutDir, subdir),
   rollupOptions: {
+    external: externals,
     output: {
       format: 'cjs' as const,
       entryFileNames: '[name].cjs'
@@ -40,7 +48,7 @@ const nodeProcessBuild = (subdir: 'main' | 'preload', entry: string) => ({
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
-    build: nodeProcessBuild('main', './src/main/index.ts'),
+    build: nodeProcessBuild('main', './src/main/index.ts', mainExternals),
     resolve: {
       alias: workspaceAliases
     }
