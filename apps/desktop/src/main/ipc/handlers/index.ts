@@ -6,6 +6,7 @@ import { registerAuthHandlers } from './auth'
 import { registerCatalogHandlers } from './catalog'
 import { registerGitHandlers } from './git'
 import { registerMigrationHandlers } from './migration'
+import { registerDictionaryContentsHandlers } from './dictionary-contents'
 import { registerDictionaryIndexHandlers } from './dictionary-index'
 import { registerKnowledgeHandlers } from './knowledge'
 import { registerPostsHandlers } from './posts'
@@ -25,6 +26,7 @@ export function registerAllIpcHandlers(ctx: IpcContext): void {
   registerPostsHandlers()
   registerKnowledgeHandlers()
   registerDictionaryIndexHandlers()
+  registerDictionaryContentsHandlers()
   registerSectionsHandlers()
   registerWorkspaceSrcHandlers()
   registerMigrationHandlers()

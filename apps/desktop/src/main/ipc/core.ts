@@ -1,7 +1,6 @@
-import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { homedir } from 'node:os'
-import { mkdir, readFile, rm, stat, unlink, writeFile, readdir } from 'node:fs/promises'
+import { rm, unlink } from 'node:fs/promises'
 import { spawn } from 'node:child_process'
 import { BrowserWindow, app, dialog, type WebContents } from 'electron'
 import { getAuthProvider, performGithubLogout, readGithubSession, type StoredAuthSession } from '../auth'
@@ -15,7 +14,6 @@ import {
   hasPathTraversalSegment,
   type AssetImageInfo,
   type AssetPublishScope,
-  type AssetReference,
   type GitHubRepoCreateInput,
   type GitHubRepoCreateResult,
   type GitCommitNode,
@@ -27,10 +25,8 @@ import {
   type GitResetDraftResult,
   EMPRINT_GITIGNORE_LINES,
   EMPRINT_PUBLISH_BRANCH,
-  classifyAssetPublishScope,
   isEmprintIgnoredPublishPath,
   isNonPublishableAssetPendingPath,
-  isNonPublishableAssetScope,
   normalizePublishPendingPath,
   type GitPublishInput,
   type GitPublishResult,
@@ -48,15 +44,43 @@ import {
   buildIndexTree,
   normalizeIndexPath,
   MANIFEST_RELATIVE_PATH,
-  parseWorkspaceManifestJson,
-  WORKSPACE_DIR
+  parseWorkspaceManifestJson
 } from '@emprint/shared'
-import { parseKnowledgeSummary, parsePostSummary, workspaceRuntime } from '@emprint/core'
+import { parsePostSummary, workspaceRuntime } from '@emprint/core'
 import { readCatalog, writeCatalog } from '../catalog/catalog-store'
 import { setGitBinaryPath, SimpleGitProvider } from '../infrastructure/simple-git-provider'
 import simpleGit from 'simple-git'
 import { stopSiteDevServer } from '../site-dev/server'
 import { getMountedWorkspaceRoot, setMountedWorkspaceRoot } from './state'
+import { logger } from '../logger'
+import {
+  githubApiErrorFromResponse,
+  githubApiPostRaw,
+  safeJsonParse,
+  safeReadText
+} from '../github-api/http'
+import {
+  ensureEmprintGitignore,
+  invalidateUntrackEmprintIgnoredCache,
+  untrackEmprintIgnoredPaths,
+  untrackEmprintIgnoredPathsOnce
+} from '../workspace/gitignore'
+import {
+  applyAssetCatalogPublishScope,
+  applyPostDeletePublishScope,
+  applyPostPublishScopeChange,
+  applyPostsMovePublishScope,
+  collectNonPublishableAssetPaths,
+  invalidateWorkspacePublishScopeCache,
+  resolveNonPublishableAssetPathsCached
+} from '../publish-scope/publish-scope-index'
+import {
+  ensureEmprintGitignoreOnce,
+  reconcilePublishScopeGit,
+  syncWorkspacePublishScope,
+  unstageNonPublishableAssets
+} from '../publish-scope/reconcile'
+import { removeWorkspaceFromDisk, safeListDirectory, toPosixWorkspacePath } from '../workspace/workspace-path'
 
 let resolvedGitBinaryPath: string | null = null
 export async function gitDetect(): Promise<GitDetectResult> {
@@ -271,9 +295,9 @@ export async function githubRepoCreate(input: GitHubRepoCreateInput): Promise<Gi
   // so the user doesn't have to flip "Build and deployment → Source" in the
   // repo settings UI. Failures here are non-fatal — the workspace itself is
   // already created and the user can still enable Pages manually.
-  await tryEnableGitHubPagesViaActions(owner, name, session.accessToken)
+  const pagesAutoEnabled = await tryEnableGitHubPagesViaActions(owner, name, session.accessToken)
 
-  return { fullName, htmlUrl, cloneUrl, sshUrl, defaultBranch }
+  return { fullName, htmlUrl, cloneUrl, sshUrl, defaultBranch, pagesAutoEnabled }
 }
 
 /**
@@ -313,7 +337,11 @@ async function githubRepoExistsOnApi(owner: string, repo: string, token: string)
   }
 }
 
-export async function tryEnableGitHubPagesViaActions(owner: string, repo: string, token: string): Promise<void> {
+export async function tryEnableGitHubPagesViaActions(
+  owner: string,
+  repo: string,
+  token: string
+): Promise<boolean> {
   const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pages`
   const retryDelaysMs = [0, 600, 1200, 2400, 4800]
 
@@ -339,22 +367,24 @@ export async function tryEnableGitHubPagesViaActions(owner: string, repo: string
         body: JSON.stringify({ build_type: 'workflow' })
       })
 
-      if (res.status === 201 || res.status === 204 || res.status === 409) return
+      if (res.status === 201 || res.status === 204 || res.status === 409) return true
 
       const text = await safeReadText(res)
-      if (res.status === 422 && /already|exists|configured/i.test(text)) return
+      if (res.status === 422 && /already|exists|configured/i.test(text)) return true
 
       if (res.status === 404 && attempt < retryDelaysMs.length - 1) continue
 
-      console.warn(
-        `[emprint] Could not auto-enable GitHub Pages for ${owner}/${repo} (${res.status}): ${text}`
+      logger.warn(
+        `Could not auto-enable GitHub Pages for ${owner}/${repo} (${res.status}): ${text}`
       )
-      return
+      return false
     } catch (err) {
       if (attempt < retryDelaysMs.length - 1) continue
-      console.warn(`[emprint] Could not auto-enable GitHub Pages for ${owner}/${repo}:`, err)
+      logger.warn(`Could not auto-enable GitHub Pages for ${owner}/${repo}:`, err)
     }
   }
+
+  return false
 }
 
 export async function githubRepoDeleteRemote(owner: string, repo: string): Promise<void> {
@@ -414,56 +444,6 @@ export async function githubRepoCreateWithFallback(input: {
   }
 
   throw githubApiErrorFromResponse(first.status, first.text)
-}
-
-export async function githubApiPostRaw(url: string, token: string, body: unknown): Promise<{ ok: boolean; status: number; text: string; json: any }> {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Accept: 'application/vnd.github+json',
-      Authorization: `Bearer ${token}`,
-      'X-GitHub-Api-Version': '2022-11-28',
-      'User-Agent': 'Emprint',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(body)
-  })
-
-  const text = await safeReadText(res)
-  const json = safeJsonParse(text)
-  return { ok: res.ok, status: res.status, text, json }
-}
-
-export function githubApiErrorFromResponse(status: number, text: string): Error {
-  const maybeJson = safeJsonParse(text)
-
-  if (status === 422 && maybeJson && typeof maybeJson === 'object') {
-    const message = typeof (maybeJson as any).message === 'string' ? String((maybeJson as any).message) : ''
-    const errors = Array.isArray((maybeJson as any).errors) ? ((maybeJson as any).errors as any[]) : []
-    const nameConflict = errors.some((err) => err?.field === 'name' && String(err?.message || '').includes('already exists'))
-    if (nameConflict) {
-      return new Error('Repository name already exists for this owner. Please choose a different name.')
-    }
-    return new Error(message ? `GitHub API failed (${status}): ${message}` : `GitHub API failed (${status}): ${text}`)
-  }
-
-  return new Error(`GitHub API failed (${status}): ${text}`)
-}
-
-export function safeJsonParse(text: string): unknown {
-  try {
-    return JSON.parse(text)
-  } catch {
-    return null
-  }
-}
-
-export async function safeReadText(res: Response): Promise<string> {
-  try {
-    return await res.text()
-  } catch {
-    return ''
-  }
 }
 
 /** Match GitHub / network blips that often succeed on retry (initial push only). */
@@ -608,619 +588,6 @@ export function mapPendingFiles(
     if (isNonPublishableAssetPendingPath(f.path, nonPublishableAssetPaths)) return false
     return true
   })
-}
-
-/** Incremental index: which posts reference which images (for publish-scope). */
-type IncrementalPublishScopeIndex = {
-  postsFp: string
-  draftsFp: string
-  assetsFp: string
-  imageByKey: Map<string, string>
-  imagePaths: Set<string>
-  refsByImage: Map<string, AssetReference[]>
-  /** post path → last scanned mtime */
-  postMtimes: Map<string, number>
-}
-
-type WorkspacePublishScopeCache = {
-  fingerprint: string
-  index: IncrementalPublishScopeIndex
-  nonPublishable: Set<string>
-  appliedNonPublishableKey: string | null
-  excludeWrittenKey: string | null
-}
-
-const publishScopeCacheByWorkspace = new Map<string, WorkspacePublishScopeCache>()
-const emprintGitignoreEnsuredRoots = new Set<string>()
-
-function publishScopeCacheKey(workspaceRoot: string): string {
-  return path.resolve(workspaceRoot)
-}
-
-function nonPublishableSetKey(paths: Set<string>): string {
-  return [...paths].sort().join('\n')
-}
-
-function publishedMarkdownSection(kind: SiteProjectKind): 'posts' | 'knowledge' | 'story' {
-  if (kind === 'dictionary') return 'knowledge'
-  if (kind === 'book') return 'story'
-  return 'posts'
-}
-
-function contentSectionFromPath(
-  relPath: string
-): AssetReference['section'] | null {
-  if (relPath.startsWith(`${WORKSPACE_DIR.posts}/`)) return 'posts'
-  if (relPath.startsWith(`${WORKSPACE_DIR.knowledge}/`)) return 'knowledge'
-  if (relPath.startsWith(`${WORKSPACE_DIR.drafts}/`)) return 'drafts'
-  if (relPath.startsWith(`${WORKSPACE_DIR.story}/`)) return 'story'
-  return null
-}
-
-function postSectionFromPath(postPath: string): 'posts' | 'drafts' | 'knowledge' | 'story' | null {
-  return contentSectionFromPath(postPath)
-}
-
-function resolveWorkspaceSiteProjectKind(workspaceRoot: string): SiteProjectKind {
-  if (workspaceRuntime.mountedRoot && path.resolve(workspaceRuntime.mountedRoot) === path.resolve(workspaceRoot)) {
-    return workspaceRuntime.siteProjectKind
-  }
-  const manifestPath = path.join(workspaceRoot, MANIFEST_RELATIVE_PATH)
-  try {
-    const raw = readFileSync(manifestPath, 'utf8')
-    const manifest = parseWorkspaceManifestJson(raw)
-    if (manifest?.siteProjectKind) return manifest.siteProjectKind
-  } catch {
-    // fall through
-  }
-  return 'column'
-}
-
-/** Drop cached publish-scope index (e.g. migration). */
-export function invalidateWorkspacePublishScopeCache(workspaceRoot: string): void {
-  publishScopeCacheByWorkspace.delete(publishScopeCacheKey(workspaceRoot))
-}
-
-/** @deprecated Prefer `applyPostPublishScopeChange` with a post path. */
-export function markWorkspacePublishScopeDirty(
-  workspaceRoot: string,
-  hint?: { postPath?: string; assetsCatalog?: boolean }
-): void {
-  if (!hint?.postPath && !hint?.assetsCatalog) {
-    invalidateWorkspacePublishScopeCache(workspaceRoot)
-    return
-  }
-  const key = publishScopeCacheKey(workspaceRoot)
-  const cached = publishScopeCacheByWorkspace.get(key)
-  if (!cached?.index) return
-  if (hint.postPath) {
-    removePostFromPublishScopeIndex(cached.index, hint.postPath)
-    cached.fingerprint = ''
-  }
-  if (hint.assetsCatalog) {
-    cached.index.assetsFp = ''
-    cached.fingerprint = ''
-  }
-}
-
-async function flatDirFingerprint(dir: string): Promise<string> {
-  if (!existsSync(dir)) return '0:0'
-  const entries = await readdir(dir, { withFileTypes: true })
-  let count = 0
-  let maxMtime = 0
-  for (const ent of entries) {
-    if (!ent.isFile()) continue
-    count++
-    const st = await stat(path.join(dir, ent.name))
-    maxMtime = Math.max(maxMtime, st.mtimeMs)
-  }
-  return `${count}:${maxMtime}`
-}
-
-async function publishScopeFingerprint(workspaceRoot: string): Promise<string> {
-  const kind = resolveWorkspaceSiteProjectKind(workspaceRoot)
-  if (kind === 'book') {
-    return flatDirFingerprint(path.join(workspaceRoot, WORKSPACE_DIR.story))
-  }
-  if (kind === 'fragments') {
-    const manifestPath = path.join(workspaceRoot, 'config', 'artwork-manifest.json')
-    let manifestFp = '0:0'
-    if (existsSync(manifestPath)) {
-      const st = await stat(manifestPath)
-      manifestFp = `1:${st.mtimeMs}`
-    }
-    return [
-      await flatDirFingerprint(path.join(workspaceRoot, WORKSPACE_DIR.artwork)),
-      manifestFp
-    ].join('|')
-  }
-  const published = publishedMarkdownSection(kind)
-  return [
-    await flatDirFingerprint(path.join(workspaceRoot, published)),
-    await flatDirFingerprint(path.join(workspaceRoot, WORKSPACE_DIR.drafts)),
-    await flatDirFingerprint(path.join(workspaceRoot, WORKSPACE_DIR.assetsImages))
-  ].join('|')
-}
-
-function removePostFromPublishScopeIndex(index: IncrementalPublishScopeIndex, postPath: string): void {
-  index.postMtimes.delete(postPath)
-  for (const [imagePath, refs] of index.refsByImage) {
-    const next = refs.filter((r) => r.postPath !== postPath)
-    if (next.length !== refs.length) {
-      index.refsByImage.set(imagePath, next)
-    }
-  }
-}
-
-function registerImagePath(index: IncrementalPublishScopeIndex, imagePath: string): void {
-  const rel = normalizePublishPendingPath(imagePath)
-  index.imagePaths.add(rel)
-  index.imageByKey.set(rel, rel)
-  index.imageByKey.set(path.basename(rel), rel)
-  if (!index.refsByImage.has(rel)) {
-    index.refsByImage.set(rel, [])
-  }
-}
-
-function unregisterImagePath(index: IncrementalPublishScopeIndex, imagePath: string): void {
-  const rel = normalizePublishPendingPath(imagePath)
-  index.imagePaths.delete(rel)
-  index.refsByImage.delete(rel)
-  for (const [key, target] of [...index.imageByKey.entries()]) {
-    if (target === rel) index.imageByKey.delete(key)
-  }
-}
-
-function collectRefsFromMarkdown(
-  postRelPath: string,
-  content: string,
-  section: AssetReference['section'],
-  imageByKey: Map<string, string>,
-  titleFallback: string
-): Array<{ imagePath: string; reference: AssetReference }> {
-  const summary = { title: titleFallback }
-  const hits: Array<{ imagePath: string; reference: AssetReference }> = []
-  for (const ref of extractMarkdownImageRefs(content)) {
-    const target = normalizeReferenceTarget(ref)
-    if (!target) continue
-    const imagePath = imageByKey.get(target) ?? imageByKey.get(target.split('/').pop()!)
-    if (!imagePath) continue
-    hits.push({
-      imagePath,
-      reference: { postPath: postRelPath, postTitle: summary.title, section }
-    })
-  }
-  return hits
-}
-
-function applyPostRefsToIndex(
-  index: IncrementalPublishScopeIndex,
-  hits: Array<{ imagePath: string; reference: AssetReference }>
-): void {
-  for (const { imagePath, reference } of hits) {
-    const refs = index.refsByImage.get(imagePath)
-    if (!refs) continue
-    if (refs.some((r) => r.postPath === reference.postPath)) continue
-    refs.push(reference)
-  }
-}
-
-async function syncAssetCatalogInIndex(
-  workspaceRoot: string,
-  index: IncrementalPublishScopeIndex
-): Promise<void> {
-  const imagesDir = path.join(workspaceRoot, WORKSPACE_DIR.assetsImages)
-  const onDisk = new Set<string>()
-  if (existsSync(imagesDir)) {
-    const dirents = await readdir(imagesDir, { withFileTypes: true })
-    for (const ent of dirents) {
-      if (!ent.isFile()) continue
-      const ext = ent.name.split('.').pop()?.toLowerCase() ?? ''
-      if (!Object.values(ASSET_IMAGE_MIME_ALLOWLIST).includes(ext)) continue
-      onDisk.add(normalizePublishPendingPath(`${WORKSPACE_DIR.assetsImages}/${ent.name}`))
-    }
-  }
-
-  for (const rel of onDisk) {
-    if (!index.imagePaths.has(rel)) registerImagePath(index, rel)
-  }
-  for (const rel of [...index.imagePaths]) {
-    if (!onDisk.has(rel)) unregisterImagePath(index, rel)
-  }
-
-  index.assetsFp = await flatDirFingerprint(imagesDir)
-}
-
-async function refreshPostInPublishScopeIndex(
-  workspaceRoot: string,
-  index: IncrementalPublishScopeIndex,
-  postPath: string,
-  content?: string
-): Promise<void> {
-  const section = postSectionFromPath(postPath)
-  if (!section) return
-
-  removePostFromPublishScopeIndex(index, postPath)
-
-  const abs = path.join(workspaceRoot, postPath)
-  let mtimeMs = 0
-  let body = content
-  try {
-    const st = await stat(abs)
-    if (!st.isFile()) return
-    mtimeMs = st.mtimeMs
-    if (body === undefined) {
-      body = await readFile(abs, 'utf8')
-    }
-  } catch {
-    return
-  }
-
-  index.postMtimes.set(postPath, mtimeMs)
-  const title =
-    section === 'knowledge'
-      ? parseKnowledgeSummary(postPath, body).title
-      : summarizeMarkdown(postPath, body, '').title
-  const hits = collectRefsFromMarkdown(postPath, body, section, index.imageByKey, title)
-  applyPostRefsToIndex(index, hits)
-}
-
-async function incrementalUpdatePostSection(
-  workspaceRoot: string,
-  index: IncrementalPublishScopeIndex,
-  section: 'posts' | 'drafts' | 'knowledge' | 'story'
-): Promise<void> {
-  const dir = path.join(workspaceRoot, section)
-  const present = new Set<string>()
-
-  if (existsSync(dir)) {
-    const files = await safeListDirectory(dir)
-    for (const fileName of files) {
-      if (!fileName.toLowerCase().endsWith('.md')) continue
-      const postRelPath = `${section}/${fileName}`
-      present.add(postRelPath)
-
-      const abs = path.join(dir, fileName)
-      let mtimeMs = 0
-      try {
-        mtimeMs = (await stat(abs)).mtimeMs
-      } catch {
-        continue
-      }
-
-      if (index.postMtimes.get(postRelPath) === mtimeMs) continue
-      await refreshPostInPublishScopeIndex(workspaceRoot, index, postRelPath)
-    }
-  }
-
-  for (const tracked of [...index.postMtimes.keys()]) {
-    if (tracked.startsWith(`${section}/`) && !present.has(tracked)) {
-      removePostFromPublishScopeIndex(index, tracked)
-    }
-  }
-
-  const fp = await flatDirFingerprint(dir)
-  if (section === 'drafts') index.draftsFp = fp
-  else index.postsFp = fp
-}
-
-async function buildFullPublishScopeIndex(workspaceRoot: string): Promise<IncrementalPublishScopeIndex> {
-  const kind = resolveWorkspaceSiteProjectKind(workspaceRoot)
-  const published = publishedMarkdownSection(kind)
-  const index: IncrementalPublishScopeIndex = {
-    postsFp: '',
-    draftsFp: '',
-    assetsFp: '',
-    imageByKey: new Map(),
-    imagePaths: new Set(),
-    refsByImage: new Map(),
-    postMtimes: new Map()
-  }
-
-  if (kind === 'fragments') {
-    index.postsFp = await flatDirFingerprint(path.join(workspaceRoot, WORKSPACE_DIR.artwork))
-    return index
-  }
-
-  if (kind === 'book') {
-    index.postsFp = await flatDirFingerprint(path.join(workspaceRoot, WORKSPACE_DIR.story))
-    await incrementalUpdatePostSection(workspaceRoot, index, 'story')
-    return index
-  }
-
-  await syncAssetCatalogInIndex(workspaceRoot, index)
-  await incrementalUpdatePostSection(workspaceRoot, index, published)
-  await incrementalUpdatePostSection(workspaceRoot, index, 'drafts')
-  return index
-}
-
-async function incrementalUpdatePublishScopeIndex(
-  workspaceRoot: string,
-  index: IncrementalPublishScopeIndex
-): Promise<IncrementalPublishScopeIndex> {
-  const kind = resolveWorkspaceSiteProjectKind(workspaceRoot)
-  if (kind === 'fragments') {
-    const artworkFp = await flatDirFingerprint(path.join(workspaceRoot, WORKSPACE_DIR.artwork))
-    if (artworkFp !== index.postsFp) index.postsFp = artworkFp
-    return index
-  }
-
-  if (kind === 'book') {
-    const storyFp = await flatDirFingerprint(path.join(workspaceRoot, WORKSPACE_DIR.story))
-    if (storyFp !== index.postsFp) {
-      index.postsFp = storyFp
-      await incrementalUpdatePostSection(workspaceRoot, index, 'story')
-    }
-    return index
-  }
-
-  const published = publishedMarkdownSection(kind)
-  const [publishedFp, draftsFp, assetsFp] = await Promise.all([
-    flatDirFingerprint(path.join(workspaceRoot, published)),
-    flatDirFingerprint(path.join(workspaceRoot, WORKSPACE_DIR.drafts)),
-    flatDirFingerprint(path.join(workspaceRoot, WORKSPACE_DIR.assetsImages))
-  ])
-
-  if (assetsFp !== index.assetsFp) {
-    await syncAssetCatalogInIndex(workspaceRoot, index)
-  }
-  if (publishedFp !== index.postsFp) {
-    await incrementalUpdatePostSection(workspaceRoot, index, published)
-  }
-  if (draftsFp !== index.draftsFp) {
-    await incrementalUpdatePostSection(workspaceRoot, index, 'drafts')
-  }
-
-  return index
-}
-
-function nonPublishablePathsFromIndex(index: IncrementalPublishScopeIndex): Set<string> {
-  const paths = new Set<string>()
-  for (const imagePath of index.imagePaths) {
-    const refs = index.refsByImage.get(imagePath) ?? []
-    if (isNonPublishableAssetScope(classifyAssetPublishScope(refs))) {
-      paths.add(imagePath)
-    }
-  }
-  return paths
-}
-
-function writePublishScopeCacheEntry(
-  workspaceRoot: string,
-  index: IncrementalPublishScopeIndex,
-  fingerprint: string,
-  nonPublishable: Set<string>
-): void {
-  const key = publishScopeCacheKey(workspaceRoot)
-  const prev = publishScopeCacheByWorkspace.get(key)
-  publishScopeCacheByWorkspace.set(key, {
-    fingerprint,
-    index,
-    nonPublishable,
-    appliedNonPublishableKey: prev?.appliedNonPublishableKey ?? null,
-    excludeWrittenKey: prev?.excludeWrittenKey ?? null
-  })
-}
-
-async function ensurePublishScopeIndex(workspaceRoot: string): Promise<IncrementalPublishScopeIndex> {
-  const key = publishScopeCacheKey(workspaceRoot)
-  const cached = publishScopeCacheByWorkspace.get(key)
-  if (cached?.index) {
-    return await incrementalUpdatePublishScopeIndex(workspaceRoot, cached.index)
-  }
-  return await buildFullPublishScopeIndex(workspaceRoot)
-}
-
-/** Scan all image publish scopes (full rebuild). */
-export async function collectNonPublishableAssetPaths(workspaceRoot: string): Promise<Set<string>> {
-  const index = await buildFullPublishScopeIndex(workspaceRoot)
-  return nonPublishablePathsFromIndex(index)
-}
-
-async function resolveNonPublishableAssetPathsCached(workspaceRoot: string): Promise<Set<string>> {
-  const key = publishScopeCacheKey(workspaceRoot)
-  const fingerprint = await publishScopeFingerprint(workspaceRoot)
-  const cached = publishScopeCacheByWorkspace.get(key)
-  if (cached?.fingerprint === fingerprint) {
-    return cached.nonPublishable
-  }
-
-  const index = cached?.index
-    ? await incrementalUpdatePublishScopeIndex(workspaceRoot, cached.index)
-    : await buildFullPublishScopeIndex(workspaceRoot)
-  const nonPublishable = nonPublishablePathsFromIndex(index)
-  writePublishScopeCacheEntry(workspaceRoot, index, fingerprint, nonPublishable)
-  return nonPublishable
-}
-
-/** Update one post in the incremental index (after save). */
-export async function applyPostPublishScopeChange(
-  workspaceRoot: string,
-  postPath: string,
-  content?: string
-): Promise<void> {
-  const key = publishScopeCacheKey(workspaceRoot)
-  const index =
-    publishScopeCacheByWorkspace.get(key)?.index ?? (await buildFullPublishScopeIndex(workspaceRoot))
-  await refreshPostInPublishScopeIndex(workspaceRoot, index, postPath, content)
-  const fingerprint = await publishScopeFingerprint(workspaceRoot)
-  writePublishScopeCacheEntry(workspaceRoot, index, fingerprint, nonPublishablePathsFromIndex(index))
-}
-
-/** Update index after posts/drafts move. */
-export async function applyPostsMovePublishScope(
-  workspaceRoot: string,
-  fromPath: string,
-  toPath: string
-): Promise<void> {
-  const index = await ensurePublishScopeIndex(workspaceRoot)
-  removePostFromPublishScopeIndex(index, fromPath)
-  await refreshPostInPublishScopeIndex(workspaceRoot, index, toPath)
-  const fingerprint = await publishScopeFingerprint(workspaceRoot)
-  writePublishScopeCacheEntry(workspaceRoot, index, fingerprint, nonPublishablePathsFromIndex(index))
-}
-
-/** Update index after post delete. */
-export async function applyPostDeletePublishScope(workspaceRoot: string, postPath: string): Promise<void> {
-  const key = publishScopeCacheKey(workspaceRoot)
-  const cached = publishScopeCacheByWorkspace.get(key)
-  if (!cached?.index) return
-  removePostFromPublishScopeIndex(cached.index, postPath)
-  const fingerprint = await publishScopeFingerprint(workspaceRoot)
-  writePublishScopeCacheEntry(
-    workspaceRoot,
-    cached.index,
-    fingerprint,
-    nonPublishablePathsFromIndex(cached.index)
-  )
-}
-
-/** Update index after asset file add/remove. */
-export async function applyAssetCatalogPublishScope(workspaceRoot: string): Promise<void> {
-  const index = await ensurePublishScopeIndex(workspaceRoot)
-  await syncAssetCatalogInIndex(workspaceRoot, index)
-  const fingerprint = await publishScopeFingerprint(workspaceRoot)
-  writePublishScopeCacheEntry(workspaceRoot, index, fingerprint, nonPublishablePathsFromIndex(index))
-}
-
-async function untrackNonPublishableAssets(
-  git: ReturnType<typeof simpleGit>,
-  paths: Set<string>
-): Promise<void> {
-  const rels = [...paths]
-  if (rels.length === 0) return
-  try {
-    await git.raw(['rm', '--cached', '--ignore-unmatch', ...rels])
-  } catch {
-    // not tracked
-  }
-}
-
-async function unstageNonPublishableAssets(
-  git: ReturnType<typeof simpleGit>,
-  paths: Set<string>
-): Promise<void> {
-  const rels = [...paths]
-  if (rels.length === 0) return
-  try {
-    await git.raw(['reset', 'HEAD', '--', ...rels])
-  } catch {
-    // path was not staged
-  }
-}
-
-const GIT_EXCLUDE_NON_PUBLISHABLE_BEGIN = '# >>> emprint-non-publishable-assets'
-const GIT_EXCLUDE_NON_PUBLISHABLE_END = '# <<< emprint-non-publishable-assets'
-
-async function syncGitExcludeNonPublishableAssets(
-  workspaceRoot: string,
-  paths: Set<string>,
-  cacheEntry: WorkspacePublishScopeCache | undefined
-): Promise<void> {
-  const gitDir = path.join(workspaceRoot, '.git')
-  if (!existsSync(gitDir)) return
-
-  const excludeKey = nonPublishableSetKey(paths)
-  if (cacheEntry?.excludeWrittenKey === excludeKey) return
-
-  const excludePath = path.join(gitDir, 'info', 'exclude')
-  await mkdir(path.dirname(excludePath), { recursive: true })
-
-  let preserved: string[] = []
-  if (existsSync(excludePath)) {
-    const raw = await readFile(excludePath, 'utf8')
-    let inBlock = false
-    for (const line of raw.split(/\r?\n/)) {
-      if (line === GIT_EXCLUDE_NON_PUBLISHABLE_BEGIN) {
-        inBlock = true
-        continue
-      }
-      if (line === GIT_EXCLUDE_NON_PUBLISHABLE_END) {
-        inBlock = false
-        continue
-      }
-      if (!inBlock) preserved.push(line)
-    }
-  }
-
-  const next = [
-    ...preserved,
-    GIT_EXCLUDE_NON_PUBLISHABLE_BEGIN,
-    ...[...paths].sort(),
-    GIT_EXCLUDE_NON_PUBLISHABLE_END,
-    ''
-  ]
-  await writeFile(excludePath, next.join('\n'), 'utf8')
-  if (cacheEntry) cacheEntry.excludeWrittenKey = excludeKey
-}
-
-async function ensureEmprintGitignoreOnce(workspaceRoot: string): Promise<void> {
-  const key = publishScopeCacheKey(workspaceRoot)
-  if (emprintGitignoreEnsuredRoots.has(key)) return
-  await ensureEmprintGitignore(workspaceRoot)
-  emprintGitignoreEnsuredRoots.add(key)
-}
-
-/**
- * Apply git index/exclude updates only when the non-publishable asset set changed.
- */
-async function reconcilePublishScopeGit(
-  workspaceRoot: string,
-  nonPublishable: Set<string>
-): Promise<void> {
-  const cacheKey = publishScopeCacheKey(workspaceRoot)
-  let cacheEntry = publishScopeCacheByWorkspace.get(cacheKey)
-  if (!cacheEntry) {
-    const index = await ensurePublishScopeIndex(workspaceRoot)
-    cacheEntry = {
-      fingerprint: await publishScopeFingerprint(workspaceRoot),
-      index,
-      nonPublishable,
-      appliedNonPublishableKey: null,
-      excludeWrittenKey: null
-    }
-    publishScopeCacheByWorkspace.set(cacheKey, cacheEntry)
-  } else {
-    cacheEntry.nonPublishable = nonPublishable
-  }
-
-  const appliedKey = nonPublishableSetKey(nonPublishable)
-  const gitOpsNeeded = cacheEntry.appliedNonPublishableKey !== appliedKey
-
-  let git: ReturnType<typeof simpleGit> | undefined
-  try {
-    git = simpleGit(workspaceRoot)
-    if (!(await git.checkIsRepo())) {
-      await syncGitExcludeNonPublishableAssets(workspaceRoot, nonPublishable, cacheEntry)
-      return
-    }
-  } catch {
-    await syncGitExcludeNonPublishableAssets(workspaceRoot, nonPublishable, cacheEntry)
-    return
-  }
-
-  if (gitOpsNeeded) {
-    await untrackNonPublishableAssets(git, nonPublishable)
-    await unstageNonPublishableAssets(git, nonPublishable)
-    cacheEntry.appliedNonPublishableKey = appliedKey
-  }
-
-  await syncGitExcludeNonPublishableAssets(workspaceRoot, nonPublishable, cacheEntry)
-}
-
-/**
- * Reconcile git index/exclude with which assets should ship on publish.
- * Call after post moves/deletes and other edits that change asset publish scope.
- */
-export async function syncWorkspacePublishScope(workspaceRoot: string): Promise<Set<string>> {
-  await ensureEmprintGitignoreOnce(workspaceRoot)
-  await untrackEmprintIgnoredPathsOnce(workspaceRoot)
-  const index = await ensurePublishScopeIndex(workspaceRoot)
-  const fingerprint = await publishScopeFingerprint(workspaceRoot)
-  const nonPublishable = nonPublishablePathsFromIndex(index)
-  writePublishScopeCacheEntry(workspaceRoot, index, fingerprint, nonPublishable)
-  await reconcilePublishScopeGit(workspaceRoot, nonPublishable)
-  return nonPublishable
 }
 
 async function preparePublishScopeForSnapshot(workspaceRoot: string): Promise<Set<string>> {
@@ -1414,19 +781,6 @@ export async function gitRecoverWorkspace(sender: WebContents, input: GitRecover
  * Fetches `origin/main` first so `behind` is accurate, and auto-checks out `main`
  * when an external tool left the repo on another branch with a clean tree.
  */
-const gitignoreUntrackedRoots = new Set<string>()
-
-export function invalidateUntrackEmprintIgnoredCache(workspaceRoot: string): void {
-  gitignoreUntrackedRoots.delete(path.resolve(workspaceRoot))
-}
-
-export async function untrackEmprintIgnoredPathsOnce(workspaceRoot: string): Promise<void> {
-  const key = path.resolve(workspaceRoot)
-  if (gitignoreUntrackedRoots.has(key)) return
-  await untrackEmprintIgnoredPaths(workspaceRoot)
-  gitignoreUntrackedRoots.add(key)
-}
-
 export async function gitWorkingTree(directory: string): Promise<GitWorkingTreeSummary> {
   const git = simpleGit(directory)
   const branchInfo = await ensurePublishBranch(git)
@@ -1810,87 +1164,6 @@ export async function gitLog(directory: string, input: GitLogInput): Promise<Git
  * staging area that should never be pushed. Centralizing this here means the
  * UI never has to surface the convention to non-developer users.
  */
-export async function ensureGitignoreLine(workspaceRoot: string, rawLine: string): Promise<void> {
-  const target = rawLine.trim()
-  if (!target) return
-  const filePath = path.join(workspaceRoot, '.gitignore')
-
-  let content = ''
-  try {
-    content = await readFile(filePath, 'utf8')
-  } catch (err) {
-    const code = err && typeof err === 'object' && 'code' in err ? (err as NodeJS.ErrnoException).code : ''
-    if (code !== 'ENOENT') throw err
-  }
-
-  const baseName = target.replace(/^\/+/, '').replace(/\/+$/, '')
-  const variants = new Set([
-    baseName,
-    `${baseName}/`,
-    `/${baseName}`,
-    `/${baseName}/`
-  ])
-
-  const lines = content.split(/\r?\n/)
-  for (const line of lines) {
-    const trimmed = line.trim()
-    if (!trimmed || trimmed.startsWith('#')) continue
-    if (variants.has(trimmed)) return
-  }
-
-  const needsLeadingNewline = content.length > 0 && !content.endsWith('\n')
-  const updated = `${content}${needsLeadingNewline ? '\n' : ''}${target}\n`
-  await writeFile(filePath, updated, 'utf8')
-}
-
-/**
- * The set of paths emprint considers private by convention and therefore
- * always wants represented in `.gitignore`. Currently just `drafts/` — extend
- * this list rather than touching the gitignore machinery directly.
- */
-export async function ensureEmprintGitignore(workspaceRoot: string): Promise<void> {
-  for (const line of EMPRINT_GITIGNORE_LINES) {
-    await ensureGitignoreLine(workspaceRoot, line)
-  }
-}
-
-/**
- * Best-effort migration for workspaces created before `drafts/` was declared
- * private. If any files inside the always-ignored paths are still tracked by
- * git, untrack them (keep the working-tree copy) so the next publish sees
- * them as removed and pushes a clean tree. Failures here are intentionally
- * swallowed: the workspace may not be a git repo yet (e.g. immediately after
- * `workspace:initialize`), nothing is tracked, or git is unavailable — all
- * acceptable no-ops.
- */
-export async function untrackEmprintIgnoredPaths(workspaceRoot: string): Promise<void> {
-  let git: ReturnType<typeof simpleGit>
-  try {
-    git = simpleGit(workspaceRoot)
-    const isRepo = await git.checkIsRepo()
-    if (!isRepo) return
-  } catch {
-    return
-  }
-
-  for (const candidate of EMPRINT_GITIGNORE_LINES) {
-    if (candidate.includes('*')) continue
-    const normalized = candidate.replace(/\/+$/, '')
-    if (!normalized) continue
-    const rmArgs = ['rm', '--cached', '--ignore-unmatch']
-    if (candidate.endsWith('/')) rmArgs.push('-r')
-    rmArgs.push(normalized)
-    try {
-      // `--cached` removes from the index only, leaving the working tree
-      // untouched. `--ignore-unmatch` keeps git from erroring out when the
-      // path is already untracked. `-r` is needed for folders.
-      await git.raw(rmArgs)
-    } catch {
-      // ignored on purpose — see function-level comment
-    }
-  }
-}
-
 /**
  * Stage working-tree changes for publish while keeping Emprint-private paths
  * (e.g. `drafts/`) out of the index even if they were tracked historically.
@@ -1924,387 +1197,42 @@ export function buildGithubAuthRemoteUrl(remoteUrl: string, token: string): stri
   return parsed.toString()
 }
 
-/** Removes the workspace directory tree. Skips missing paths; refuses a few protected roots. */
-export async function removeWorkspaceFromDisk(localDirectory: string): Promise<void> {
-  const resolved = path.resolve(localDirectory.trim())
-  if (!resolved) {
-    throw new Error('Invalid workspace path.')
-  }
-
-  const home = path.resolve(homedir())
-  const userData = path.resolve(app.getPath('userData'))
-  if (resolved === home || resolved === userData) {
-    throw new Error('Cannot remove a protected system folder.')
-  }
-
-  const root = path.parse(resolved).root
-  if (resolved === path.resolve(root)) {
-    throw new Error('Cannot remove filesystem root.')
-  }
-
-  let stats: Awaited<ReturnType<typeof stat>>
-  try {
-    stats = await stat(resolved)
-  } catch (err: unknown) {
-    const code = err && typeof err === 'object' && 'code' in err ? (err as NodeJS.ErrnoException).code : ''
-    if (code === 'ENOENT') {
-      return
-    }
-    throw err
-  }
-
-  if (!stats.isDirectory()) {
-    throw new Error('Workspace path is not a directory.')
-  }
-
-  await rm(resolved, { recursive: true, force: true })
-}
-
-export function toPosixWorkspacePath(filePath: string): string {
-  return filePath.split(path.sep).join('/')
-}
-
-export function isValidSrcEntryName(name: string): boolean {
-  if (!name || name === '.' || name === '..') return false
-  // POSIX-style separator and Windows-style drive/sep characters.
-  if (/[\\/]/.test(name)) return false
-  // Disallow names that are pure whitespace.
-  if (!name.trim()) return false
-  return true
-}
-
-export function resolveSafeSectionsPath(workspaceRoot: string, inputPath: string): string {
-  const normalized = inputPath.replace(/\\/g, '/').replace(/^\/+/, '')
-  if (!normalized || hasPathTraversalSegment(normalized)) {
-    throw new Error('Invalid path.')
-  }
-  if (!normalized.startsWith(`${WORKSPACE_DIR.sections}/`)) {
-    throw new Error('Path must be under sections/.')
-  }
-  const abs = path.resolve(workspaceRoot, ...normalized.split('/'))
-  const sectionsRoot = path.resolve(workspaceRoot, WORKSPACE_DIR.sections)
-  const rel = path.relative(sectionsRoot, abs)
-  if (rel.startsWith('..') || path.isAbsolute(rel)) {
-    throw new Error('Path escapes sections/.')
-  }
-  if (!abs.toLowerCase().endsWith('.json')) {
-    throw new Error('Only JSON section files can be edited here.')
-  }
-  return abs
-}
-
-export function resolveSafePostsOrDraftsPath(workspaceRoot: string, inputPath: string): string {
-  return resolveSafeKnowledgeOrPostsPath(workspaceRoot, inputPath, 'column')
-}
-
-export function resolveSafeKnowledgeOrPostsPath(
-  workspaceRoot: string,
-  inputPath: string,
-  kind: SiteProjectKind = resolveWorkspaceSiteProjectKind(workspaceRoot)
-): string {
-  const normalized = inputPath.replace(/\\/g, '/').replace(/^\/+/, '')
-  if (!normalized || hasPathTraversalSegment(normalized)) {
-    throw new Error('Invalid path.')
-  }
-  const publishedPrefix = `${publishedMarkdownSection(kind)}/`
-  if (!normalized.startsWith(publishedPrefix) && !normalized.startsWith('drafts/')) {
-    throw new Error(`Path must be under ${publishedPrefix} or drafts/.`)
-  }
-  const abs = path.resolve(workspaceRoot, ...normalized.split('/'))
-  const publishedRoot = path.resolve(workspaceRoot, publishedMarkdownSection(kind))
-  const draftsRoot = path.resolve(workspaceRoot, WORKSPACE_DIR.drafts)
-  const inPublished =
-    !path.relative(publishedRoot, abs).startsWith('..') &&
-    !path.isAbsolute(path.relative(publishedRoot, abs))
-  const inDrafts =
-    !path.relative(draftsRoot, abs).startsWith('..') && !path.isAbsolute(path.relative(draftsRoot, abs))
-  if (!inPublished && !inDrafts) {
-    throw new Error('Path escapes allowed content folders.')
-  }
-  return abs
-}
-
-export function resolveSafeKnowledgePath(workspaceRoot: string, inputPath: string): string {
-  return resolveSafeKnowledgeOrPostsPath(workspaceRoot, inputPath, 'dictionary')
-}
-
-/** Book — only `story/story.md`. */
-export function resolveSafeStoryPath(workspaceRoot: string, inputPath: string): string {
-  const normalized = inputPath.replace(/\\/g, '/').replace(/^\/+/, '')
-  if (normalized !== 'story/story.md') {
-    throw new Error('Book workspaces only support story/story.md.')
-  }
-  const abs = path.resolve(workspaceRoot, ...normalized.split('/'))
-  const storyRoot = path.resolve(workspaceRoot, WORKSPACE_DIR.story)
-  if (path.relative(storyRoot, abs).startsWith('..') || path.isAbsolute(path.relative(storyRoot, abs))) {
-    throw new Error('Path escapes allowed content folders.')
-  }
-  return abs
-}
-
-
-export async function safeListDirectory(directory: string): Promise<string[]> {
-  try {
-    return await readdir(directory)
-  } catch {
-    return []
-  }
-}
-
-export function summarizeMarkdown(relativePath: string, content: string, fallbackUpdatedAt: string): PostSummary {
-  const summary = parsePostSummary(relativePath, content)
-  if (!summary.updatedAt && fallbackUpdatedAt) {
-    return { ...summary, updatedAt: fallbackUpdatedAt }
-  }
-  return summary
-}
-
-export function summarizeKnowledge(
-  relativePath: string,
-  content: string,
-  fallbackUpdatedAt: string
-): KnowledgeSummary {
-  const summary = parseKnowledgeSummary(relativePath, content)
-  if (!summary.updatedAt && fallbackUpdatedAt) {
-    return { ...summary, updatedAt: fallbackUpdatedAt }
-  }
-  return summary
-}
-
 export async function buildKnowledgeIndexTree(workspaceRoot: string): Promise<import('@emprint/shared').IndexTreeNode[]> {
   const { buildRegistryIndexTree } = await import('./index-registry-core')
   return await buildRegistryIndexTree(workspaceRoot)
 }
 
-export function inferTitleFromPath(relativePath: string): string {
-  const name = relativePath.split('/').pop() ?? relativePath
-  return name.replace(/\.md$/i, '').replace(/^\d{4}-\d{2}-\d{2}-/, '').replace(/-/g, ' ') || 'Untitled'
-}
-
-/* ------------------------------------------------------------------------------------ */
-/* Assets (workspace `assets/images/`)                                                  */
-/* ------------------------------------------------------------------------------------ */
-
-const ASSET_IMAGE_MIME_ALLOWLIST: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-  'image/gif': 'gif',
-  'image/svg+xml': 'svg'
-}
-
-export function slugifyAssetBaseName(fileName: string): string {
-  const withoutExt = fileName.replace(/\.[a-z0-9]+$/i, '')
-  const slug = withoutExt
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[^a-z0-9._-]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^[-.]+|[-.]+$/g, '')
-  return slug || 'image'
-}
-
-export function buildUniqueAssetPath(imagesDir: string, baseName: string, ext: string): string {
-  let candidate = path.join(imagesDir, `${baseName}.${ext}`)
-  let counter = 2
-  while (existsSync(candidate)) {
-    candidate = path.join(imagesDir, `${baseName}-${counter}.${ext}`)
-    counter++
-  }
-  return candidate
-}
-
-export async function saveAssetImage(
-  workspaceRoot: string,
-  input: { fileName: string; data: Uint8Array; mimeType: string }
-): Promise<AssetImageInfo> {
-  const ext = ASSET_IMAGE_MIME_ALLOWLIST[input.mimeType]
-  if (!ext) {
-    throw new Error(`Unsupported image type: ${input.mimeType}`)
-  }
-  const data = input.data instanceof Uint8Array ? input.data : new Uint8Array(input.data as unknown as ArrayBuffer)
-  if (data.byteLength > MAX_ASSET_IMAGE_BYTES) {
-    throw new Error(
-      `Image exceeds the 20MB upload limit (${(data.byteLength / (1024 * 1024)).toFixed(1)}MB). Reduce the size and try again.`
-    )
-  }
-  if (data.byteLength === 0) {
-    throw new Error('Empty image data.')
-  }
-
-  const baseName = slugifyAssetBaseName(input.fileName)
-  const imagesDir = path.join(workspaceRoot, WORKSPACE_DIR.assetsImages)
-  await mkdir(imagesDir, { recursive: true })
-  const absPath = buildUniqueAssetPath(imagesDir, baseName, ext)
-  await writeFile(absPath, data, { flag: 'wx' })
-
-  const st = await stat(absPath)
-  const relPath = toPosixWorkspacePath(path.relative(workspaceRoot, absPath))
-  return {
-    path: relPath,
-    name: path.basename(absPath),
-    size: st.size,
-    mimeType: input.mimeType,
-    modifiedAt: st.mtime.toISOString(),
-    references: [],
-    publishScope: 'orphan'
-  }
-}
-
-export function resolveSafeAssetPath(workspaceRoot: string, inputPath: string): string {
-  const normalized = inputPath.replace(/\\/g, '/').replace(/^\/+/, '')
-  if (!normalized || hasPathTraversalSegment(normalized)) {
-    throw new Error('Invalid asset path.')
-  }
-  if (!normalized.startsWith(`${WORKSPACE_DIR.assets}/`)) {
-    throw new Error('Asset path must start with assets/.')
-  }
-  const abs = path.resolve(workspaceRoot, ...normalized.split('/'))
-  const assetsRoot = path.resolve(workspaceRoot, WORKSPACE_DIR.assets)
-  const rel = path.relative(assetsRoot, abs)
-  if (rel.startsWith('..') || path.isAbsolute(rel)) {
-    throw new Error('Path escapes assets/.')
-  }
-  return abs
-}
-
-export async function deleteAssetImage(workspaceRoot: string, relativePath: string): Promise<void> {
-  const abs = resolveSafeAssetPath(workspaceRoot, relativePath)
-  const st = await stat(abs)
-  if (!st.isFile()) {
-    throw new Error('Not a file.')
-  }
-  await unlink(abs)
-}
-
-export function mimeTypeForExtension(ext: string): string {
-  switch (ext.toLowerCase()) {
-    case 'jpg':
-    case 'jpeg':
-      return 'image/jpeg'
-    case 'png':
-      return 'image/png'
-    case 'webp':
-      return 'image/webp'
-    case 'gif':
-      return 'image/gif'
-    case 'svg':
-      return 'image/svg+xml'
-    default:
-      return 'application/octet-stream'
-  }
-}
-
-const MARKDOWN_IMAGE_RE = /!\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g
-const HTML_IMG_SRC_RE = /<img[^>]+src\s*=\s*["']([^"']+)["'][^>]*>/gi
-
-export function normalizeReferenceTarget(reference: string): string | null {
-  try {
-    // Drop URL schemes (http://, https://, mailto:, ...).
-    if (/^[a-z][a-z0-9+.-]*:/i.test(reference)) {
-      // Allow our internal scheme.
-      if (reference.startsWith('emprint-asset://')) {
-        return reference
-          .replace(/^emprint-asset:\/\//i, '')
-          .replace(/^\/+/, '')
-      }
-      return null
-    }
-  } catch {
-    return null
-  }
-  // Drop query/hash if any.
-  const clean = reference.split('#')[0]!.split('?')[0]!.trim()
-  if (!clean) return null
-  // Strip leading slash to make root-relative paths comparable to workspace-relative ones.
-  return clean.replace(/^\.\//, '').replace(/^\/+/, '')
-}
-
-function* extractMarkdownImageRefs(markdown: string): Generator<string> {
-  for (const m of markdown.matchAll(MARKDOWN_IMAGE_RE)) {
-    if (m[1]) yield m[1]
-  }
-  for (const m of markdown.matchAll(HTML_IMG_SRC_RE)) {
-    if (m[1]) yield m[1]
-  }
-}
-
-export async function listAssetImages(workspaceRoot: string): Promise<AssetImageInfo[]> {
-  const imagesDir = path.join(workspaceRoot, WORKSPACE_DIR.assetsImages)
-  if (!existsSync(imagesDir)) {
-    return []
-  }
-
-  const dirents = await readdir(imagesDir, { withFileTypes: true })
-  const images: AssetImageInfo[] = []
-  for (const ent of dirents) {
-    if (!ent.isFile()) continue
-    const ext = ent.name.split('.').pop()?.toLowerCase() ?? ''
-    if (!Object.values(ASSET_IMAGE_MIME_ALLOWLIST).includes(ext)) continue
-    const abs = path.join(imagesDir, ent.name)
-    const st = await stat(abs)
-    images.push({
-      path: toPosixWorkspacePath(path.relative(workspaceRoot, abs)),
-      name: ent.name,
-      size: st.size,
-      mimeType: mimeTypeForExtension(ext),
-      modifiedAt: st.mtime.toISOString(),
-      references: [],
-      publishScope: 'orphan'
-    })
-  }
-
-  // Build lookup keys for each image so we can match many path variants.
-  const imageByKey = new Map<string, AssetImageInfo>()
-  for (const img of images) {
-    imageByKey.set(img.path, img) // assets/images/foo.jpg
-    imageByKey.set(img.name, img) // foo.jpg
-  }
-
-  const kind = resolveWorkspaceSiteProjectKind(workspaceRoot)
-  const published = publishedMarkdownSection(kind)
-  const sections: Array<{ section: AssetReference['section']; dir: string }> = [
-    { section: published, dir: path.join(workspaceRoot, published) },
-    { section: 'drafts', dir: path.join(workspaceRoot, WORKSPACE_DIR.drafts) }
-  ]
-
-  for (const { section, dir } of sections) {
-    if (!existsSync(dir)) continue
-    const files = await safeListDirectory(dir)
-    for (const fileName of files) {
-      if (!fileName.toLowerCase().endsWith('.md')) continue
-      const postRelPath = `${section}/${fileName}`
-      const absPostPath = path.join(dir, fileName)
-      let content: string
-      try {
-        content = await readFile(absPostPath, 'utf8')
-      } catch {
-        continue
-      }
-      const title =
-        section === 'knowledge'
-          ? parseKnowledgeSummary(postRelPath, content).title
-          : summarizeMarkdown(postRelPath, content, '').title
-      for (const ref of extractMarkdownImageRefs(content)) {
-        const target = normalizeReferenceTarget(ref)
-        if (!target) continue
-        const hit = imageByKey.get(target) ?? imageByKey.get(target.split('/').pop()!)
-        if (!hit) continue
-        if (hit.references.some((r) => r.postPath === postRelPath)) continue
-        const reference: AssetReference = {
-          postPath: postRelPath,
-          postTitle: title,
-          section
-        }
-        hit.references.push(reference)
-      }
-    }
-  }
-
-  for (const image of images) {
-    image.publishScope = classifyAssetPublishScope(image.references)
-  }
-
-  images.sort((a, b) => (a.modifiedAt < b.modifiedAt ? 1 : -1))
-  return images
-}
+export {
+  githubApiPostRaw,
+  githubApiErrorFromResponse,
+  safeJsonParse,
+  safeReadText
+} from '../github-api/http'
+export { summarizeMarkdown, summarizeKnowledge } from './markdown-summary'
+export {
+  resolveSafeSectionsPath,
+  resolveSafePostsOrDraftsPath,
+  resolveSafeKnowledgeOrPostsPath,
+  resolveSafeKnowledgePath,
+  resolveSafeStoryPath,
+  resolveSafeAssetPath
+} from '../workspace/path-safety'
+export { ensureGitignoreLine, ensureEmprintGitignore, invalidateUntrackEmprintIgnoredCache, untrackEmprintIgnoredPaths, untrackEmprintIgnoredPathsOnce } from '../workspace/gitignore'
+export {
+  applyAssetCatalogPublishScope,
+  applyPostDeletePublishScope,
+  applyPostPublishScopeChange,
+  applyPostsMovePublishScope,
+  collectNonPublishableAssetPaths,
+  invalidateWorkspacePublishScopeCache
+} from '../publish-scope/publish-scope-index'
+export { syncWorkspacePublishScope } from '../publish-scope/reconcile'
+export { isValidSrcEntryName, removeWorkspaceFromDisk, safeListDirectory, toPosixWorkspacePath } from '../workspace/workspace-path'
+export {
+  buildUniqueAssetPath,
+  deleteAssetImage,
+  listAssetImages,
+  normalizeReferenceTarget,
+  saveAssetImage,
+  slugifyAssetBaseName
+} from '../workspace/assets-image'

@@ -6,6 +6,70 @@ import type {
 } from '@emprint/shared'
 import type { SidebarSection } from '@renderer/state/app-store'
 
+/** User-facing anthology terminology (Hub, Wizard, catalog). Code may still use `workspace*` / `publicationSlug` types. */
+const anthologyUi = {
+  ko: {
+    hub: '앤솔로지 허브',
+    hubTitle: '앤솔로지 허브',
+    catalogHeading: '앤솔로지',
+    anthologiesRoot: '앤솔로지 루트',
+    anthologiesRootFolder: '앤솔로지 루트 폴더',
+    type: '앤솔로지 타입',
+    title: '앤솔로지 제목',
+    slug: '앤솔로지 슬러그',
+    newAnthology: '새 앤솔로지',
+    describeAnthology: '한 줄로 이 앤솔로지를 설명해 주세요.',
+    titleHelp: '공개 사이트와 허브 목록에 표시되는 이름입니다. 슬러그(폴더·저장소 이름)와는 별도입니다.',
+    slugHelp: '로컬 폴더와 GitHub 저장소 이름에 사용됩니다. 앤솔로지 타입(Column 등)과 무관합니다.',
+    slugInvalid: '앤솔로지 슬러그는 글자, 숫자, 하이픈(-)만 사용할 수 있습니다.',
+    selectRootFirst: '먼저 앤솔로지 루트 폴더를 선택해 주세요.',
+    apiUnavailable: '앤솔로지 API를 불러오지 못했습니다.',
+    openFailed: '앤솔로지를 열지 못했습니다.',
+    createFailed: '앤솔로지 생성에 실패했습니다.',
+    loadCatalogFailed: '앤솔로지 목록을 불러오지 못했습니다.',
+    backToHub: 'Anthologies Hub로 돌아가기',
+    goToHub: 'Anthologies Hub로 이동',
+    restoreBeforePublish: '발행 전에 앤솔로지를 복구하세요',
+    conflictWithAnthology: '배포된 사이트와 이 앤솔로지 사이에 충돌이 있습니다.',
+    reopenAnthology: '변경 사항을 저장하거나 버린 뒤 앤솔로지를 다시 여세요.',
+    overwriteWarning: '이 앤솔로지의 미발행 편집·스테이징 변경이 사라질 수 있습니다.',
+    rootFolderDesc: '여러 앤솔로지(각각 Git 저장소)를 보관할 상위 폴더를 선택합니다.',
+    soon: 'Soon',
+    blankTypeTitle: 'Blank',
+    blankTypeSubtitle: '코드 중심 웹 포트폴리오 · 준비 중'
+  },
+  en: {
+    hub: 'Anthologies Hub',
+    hubTitle: 'Anthologies Hub',
+    catalogHeading: 'Anthologies',
+    anthologiesRoot: 'Anthologies root',
+    anthologiesRootFolder: 'Anthologies root folder',
+    type: 'Anthology type',
+    title: 'Anthology title',
+    slug: 'Anthology slug',
+    newAnthology: 'New anthology',
+    describeAnthology: 'Describe this anthology in one line.',
+    titleHelp: 'Shown on your public site and in the Anthologies Hub list. Separate from the slug (folder/repo name).',
+    slugHelp: 'Used for the local folder and GitHub repo name. Independent of anthology type (Column, etc.).',
+    slugInvalid: 'Anthology slug may only use letters, numbers, and hyphens.',
+    selectRootFirst: 'Please select an anthologies root folder first.',
+    apiUnavailable: 'Anthology API unavailable.',
+    openFailed: 'Failed to open anthology.',
+    createFailed: 'Failed to create anthology.',
+    loadCatalogFailed: 'Failed to load anthologies.',
+    backToHub: 'Back to Anthologies Hub',
+    goToHub: 'Go to Anthologies Hub',
+    restoreBeforePublish: 'Restore the anthology before publishing',
+    conflictWithAnthology: 'A conflict occurred between your live site and this anthology.',
+    reopenAnthology: 'Save or discard local changes, then reopen the anthology.',
+    overwriteWarning: 'Unpublished edits and staged changes in this anthology may be lost.',
+    rootFolderDesc: 'Parent folder where multiple anthologies (each a Git repo) are stored.',
+    soon: 'Soon',
+    blankTypeTitle: 'Blank',
+    blankTypeSubtitle: 'Code-first web portfolio · coming later'
+  }
+} as const
+
 const messages = {
   ko: {
     localeLabel: '한국어',
@@ -16,8 +80,7 @@ const messages = {
     steps: ['인증', '워크스페이스 유형', '템플릿', '구성', '저장소', '디렉터리'],
     sectionNames: {
       posts: '포스트',
-      index: '인덱스',
-      knowledge: '지식',
+      contents: '목차',
       drafts: '드래프트',
       sections: '섹션',
       artwork: '작품',
@@ -29,8 +92,7 @@ const messages = {
     },
     sectionHints: {
       posts: '발행된 글',
-      index: '주제 색인 트리',
-      knowledge: '발행된 지식 항목',
+      contents: '주제 트리와 지식 항목',
       drafts: '작업 중인 초안',
       sections: '시맨틱 섹션',
       artwork: '전시 이미지 (최대 50)',
@@ -38,7 +100,7 @@ const messages = {
       assets: '이미지와 미디어',
       design: '템플릿 · 코드',
       imprint: '커밋 그래프와 발행 이력',
-      settings: '워크스페이스 구성'
+      settings: '앤솔로지 설정'
     },
     workspaceTypes: {
       creator: '크리에이터',
@@ -61,20 +123,20 @@ const messages = {
     },
     shell: {
       commandPalette: '명령 팔레트',
-      commandPalettePlaceholder: '섹션, 런타임 명령, 워크스페이스 동작 검색',
+      commandPalettePlaceholder: '섹션, 명령, 앤솔로지 동작 검색',
       commandPaletteEmpty: '일치하는 명령이나 이동 대상이 없습니다.',
       commandMeta: '명령',
       workspaceRuntime: '워크스페이스 런타임',
       quietInfrastructure: '생각과 코드, 버전 기록을 조용히 보존하는 로컬 런타임입니다.',
       sections: '섹션',
-      workspaceRoot: '워크스페이스 루트',
+      workspaceRoot: '앤솔로지 루트',
       archiveStructure: '아카이브 구조',
       philosophy: '철학',
-      philosophyBody: '워크스페이스가 곧 제품이고, 앱은 그 위를 실행하는 런타임입니다.',
+      philosophyBody: '앤솔로지가 곧 제품이고, 앱은 그 위를 실행하는 런타임입니다.',
       posts: {
         eyebrow: '발행 아카이브',
         title: '기록된 글은 포터블한 파일로 남습니다.',
-        description: '포스트는 앱 안에 갇힌 레코드가 아니라 워크스페이스 안에 남는 실제 산출물로 다뤄집니다.'
+        description: '포스트는 앱 안에 갇힌 레코드가 아니라 앤솔로지 안에 남는 실제 산출물로 다뤄집니다.'
       },
       drafts: {
         eyebrow: '작업의 잔여물',
@@ -92,7 +154,7 @@ const messages = {
         description: '템플릿으로 색감을 고르거나, `src/` 파일을 Monaco로 직접 편집할 수 있습니다.'
       },
       settings: {
-        eyebrow: '워크스페이스 계약',
+        eyebrow: '앤솔로지 계약',
         title: '구성은 명시적이고 점검 가능해야 합니다.',
         description: 'manifest, 명령 체계, 구조 규칙은 Emprint 밖에서도 이해할 수 있어야 합니다.'
       },
@@ -253,8 +315,7 @@ const messages = {
     steps: ['Authenticate', 'Workspace Type', 'Template', 'Configure', 'Repository', 'Directory'],
     sectionNames: {
       posts: 'Posts',
-      index: 'Index',
-      knowledge: 'Knowledge',
+      contents: 'Contents',
       drafts: 'Drafts',
       sections: 'Sections',
       artwork: 'Artwork',
@@ -266,8 +327,7 @@ const messages = {
     },
     sectionHints: {
       posts: 'Published writing',
-      index: 'Topic index tree',
-      knowledge: 'Published knowledge entries',
+      contents: 'Topic tree and knowledge entries',
       drafts: 'Works in progress',
       sections: 'Semantic sections',
       artwork: 'Gallery images (max 50)',
@@ -275,7 +335,7 @@ const messages = {
       assets: 'Images and media',
       design: 'Template or code',
       imprint: 'Commit history and publish log',
-      settings: 'Workspace configuration'
+      settings: 'Anthology settings'
     },
     workspaceTypes: {
       creator: 'Creator',
@@ -298,20 +358,20 @@ const messages = {
     },
     shell: {
       commandPalette: 'Command Palette',
-      commandPalettePlaceholder: 'Search sections, runtime commands, and workspace actions',
+      commandPalettePlaceholder: 'Search sections, commands, and anthology actions',
       commandPaletteEmpty: 'No matching commands or navigation targets.',
       commandMeta: 'command',
       workspaceRuntime: 'Workspace Runtime',
       quietInfrastructure: 'A quiet local runtime for preserving thought, code, and version history.',
       sections: 'Sections',
-      workspaceRoot: 'Workspace Root',
+      workspaceRoot: 'Anthologies root',
       archiveStructure: 'Archive Structure',
       philosophy: 'Philosophy',
-      philosophyBody: 'The workspace is the product, and the app is the runtime that serves it.',
+      philosophyBody: 'The anthology is the product, and the app is the runtime that serves it.',
       posts: {
         eyebrow: 'Published archive',
         title: 'Written records remain as portable files.',
-        description: 'Posts are treated as durable workspace artifacts instead of records trapped inside an app shell.'
+        description: 'Posts are treated as durable anthology artifacts instead of records trapped inside an app shell.'
       },
       drafts: {
         eyebrow: 'Working residue',
@@ -485,6 +545,10 @@ const messages = {
 
 export function getLocaleMessages(locale: AppLocale) {
   return messages[locale]
+}
+
+export function getAnthologyUi(locale: AppLocale) {
+  return anthologyUi[locale]
 }
 
 export function getSectionLabel(locale: AppLocale, section: SidebarSection): string {

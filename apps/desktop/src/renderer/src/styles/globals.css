@@ -255,3 +255,45 @@ select {
   border: 0;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
+
+/* Book Story editor — visual hint for markdown page breaks (`---` → <hr>). */
+.tiptap-page-break-hints .prose-emprint hr {
+  position: relative;
+  margin: 2.25rem 0;
+  border: 0;
+  height: 0;
+  overflow: visible;
+  text-align: center;
+}
+
+.tiptap-page-break-hints .prose-emprint hr::before {
+  content: '';
+  display: block;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(196, 113, 63, 0.45) 20%,
+    rgba(196, 113, 63, 0.45) 80%,
+    transparent
+  );
+}
+
+.tiptap-page-break-hints .prose-emprint hr::after {
+  content: var(--page-break-label, 'Page break');
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(196, 113, 63, 0.35);
+  background: var(--surface, #1a1512);
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(196, 113, 63, 0.92);
+  white-space: nowrap;
+}

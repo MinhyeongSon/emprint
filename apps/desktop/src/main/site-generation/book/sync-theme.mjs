@@ -3,6 +3,7 @@
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import path from 'node:path'
+import { logError, logInfo } from '../shared/log.mjs'
 
 const root = process.cwd()
 const themePath = path.join(root, 'config', 'theme.json')
@@ -89,10 +90,10 @@ function themeToCss(theme) {
 const raw = readFileSync(themePath, 'utf8')
 const theme = JSON.parse(raw)
 if (theme.contractVersion !== 1 || theme.anthology !== 'book') {
-  console.error(`Unsupported theme.json for Book (anthology: ${theme.anthology ?? 'missing'}).`)
+  logError(`Unsupported theme.json for Book (anthology: ${theme.anthology ?? 'missing'}).`)
   process.exit(1)
 }
 theme.colorMode = normalizeColorMode(theme.colorMode)
 mkdirSync(outDir, { recursive: true })
 writeFileSync(outPath, themeToCss(theme), 'utf8')
-console.log('[emprint] Wrote src/styles/tokens.css (book)')
+logInfo('Wrote src/styles/tokens.css (book)')

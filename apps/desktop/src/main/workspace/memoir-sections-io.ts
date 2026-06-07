@@ -9,7 +9,10 @@ import {
   nextMemoirSectionOrder,
   parseMemoirSectionFile,
   sectionTitleFromProps,
+  parseMemoirContactLinksEditor,
+  serializeMemoirContactLinks,
   serializeMemoirSectionFile,
+  uniqueMemoirSectionId,
   validateMemoirSectionProps,
   validateMemoirSectionTree,
   type MemoirContainerSectionType,
@@ -56,11 +59,24 @@ export async function listMemoirSectionSummaries(
   return enrichMemoirSectionsFromFiles(sections, pathById)
 }
 
+function normalizeMemoirSectionForSave(section: MemoirSectionFile): MemoirSectionFile {
+  if (section.type !== 'Contact') return section
+  const links = serializeMemoirContactLinks(parseMemoirContactLinksEditor(section.props))
+  const props = { ...section.props }
+  if (links.length > 0) {
+    props.links = links
+  } else {
+    delete props.links
+  }
+  return { ...section, props }
+}
+
 export async function writeMemoirSectionFile(
   workspaceRoot: string,
   section: MemoirSectionFile,
   options?: { previousPath?: string }
 ): Promise<{ path: string; section: MemoirSectionFile }> {
+  section = normalizeMemoirSectionForSave(section)
   validateMemoirSectionProps(section.type, section.props)
   const relativePath = memoirSectionRelativePath(section.id)
   const abs = path.join(workspaceRoot, relativePath)
@@ -251,6 +267,142 @@ export async function deleteMemoirSectionWithCleanup(
   }
 
   return { path: inputPath }
+}
+
+export async function reorderMemoirContainerChildren(
+  workspaceRoot: string,
+  parentId: string,
+  orderedChildIds: string[]
+): Promise<void> {
+  const { sections } = await loadAllMemoirSectionFiles(workspaceRoot)
+  const parent = sections.find((s) => s.id === parentId)
+  if (!parent || !isMemoirContainerSectionType(parent.type)) {
+    throw new Error(`Section "${parentId}" is not a container.`)
+  }
+  const current = parent.children ?? []
+  if (orderedChildIds.length !== current.length) {
+    throw new Error('Reorder must include every child section exactly once.')
+  }
+  const currentSet = new Set(current)
+  for (const id of orderedChildIds) {
+    if (!currentSet.has(id)) {
+      throw new Error(`Section "${id}" is not a child of "${parentId}".`)
+    }
+  }
+  const updated: MemoirSectionFile = { ...parent, children: [...orderedChildIds] }
+  await writeMemoirSectionFile(workspaceRoot, updated)
+}
+
+export async function reparentMemoirSection(
+  workspaceRoot: string,
+  childId: string,
+  newParentId: string | null
+): Promise<void> {
+  const { sections } = await loadAllMemoirSectionFiles(workspaceRoot)
+  const child = sections.find((s) => s.id === childId)
+  if (!child) throw new Error(`Section "${childId}" not found.`)
+  if (child.children?.length) {
+    throw new Error('Container sections cannot be reparented.')
+  }
+
+  const oldParent = sections.find((s) => s.children?.includes(childId))
+  if (newParentId && oldParent?.id === newParentId) return
+
+  if (oldParent) {
+    const children = (oldParent.children ?? []).filter((id) => id !== childId)
+    const { children: _drop, ...rest } = oldParent
+    const updatedOld: MemoirSectionFile = children.length ? { ...rest, children } : rest
+    await writeMemoirSectionFile(workspaceRoot, updatedOld)
+  }
+
+  if (!newParentId) {
+    const roots = sections.filter(
+      (s) => !sections.some((p) => p.children?.includes(s.id)) && s.id !== childId
+    )
+    const order = roots.length ? Math.max(...roots.map((s) => s.order), -1) + 1 : 0
+    await writeMemoirSectionFile(workspaceRoot, { ...child, order })
+    return
+  }
+
+  const newParent = sections.find((s) => s.id === newParentId)
+  if (!newParent || !isMemoirContainerSectionType(newParent.type)) {
+    throw new Error(`Section "${newParentId}" is not a valid container parent.`)
+  }
+  const allowed = memoirChildLeafTypesForContainer(newParent.type)
+  if (!allowed.includes(child.type as (typeof allowed)[number])) {
+    throw new Error(`Section type "${child.type}" cannot be added to "${newParent.type}".`)
+  }
+  const children = [...(newParent.children ?? []).filter((id) => id !== childId), childId]
+  await writeMemoirSectionFile(workspaceRoot, { ...newParent, children })
+}
+
+export type MemoirSectionDuplicateMode = 'shallow' | 'deep'
+
+function cloneMemoirProps(props: Record<string, unknown>): Record<string, unknown> {
+  return JSON.parse(JSON.stringify(props)) as Record<string, unknown>
+}
+
+export async function duplicateMemoirSection(
+  workspaceRoot: string,
+  inputPath: string,
+  mode: MemoirSectionDuplicateMode = 'shallow'
+): Promise<{ path: string; section: MemoirSectionFile }> {
+  const abs = path.join(workspaceRoot, inputPath)
+  const content = await readFile(abs, 'utf8')
+  const source = parseMemoirSectionFile(content, inputPath)
+  const { sections } = await loadAllMemoirSectionFiles(workspaceRoot)
+  let existingIds = sections.map((s) => s.id)
+  const parent = sections.find((s) => s.children?.includes(source.id))
+  const sourceChildren = source.children ?? []
+
+  if (isMemoirContainerSectionType(source.type) && sourceChildren.length > 0 && mode === 'deep') {
+    const newChildIds: string[] = []
+    for (const childId of sourceChildren) {
+      const child = sections.find((s) => s.id === childId)
+      if (!child) continue
+      const newChildId = uniqueMemoirSectionId(`${child.id}-copy`, existingIds)
+      existingIds = [...existingIds, newChildId]
+      newChildIds.push(newChildId)
+      const childDup: MemoirSectionFile = {
+        id: newChildId,
+        type: child.type,
+        order: child.order,
+        published: false,
+        props: cloneMemoirProps(child.props)
+      }
+      await writeMemoirSectionFile(workspaceRoot, childDup)
+    }
+
+    const newContainerId = uniqueMemoirSectionId(`${source.id}-copy`, existingIds)
+    const containerDup: MemoirSectionFile = {
+      id: newContainerId,
+      type: source.type,
+      order: nextMemoirSectionOrder(sections, parent?.id),
+      published: false,
+      props: cloneMemoirProps(source.props),
+      children: newChildIds
+    }
+    return createMemoirSectionFile(
+      workspaceRoot,
+      containerDup,
+      parent ? { parentId: parent.id } : undefined
+    )
+  }
+
+  const newId = uniqueMemoirSectionId(`${source.id}-copy`, existingIds)
+  const duplicate: MemoirSectionFile = {
+    id: newId,
+    type: source.type,
+    order: nextMemoirSectionOrder(sections, parent?.id),
+    published: false,
+    props: cloneMemoirProps(source.props)
+  }
+
+  return createMemoirSectionFile(
+    workspaceRoot,
+    duplicate,
+    parent ? { parentId: parent.id } : undefined
+  )
 }
 
 export function memoirSectionSummaryFromFile(

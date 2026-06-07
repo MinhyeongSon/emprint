@@ -39,8 +39,7 @@ function migrateLegacyTheme(theme: unknown): { colorPalette: AppColorPalette; co
 
 export type SidebarSection =
   | 'posts'
-  | 'index'
-  | 'knowledge'
+  | 'contents'
   | 'drafts'
   | 'sections'
   | 'artwork'
@@ -182,7 +181,7 @@ export const useAppStore = create<AppState>()(
             kind === 'memoir'
               ? 'sections'
               : kind === 'dictionary'
-                ? 'index'
+                ? 'contents'
                 : kind === 'fragments'
                   ? 'artwork'
                   : kind === 'book'

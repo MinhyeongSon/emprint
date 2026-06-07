@@ -104,3 +104,13 @@ export function registryToIndexTree(entries: IndexRegistryEntry[]): IndexTreeNod
 export function collectRegistryPaths(entries: IndexRegistryEntry[]): Set<string> {
   return new Set(entries.map((e) => normalizeIndexPath(e.path)).filter(Boolean))
 }
+
+/** Display label for an index path — prefers registry label over path segment. */
+export function labelForIndexPath(path: string, entries: IndexRegistryEntry[]): string {
+  const normalized = normalizeIndexPath(path)
+  if (!normalized) return path
+  const hit = entries.find((e) => normalizeIndexPath(e.path) === normalized)
+  if (hit?.label) return hit.label
+  const parts = normalized.split('/')
+  return parts[parts.length - 1] ?? normalized
+}

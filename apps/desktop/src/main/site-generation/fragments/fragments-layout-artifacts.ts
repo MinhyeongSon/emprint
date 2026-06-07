@@ -238,6 +238,8 @@ interface Item {
   path: string
   title: string
   caption?: string
+  year?: number
+  medium?: string
   sort: number
 }
 
@@ -251,6 +253,13 @@ const base = import.meta.env.BASE_URL
 function publicSrc(workspacePath: string): string {
   const name = workspacePath.replace(/^artwork\\//, '')
   return \`\${base}artwork/\${name}\`
+}
+
+function metaLine(item: Item): string {
+  const parts: string[] = []
+  if (item.year != null) parts.push(String(item.year))
+  if (item.medium?.trim()) parts.push(item.medium.trim())
+  return parts.join(' · ')
 }
 ---
 {items.length === 0 ? (
@@ -271,6 +280,8 @@ function publicSrc(workspacePath: string): string {
               data-src={publicSrc(item.path)}
               data-title={item.title}
               data-caption={item.caption ?? ''}
+              data-year={item.year ?? ''}
+              data-medium={item.medium ?? ''}
               aria-label={item.title}
             >
               <img class="${EP.RecordCover}" src={publicSrc(item.path)} alt="" loading="lazy" decoding="async" />
@@ -284,6 +295,7 @@ function publicSrc(workspacePath: string): string {
           <img class="${EP.RecordCover}" data-preview-img alt="" />
           <div class="${EP.ShelfPreviewMeta}">
             <strong data-preview-title></strong>
+            <span class="${EP.ShelfPreviewMetaLine}" data-preview-meta hidden></span>
             <span data-preview-caption></span>
           </div>
         </button>
@@ -297,7 +309,11 @@ function publicSrc(workspacePath: string): string {
   <div class="${EP.LightboxPanel}">
     <button type="button" class="${EP.LightboxClose}" data-lightbox-close aria-label="${closeLabel}">${closeLabel}</button>
     <img class="${EP.LightboxImage}" data-lightbox-img alt="" />
-    <p class="${EP.LightboxCaption}" data-lightbox-caption></p>
+    <div class="${EP.LightboxCopy}">
+      <p class="${EP.LightboxTitle}" data-lightbox-title></p>
+      <p class="${EP.LightboxMeta}" data-lightbox-meta hidden></p>
+      <p class="${EP.LightboxCaption}" data-lightbox-caption hidden></p>
+    </div>
   </div>
 </div>
 
@@ -313,9 +329,21 @@ function publicSrc(workspacePath: string): string {
   const previewBtn = carousel.querySelector('[data-preview-open]')
   const previewImg = carousel.querySelector('[data-preview-img]')
   const previewTitle = carousel.querySelector('[data-preview-title]')
+  const previewMeta = carousel.querySelector('[data-preview-meta]')
   const previewCaption = carousel.querySelector('[data-preview-caption]')
   const lightboxImg = box.querySelector('[data-lightbox-img]')
+  const lightboxTitle = box.querySelector('[data-lightbox-title]')
+  const lightboxMeta = box.querySelector('[data-lightbox-meta]')
   const lightboxCap = box.querySelector('[data-lightbox-caption]')
+
+  function metaFromEl(el) {
+    const parts = []
+    const year = el.getAttribute('data-year')
+    const medium = el.getAttribute('data-medium')
+    if (year) parts.push(year)
+    if (medium) parts.push(medium)
+    return parts.join(' · ')
+  }
 
   const count = records.length
   let index = 0
@@ -345,11 +373,16 @@ function publicSrc(workspacePath: string): string {
     const src = el.getAttribute('data-src') || ''
     const title = el.getAttribute('data-title') || ''
     const caption = el.getAttribute('data-caption') || ''
+    const meta = metaFromEl(el)
     if (previewImg instanceof HTMLImageElement) {
       previewImg.src = src
       previewImg.alt = title
     }
     if (previewTitle) previewTitle.textContent = title
+    if (previewMeta) {
+      previewMeta.textContent = meta
+      previewMeta.hidden = !meta
+    }
     if (previewCaption) {
       previewCaption.textContent = caption
       previewCaption.hidden = !caption
@@ -371,11 +404,20 @@ function publicSrc(workspacePath: string): string {
     const src = el.getAttribute('data-src') || ''
     const title = el.getAttribute('data-title') || ''
     const caption = el.getAttribute('data-caption') || ''
+    const meta = metaFromEl(el)
     lightboxImg.src = src
     lightboxImg.alt = title
+    if (lightboxTitle) {
+      lightboxTitle.textContent = title
+      lightboxTitle.hidden = !title
+    }
+    if (lightboxMeta) {
+      lightboxMeta.textContent = meta
+      lightboxMeta.hidden = !meta
+    }
     if (lightboxCap) {
-      lightboxCap.textContent = caption || title
-      lightboxCap.hidden = !(caption || title)
+      lightboxCap.textContent = caption
+      lightboxCap.hidden = !caption
     }
     box.removeAttribute('hidden')
     box.setAttribute('data-open', 'true')
@@ -440,6 +482,8 @@ interface Item {
   path: string
   title: string
   caption?: string
+  year?: number
+  medium?: string
   sort: number
 }
 
@@ -455,6 +499,13 @@ const base = import.meta.env.BASE_URL.endsWith('/')
 function publicSrc(workspacePath: string): string {
   const name = workspacePath.replace(/^artwork\\//, '')
   return base + 'artwork/' + name
+}
+
+function metaLine(item: Item): string {
+  const parts: string[] = []
+  if (item.year != null) parts.push(String(item.year))
+  if (item.medium?.trim()) parts.push(item.medium.trim())
+  return parts.join(' · ')
 }
 
 const sorted = [...items].sort((a, b) => a.sort - b.sort)
@@ -474,6 +525,8 @@ const sorted = [...items].sort((a, b) => a.sort - b.sort)
               data-src={publicSrc(item.path)}
               data-title={item.title}
               data-caption={item.caption ?? ''}
+              data-year={item.year ?? ''}
+              data-medium={item.medium ?? ''}
               hidden={index >= 12}
             >
               <button type="button" class="${EP.MasonryItemBtn}" aria-label={item.title}>
@@ -486,7 +539,12 @@ const sorted = [...items].sort((a, b) => a.sort - b.sort)
                   width="400"
                   height="400"
                 />
-                <span class="${EP.MasonryItemCaption}">{item.title}</span>
+                <span class="${EP.MasonryItemCaption}">
+                  <span class="${EP.MasonryItemCaption}-title">{item.title}</span>
+                  {metaLine(item) ? (
+                    <span class="${EP.MasonryItemCaption}-meta">{metaLine(item)}</span>
+                  ) : null}
+                </span>
               </button>
             </article>
           ))}
@@ -503,7 +561,11 @@ const sorted = [...items].sort((a, b) => a.sort - b.sort)
           ${closeLabel}
         </button>
         <img class="${EP.LightboxImage}" data-lightbox-img alt="" />
-        <p class="${EP.LightboxCaption}" data-lightbox-caption></p>
+        <div class="${EP.LightboxCopy}">
+          <p class="${EP.LightboxTitle}" data-lightbox-title></p>
+          <p class="${EP.LightboxMeta}" data-lightbox-meta hidden></p>
+          <p class="${EP.LightboxCaption}" data-lightbox-caption hidden></p>
+        </div>
       </div>
     </div>
   </>
@@ -525,7 +587,18 @@ const sorted = [...items].sort((a, b) => a.sort - b.sort)
     let revealed = Math.min(BATCH, tiles.length)
     let lightboxIndex = -1
     const lightboxImg = box.querySelector('[data-lightbox-img]')
+    const lightboxTitle = box.querySelector('[data-lightbox-title]')
+    const lightboxMeta = box.querySelector('[data-lightbox-meta]')
     const lightboxCap = box.querySelector('[data-lightbox-caption]')
+
+    function metaFromTile(tile) {
+      const parts = []
+      const year = tile.getAttribute('data-year')
+      const medium = tile.getAttribute('data-medium')
+      if (year) parts.push(year)
+      if (medium) parts.push(medium)
+      return parts.join(' · ')
+    }
 
     function columnCount(width) {
       if (width < 520) return 2
@@ -577,13 +650,22 @@ const sorted = [...items].sort((a, b) => a.sort - b.sort)
       const tile = tiles[index]
       if (!tile || !(lightboxImg instanceof HTMLImageElement)) return
       lightboxIndex = index
+      const title = tile.getAttribute('data-title') || ''
+      const caption = tile.getAttribute('data-caption') || ''
+      const meta = metaFromTile(tile)
       lightboxImg.src = tile.getAttribute('data-src') || ''
-      lightboxImg.alt = tile.getAttribute('data-title') || ''
+      lightboxImg.alt = title
+      if (lightboxTitle) {
+        lightboxTitle.textContent = title
+        lightboxTitle.hidden = !title
+      }
+      if (lightboxMeta) {
+        lightboxMeta.textContent = meta
+        lightboxMeta.hidden = !meta
+      }
       if (lightboxCap) {
-        const caption = tile.getAttribute('data-caption') || ''
-        const title = tile.getAttribute('data-title') || ''
-        lightboxCap.textContent = caption || title
-        lightboxCap.hidden = !(caption || title)
+        lightboxCap.textContent = caption
+        lightboxCap.hidden = !caption
       }
       box.removeAttribute('hidden')
       box.setAttribute('data-open', 'true')

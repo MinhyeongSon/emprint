@@ -18,7 +18,7 @@ export interface LandingIntroConfig {
   pauseBeforeFadeMs: number
   /** Fade-out duration. */
   fadeDurationMs: number
-  /** When true, skip intro after the visitor has seen it once (localStorage). */
+  /** When true, skip intro after the visitor has seen it once (localStorage, all visits). */
   showOnce: boolean
 }
 

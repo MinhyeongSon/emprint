@@ -210,7 +210,7 @@ export function IndexSurface({ locale }: { locale: AppLocale }) {
             type="button"
             variant="ghost"
             className="h-8 text-[12px]"
-            onClick={() => setActiveSection('knowledge')}
+            onClick={() => setActiveSection('contents')}
           >
             {pick(locale, 'Knowledge →', '지식 →')}
           </Button>

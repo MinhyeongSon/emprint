@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag to create or update (example: v0.2.10)'
+        description: 'Release tag to create or update (example: v0.3.0)'
         required: true
         type: string
       draft:

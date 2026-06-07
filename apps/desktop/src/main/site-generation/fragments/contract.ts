@@ -1,16 +1,10 @@
 import { FRAGMENTS_CLASS_PREFIX } from '@emprint/shared'
+import { componentClass as cc, utilityClass as uc } from '../shared/contract-helpers'
 
 export { FRAGMENTS_CLASS_PREFIX as EP_FRAGMENTS_PREFIX }
 
-function componentClass(component: string, part?: string): string {
-  return part
-    ? `${FRAGMENTS_CLASS_PREFIX}-${component}-${part}`
-    : `${FRAGMENTS_CLASS_PREFIX}-${component}`
-}
-
-function utilityClass(name: string): string {
-  return `${FRAGMENTS_CLASS_PREFIX}-u-${name}`
-}
+const componentClass = (component: string, part?: string) => cc(FRAGMENTS_CLASS_PREFIX, component, part)
+const utilityClass = (name: string) => uc(FRAGMENTS_CLASS_PREFIX, name)
 
 export const EpFragmentsClasses = {
   Header: componentClass('Header'),
@@ -30,6 +24,7 @@ export const EpFragmentsClasses = {
   LandingIntroCursor: componentClass('LandingIntro', 'cursor'),
   Gallery: componentClass('Gallery'),
   GalleryInner: componentClass('Gallery', 'inner'),
+  GalleryAlbum: componentClass('Gallery', 'album'),
   Shelf: componentClass('Shelf'),
   ShelfCarousel: componentClass('Shelf', 'carousel'),
   ShelfLayout: componentClass('Shelf', 'layout'),
@@ -41,6 +36,7 @@ export const EpFragmentsClasses = {
   ShelfPreview: componentClass('Shelf', 'preview'),
   ShelfPreviewBtn: componentClass('Shelf', 'preview-btn'),
   ShelfPreviewMeta: componentClass('Shelf', 'preview-meta'),
+  ShelfPreviewMetaLine: componentClass('Shelf', 'preview-meta-line'),
   Record: componentClass('Record'),
   RecordActive: componentClass('Record', 'active'),
   RecordCover: componentClass('Record', 'cover'),
@@ -50,7 +46,10 @@ export const EpFragmentsClasses = {
   LightboxBackdrop: componentClass('Lightbox', 'backdrop'),
   LightboxPanel: componentClass('Lightbox', 'panel'),
   LightboxImage: componentClass('Lightbox', 'image'),
+  LightboxCopy: componentClass('Lightbox', 'copy'),
   LightboxCaption: componentClass('Lightbox', 'caption'),
+  LightboxMeta: componentClass('Lightbox', 'meta'),
+  LightboxTitle: componentClass('Lightbox', 'title'),
   LightboxClose: componentClass('Lightbox', 'close'),
   Masonry: componentClass('Masonry'),
   MasonryScroller: componentClass('Masonry', 'scroller'),

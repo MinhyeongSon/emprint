@@ -27,8 +27,6 @@ export const BOOK_LAYOUT_COMPOSITIONS: readonly {
   }
 ] as const
 
-export type BookLayoutComposition = BookLayoutCompositionId
-
 export function normalizeBookLayoutComposition(value: unknown): BookLayoutCompositionId {
   if (value === 'pages' || value === 'scroll') return value
   return DEFAULT_BOOK_LAYOUT_COMPOSITION

@@ -83,6 +83,86 @@ main {
   margin: 0;
 }
 
+.ep-memoir-Hero-figure {
+  margin: 0 0 1.25rem;
+  max-width: 12rem;
+}
+
+.ep-memoir-Hero-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  object-fit: cover;
+}
+
+.ep-memoir-Project-figure {
+  margin: 0 0 0.75rem;
+}
+
+.ep-memoir-Project-image {
+  display: block;
+  width: 100%;
+  max-width: 28rem;
+  height: auto;
+  border-radius: 0.375rem;
+  object-fit: cover;
+}
+
+.ep-memoir-Project-meta {
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+  color: var(--ep-memoir-color-muted);
+}
+
+.ep-memoir-Project-link {
+  margin: 0.75rem 0 0;
+  font-size: 0.9rem;
+}
+
+.ep-memoir-Project-link a {
+  color: var(--ep-memoir-color-accent);
+  text-decoration: none;
+}
+
+.ep-memoir-Project-link a:hover {
+  text-decoration: underline;
+}
+
+.ep-memoir-Timeline-period {
+  margin: 0 0 0.35rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  color: var(--ep-memoir-color-muted);
+}
+
+.ep-memoir-Contact-links {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+}
+
+.ep-memoir-Contact-links a {
+  color: var(--ep-memoir-color-accent);
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+.ep-memoir-Contact-links a:hover {
+  text-decoration: underline;
+}
+
+.ep-memoir-Gallery-item .ep-memoir-Project-figure {
+  margin-bottom: 0.5rem;
+}
+
+.ep-memoir-Gallery-item .ep-memoir-Project-image {
+  max-width: 100%;
+}
+
 .ep-memoir-Introduction-title,
 .ep-memoir-ProjectGroup-title,
 .ep-memoir-SkillGroup-title,

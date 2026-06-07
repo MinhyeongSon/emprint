@@ -9,8 +9,14 @@ import {
   MEMOIR_LEAF_SECTION_TYPES,
   MEMOIR_SECTION_TYPES
 } from './sections'
+import {
+  isValidMemoirAssetPath,
+  isValidMemoirExternalUrl,
+  parseMemoirContactLinks,
+  serializeMemoirContactLinks
+} from './section-props'
 
-export type MemoirFieldKind = 'text' | 'textarea' | 'markdown'
+export type MemoirFieldKind = 'text' | 'textarea' | 'markdown' | 'asset' | 'url'
 
 export interface MemoirSectionFieldDef {
   key: string
@@ -26,10 +32,24 @@ export const MEMOIR_SECTION_FIELD_DEFS: Record<MemoirSectionType, MemoirSectionF
   Hero: [
     { key: 'eyebrow', kind: 'text', labelEn: 'Eyebrow', labelKo: '상단 라벨' },
     { key: 'title', kind: 'text', required: true, labelEn: 'Title', labelKo: '제목' },
-    { key: 'subtitle', kind: 'text', labelEn: 'Subtitle', labelKo: '부제' }
+    { key: 'subtitle', kind: 'text', labelEn: 'Subtitle', labelKo: '부제' },
+    {
+      key: 'image',
+      kind: 'asset',
+      labelEn: 'Portrait or hero image',
+      labelKo: '프로필·히어로 이미지'
+    }
   ],
   Introduction: [
     { key: 'title', kind: 'text', labelEn: 'Title', labelKo: '제목' },
+    {
+      key: 'period',
+      kind: 'text',
+      labelEn: 'Date or period',
+      labelKo: '날짜 또는 기간',
+      placeholderEn: 'e.g. 2022–2024',
+      placeholderKo: '예: 2022–2024'
+    },
     {
       key: 'body',
       kind: 'markdown',
@@ -54,6 +74,24 @@ export const MEMOIR_SECTION_FIELD_DEFS: Record<MemoirSectionType, MemoirSectionF
   ],
   Project: [
     { key: 'title', kind: 'text', required: true, labelEn: 'Title', labelKo: '제목' },
+    { key: 'image', kind: 'asset', labelEn: 'Cover image', labelKo: '대표 이미지' },
+    {
+      key: 'link',
+      kind: 'url',
+      labelEn: 'Project link',
+      labelKo: '프로젝트 링크',
+      placeholderEn: 'https://…',
+      placeholderKo: 'https://…'
+    },
+    {
+      key: 'period',
+      kind: 'text',
+      labelEn: 'Date or period',
+      labelKo: '날짜 또는 기간',
+      placeholderEn: 'e.g. 2023',
+      placeholderKo: '예: 2023'
+    },
+    { key: 'role', kind: 'text', labelEn: 'Role', labelKo: '역할', placeholderEn: 'e.g. Lead designer', placeholderKo: '예: 리드 디자이너' },
     {
       key: 'body',
       kind: 'markdown',
@@ -72,7 +110,6 @@ export const MEMOIR_SECTION_FIELD_DEFS: Record<MemoirSectionType, MemoirSectionF
     {
       key: 'body',
       kind: 'markdown',
-      required: true,
       labelEn: 'Body',
       labelKo: '본문',
       placeholderEn: 'Email, links, or a short note…',
@@ -127,6 +164,17 @@ export function slugifyMemoirSectionId(input: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
   return slug || 'section'
+}
+
+export function uniqueMemoirSectionId(baseId: string, existingIds: Iterable<string>): string {
+  const taken = new Set(existingIds)
+  const slug = slugifyMemoirSectionId(baseId) || 'section'
+  if (!taken.has(slug)) return slug
+  for (let n = 2; n < 10_000; n++) {
+    const candidate = `${slug}-${n}`
+    if (!taken.has(candidate)) return candidate
+  }
+  return `${slug}-${Date.now()}`
 }
 
 export function serializeMemoirSectionFile(section: MemoirSectionFile): string {
@@ -202,6 +250,39 @@ export function validateMemoirSectionProps(type: MemoirSectionType, props: Recor
     const value = props[field.key]
     if (typeof value !== 'string' || !value.trim()) {
       throw new Error(`"${field.labelEn}" is required for ${type} sections.`)
+    }
+  }
+
+  for (const field of defs) {
+    if (field.kind === 'asset') {
+      const value = props[field.key]
+      if (typeof value === 'string' && value.trim() && !isValidMemoirAssetPath(value)) {
+        throw new Error(
+          `"${field.labelEn}" must be a workspace image path (assets/images/…). Pick an image from Assets.`
+        )
+      }
+    }
+    if (field.kind === 'url') {
+      const value = props[field.key]
+      if (typeof value === 'string' && value.trim() && !isValidMemoirExternalUrl(value)) {
+        throw new Error(`"${field.labelEn}" must be a valid http(s) or mailto: URL.`)
+      }
+    }
+  }
+
+  if (type === 'Contact') {
+    const links = serializeMemoirContactLinks(parseMemoirContactLinks(props))
+    const body = typeof props.body === 'string' ? props.body.trim() : ''
+    if (!body && links.length === 0) {
+      throw new Error('Contact sections need body text or at least one link.')
+    }
+    for (const link of links) {
+      if (!link.label.trim()) {
+        throw new Error('Each contact link needs a label.')
+      }
+      if (!isValidMemoirExternalUrl(link.url)) {
+        throw new Error(`Contact link "${link.label}" must be a valid http(s) or mailto: URL.`)
+      }
     }
   }
 }

@@ -181,7 +181,7 @@ export function App() {
     mode === 'workspace' ? (
       <Badge>{getSectionLabel(locale, activeSection)}</Badge>
     ) : mode === 'hub' ? (
-      <Badge>Hub</Badge>
+      <Badge>{locale === 'ko' ? '앤솔로지 허브' : 'Anthologies Hub'}</Badge>
     ) : (
       <Badge>Setup</Badge>
     )
@@ -211,8 +211,8 @@ export function App() {
     if (mode === 'workspace') {
       registry.register({
         id: 'nav:hub',
-        label: 'Go to Hub',
-        hint: locale === 'ko' ? '앤솔로지 허브로 돌아가기' : 'Back to anthology hub',
+        label: locale === 'ko' ? 'Anthologies Hub로 이동' : 'Go to Anthologies Hub',
+        hint: locale === 'ko' ? 'Anthologies Hub로 돌아가기' : 'Back to Anthologies Hub',
         meta: 'Nav',
         scopes: ['nav'],
         execute: () => void enterHub()
@@ -372,13 +372,15 @@ export function App() {
               </div>
 
               <div className="space-y-2">
-                <div className="text-[11px] uppercase tracking-[0.16em] text-muted">Workspace root folder</div>
+                <div className="text-[11px] uppercase tracking-[0.16em] text-muted">
+                  {locale === 'ko' ? '앤솔로지 루트 폴더' : 'Anthologies root folder'}
+                </div>
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
                     type="button"
                     className="h-8 w-8 shrink-0 p-0"
-                    aria-label="Choose workspace root folder"
+                    aria-label={locale === 'ko' ? '앤솔로지 루트 폴더 선택' : 'Choose anthologies root folder'}
                     title="Choose folder"
                     onClick={async () => {
                       const result = await window.emprint.system.selectDirectory()

@@ -5,8 +5,8 @@ const JPEG_QUALITY = 85
 const MAX_ARTWORK_DIMENSION = 2400
 
 /**
- * Decode any supported raster (and most common formats sharp accepts) and emit
- * a compressed JPEG suitable for Fragments `artwork/`.
+ * Accept JPEG, PNG, WebP, and other raster formats sharp understands; always emit
+ * a compressed JPEG suitable for Fragments `artwork/` (public sites serve `.jpg`).
  */
 export async function encodeArtworkAsJpeg(input: {
   data: Uint8Array

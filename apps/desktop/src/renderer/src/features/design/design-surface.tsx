@@ -17,6 +17,7 @@ import { DesignPreviewProgress } from './design-preview-progress'
 import { DesignAiPromptDialog } from './design-ai-prompt-dialog'
 import { TemplateModePanel } from './template-mode-panel'
 import { useAppStore } from '@renderer/state/app-store'
+import { anthologyHasDeploySearch, DeploySearchHint } from '@renderer/components/deploy-search-hint'
 
 
 export type DesignUiMode = 'template' | 'code'
@@ -102,7 +103,7 @@ export function DesignSurface({ locale }: { locale: AppLocale }) {
       setPreviewState(state)
       if (state.status === 'error') {
         setPreviewError(
-          state.message ?? pick(locale, 'Failed to start dev server.', '개발 서버를 시작하지 못했습니다.')
+          state.message ?? pick(locale, 'Could not start preview.', '미리보기를 시작하지 못했습니다.')
         )
       }
     } catch (caught) {
@@ -167,7 +168,7 @@ export function DesignSurface({ locale }: { locale: AppLocale }) {
             )}
             {previewBusy
               ? pick(locale, 'Starting…', '시작 중…')
-              : pick(locale, 'Open site preview', '사이트 미리보기')}
+              : pick(locale, 'Preview', '미리보기')}
           </Button>
         </div>
       </div>
@@ -176,6 +177,10 @@ export function DesignSurface({ locale }: { locale: AppLocale }) {
 
       {previewError ? (
         <div className="border-b border-danger/40 bg-dangerBg px-4 py-2 text-xs text-dangerInk">{previewError}</div>
+      ) : null}
+
+      {anthologyHasDeploySearch(siteKind) ? (
+        <DeploySearchHint locale={locale} context="design" className="mx-4 mt-3" />
       ) : null}
 
       <div
@@ -205,8 +210,8 @@ export function DesignSurface({ locale }: { locale: AppLocale }) {
                 <p className="text-sm leading-relaxed text-muted">
                   {pick(
                     locale,
-                    'Changing the mode can discard or reset customizations in other modes. A running dev server will be stopped. After you continue, this mode loads its default starting point.',
-                    '모드를 바꾸면 다른 모드에서 하던 커스터마이징이 사라지거나 초기화될 수 있습니다. 실행 중인 개발 서버는 종료됩니다. 계속하면 이 모드의 기본 상태로 맞춥니다.'
+                    'Changing the mode can discard or reset customizations in other modes. A running preview will be stopped. After you continue, this mode loads its default starting point.',
+                    '모드를 바꾸면 다른 모드에서 하던 커스터마이징이 사라지거나 초기화될 수 있습니다. 실행 중인 미리보기는 종료됩니다. 계속하면 이 모드의 기본 상태로 맞춥니다.'
                   )}
                 </p>
                 <div className="flex justify-end gap-2 border-t border-border pt-3">

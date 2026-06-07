@@ -8,8 +8,9 @@ import { PullOverwriteDialog } from './pull-overwrite-dialog'
 import { PublishDialog } from './publish-dialog'
 import { WorkspaceSyncFooter } from './workspace-sync-footer'
 import { useAppStore } from '@renderer/state/app-store'
+import { cn } from '@renderer/lib/cn'
 import { PostsSurface } from '@renderer/features/posts/posts-surface'
-import { IndexSurface } from '@renderer/features/index/index-surface'
+import { ContentsSurface } from '@renderer/features/dictionary/contents-surface'
 import { KnowledgeSurface } from '@renderer/features/knowledge/knowledge-surface'
 import { SectionsSurface } from '@renderer/features/sections/sections-surface'
 import { DesignSurface } from '@renderer/features/design/design-surface'
@@ -159,13 +160,16 @@ export function AppShell() {
         }
       />
 
-      <main className="min-h-0 overflow-auto bg-base">
+      <main
+        className={cn(
+          'min-h-0 bg-base',
+          activeSection === 'contents' ? 'flex flex-col overflow-hidden' : 'overflow-auto'
+        )}
+      >
         {activeSection === 'sections' ? (
           <SectionsSurface />
-        ) : activeSection === 'index' ? (
-          <IndexSurface locale={locale} />
-        ) : activeSection === 'knowledge' ? (
-          <KnowledgeSurface locale={locale} section="knowledge" />
+        ) : activeSection === 'contents' ? (
+          <ContentsSurface locale={locale} />
         ) : activeSection === 'posts' ? (
           <PostsSurface locale={locale} section="posts" />
         ) : activeSection === 'drafts' ? (

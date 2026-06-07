@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs'
 import path from 'node:path'
-import { readFile, writeFile } from 'node:fs/promises'
+import { readFile, stat, writeFile } from 'node:fs/promises'
 import matter from 'gray-matter'
 import {
   INDEX_REGISTRY_RELATIVE_PATH,
@@ -9,16 +9,18 @@ import {
   ensureParentIndexEntries,
   indexPathPrefixes,
   isIndexPrefix,
+  labelForIndexPath,
   normalizeIndexPath,
   parseIndexRegistryFile,
   serializeIndexRegistryFile,
   type IndexEntrySummary,
   type IndexRegistryEntry,
   type IndexRegistryFile,
-  type IndexTreeNode
+  type IndexTreeNode,
+  type KnowledgeSummary
 } from '@emprint/shared'
 import { parseKnowledgeSummary } from '@emprint/core'
-import { safeListDirectory, toPosixWorkspacePath } from './core'
+import { safeListDirectory, summarizeKnowledge, toPosixWorkspacePath } from './core'
 
 export function indexRegistryPath(workspaceRoot: string): string {
   return path.join(workspaceRoot, INDEX_REGISTRY_RELATIVE_PATH)
@@ -93,8 +95,7 @@ export async function buildRegistryIndexTree(workspaceRoot: string): Promise<Ind
   const entries = ensureParentIndexEntries(registry.entries)
   const labelByPath = new Map<string, string>()
   for (const entry of entries) {
-    const segments = entry.path.split('/')
-    labelByPath.set(entry.path, entry.label?.trim() || segments[segments.length - 1] || entry.path)
+    labelByPath.set(entry.path, labelForIndexPath(entry.path, entries))
   }
 
   const paths = new Set(collectRegistryPaths(entries))
@@ -241,6 +242,48 @@ async function rewriteKnowledgeIndexPaths(
       await writeFile(abs, matter.stringify(parsed.content, parsed.data), 'utf8')
     }
   }
+}
+
+export async function buildDictionaryContentsSnapshot(workspaceRoot: string): Promise<{
+  indexTree: IndexTreeNode[]
+  indexEntries: IndexEntrySummary[]
+  knowledge: KnowledgeSummary[]
+}> {
+  const [indexTree, indexEntries] = await Promise.all([
+    buildRegistryIndexTree(workspaceRoot),
+    listIndexEntries(workspaceRoot)
+  ])
+  const knowledgeDir = path.join(workspaceRoot, 'knowledge')
+  const entries = existsSync(knowledgeDir) ? await safeListDirectory(knowledgeDir) : []
+  const knowledge = await Promise.all(
+    entries
+      .filter((fileName) => fileName.toLowerCase().endsWith('.md'))
+      .map(async (fileName) => {
+        const relativePath = `knowledge/${fileName}`
+        const absolutePath = path.join(workspaceRoot, relativePath)
+        const content = await readFile(absolutePath, 'utf8')
+        const fileStat = await stat(absolutePath)
+        return summarizeKnowledge(relativePath, content, fileStat.mtime.toISOString())
+      })
+  )
+  return {
+    indexTree,
+    indexEntries,
+    knowledge: knowledge.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
+  }
+}
+
+export async function reparentIndexEntry(
+  workspaceRoot: string,
+  input: { from: string; toParentPath: string }
+): Promise<void> {
+  const from = normalizeIndexPath(input.from)
+  const parent = normalizeIndexPath(input.toParentPath)
+  const leaf = from.split('/').pop()
+  if (!leaf) throw new Error('Invalid index path.')
+  const to = parent ? `${parent}/${leaf}` : leaf
+  if (from === to) return
+  await renameIndexEntry(workspaceRoot, { from, to })
 }
 
 export function resolveIndexCreatePath(input: {

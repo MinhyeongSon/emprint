@@ -127,12 +127,14 @@ import themeFile from '../../config/theme.json'
 
 interface Props {
   title?: string
+  description?: string
   current?: string
 }
 
-const { title, current } = Astro.props
+const { title, description, current } = Astro.props
 const pageTitle = title ? \`\${title} · \${SITE_TITLE}\` : SITE_TITLE
-const pageDesc = SITE_DESCRIPTION
+const pageDesc =
+  typeof description === 'string' && description.trim() ? description.trim() : SITE_DESCRIPTION
 const paletteId = themeFile.paletteId ?? 'emprint'
 const composition = themeFile.layoutComposition === 'scroll' ? 'scroll' : 'pages'
 ---
@@ -171,9 +173,12 @@ import { marked } from 'marked'
 interface Props {
   title: string
   raw: string
+  subtitle?: string
+  description?: string
+  author?: string
 }
 
-const { title, raw } = Astro.props
+const { title, raw, subtitle, description, author } = Astro.props
 
 function stripFrontmatter(source: string): string {
   const trimmed = source.replace(/^\\uFEFF/, '').trimStart()
@@ -199,6 +204,13 @@ const hasPages = pageCount > 1
 ---
 <div class="${EP.Pages}" data-book-pages data-page-count={pageCount}>
   <h1 class="${EP.StoryTitle}">{title}</h1>
+  {(subtitle || description || author) ? (
+    <div class="${EP.StoryLead}">
+      {subtitle ? <p class="${EP.StorySubtitle}">{subtitle}</p> : null}
+      {description ? <p class="${EP.StoryDescription}">{description}</p> : null}
+      {author ? <p class="${EP.StoryAuthor}">{author}</p> : null}
+    </div>
+  ) : null}
   <div class="${EP.PagesStage}">
     {pagesHtml.map((html, index) => (
       <article
@@ -288,9 +300,12 @@ import { marked } from 'marked'
 interface Props {
   title: string
   raw: string
+  subtitle?: string
+  description?: string
+  author?: string
 }
 
-const { title, raw } = Astro.props
+const { title, raw, subtitle, description, author } = Astro.props
 
 function stripFrontmatter(source: string): string {
   const trimmed = source.replace(/^\\uFEFF/, '').trimStart()
@@ -312,6 +327,13 @@ const html = String(marked.parse(scrollMarkdown(raw)))
 ---
 <div class="${EP.Scroll}">
   <h1 class="${EP.StoryTitle}">{title}</h1>
+  {(subtitle || description || author) ? (
+    <div class="${EP.StoryLead}">
+      {subtitle ? <p class="${EP.StorySubtitle}">{subtitle}</p> : null}
+      {description ? <p class="${EP.StoryDescription}">{description}</p> : null}
+      {author ? <p class="${EP.StoryAuthor}">{author}</p> : null}
+    </div>
+  ) : null}
   <div class="${EP.ScrollInner}">
     <div class="${EP.Prose}" set:html={html} />
   </div>

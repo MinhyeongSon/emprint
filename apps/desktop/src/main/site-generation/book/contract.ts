@@ -1,14 +1,10 @@
 import { BOOK_CLASS_PREFIX } from '@emprint/shared'
+import { componentClass as cc, utilityClass as uc } from '../shared/contract-helpers'
 
 export { BOOK_CLASS_PREFIX as EP_BOOK_PREFIX }
 
-function componentClass(component: string, part?: string): string {
-  return part ? `${BOOK_CLASS_PREFIX}-${component}-${part}` : `${BOOK_CLASS_PREFIX}-${component}`
-}
-
-function utilityClass(name: string): string {
-  return `${BOOK_CLASS_PREFIX}-u-${name}`
-}
+const componentClass = (component: string, part?: string) => cc(BOOK_CLASS_PREFIX, component, part)
+const utilityClass = (name: string) => uc(BOOK_CLASS_PREFIX, name)
 
 export const EpBookClasses = {
   ThemeFab: componentClass('ThemeFab'),
@@ -19,6 +15,10 @@ export const EpBookClasses = {
   Story: componentClass('Story'),
   StoryInner: componentClass('Story', 'inner'),
   StoryTitle: componentClass('Story', 'title'),
+  StorySubtitle: componentClass('Story', 'subtitle'),
+  StoryDescription: componentClass('Story', 'description'),
+  StoryAuthor: componentClass('Story', 'author'),
+  StoryLead: componentClass('Story', 'lead'),
   Pages: componentClass('Pages'),
   PagesStage: componentClass('Pages', 'stage'),
   PagesSheet: componentClass('Pages', 'sheet'),

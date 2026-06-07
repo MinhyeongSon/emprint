@@ -21,7 +21,7 @@ const year = new Date().getFullYear()
 const copyrightName = resolveSiteCopyrightHolder(config, config.title || 'Site')
 ---
 
-<footer class="${opts.footerClass}">
+<footer class="${opts.footerClass}" data-pagefind-ignore>
   <div class="${opts.footerInnerClass}${wide}">
     <span>© {year} {copyrightName}</span>${published}
   </div>

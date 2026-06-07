@@ -58,7 +58,7 @@ export function parseWorkspaceManifest(input: unknown): WorkspaceManifest | null
 
   const siteProjectKind = parseSiteProjectKind(record.siteProjectKind)
   const publicationSlug = resolveManifestPublicationSlug({
-    publicationSlug: typeof record.publicationSlug === 'string' ? record.publicationSlug : undefined,
+    ...(typeof record.publicationSlug === 'string' ? { publicationSlug: record.publicationSlug } : {}),
     name,
     title
   })
@@ -104,7 +104,7 @@ export function parseWorkspaceConfig(input: unknown): WorkspaceConfig {
     authProvider: assertGitHubAuthProvider(record.authProvider, locale),
     locale,
     workspaceType: assertWorkspaceType(record.workspaceType, locale),
-    siteProjectKind: coerceSiteProjectKind(record.siteProjectKind, locale),
+    siteProjectKind: assertSiteProjectKind(record.siteProjectKind, locale),
     publicationSlug,
     templateId: assertWorkspaceTemplateId(record.templateId, locale),
     title,
@@ -194,16 +194,13 @@ function assertWorkspaceTemplateId(value: unknown, locale: AppLocale): Workspace
   return 'blog'
 }
 
-/** Empty/missing → `column`; invalid values throw when `locale` is provided. */
-function coerceSiteProjectKind(value: unknown, locale?: AppLocale): SiteProjectKind {
+/** Empty/missing → `column`; invalid values throw. */
+function assertSiteProjectKind(value: unknown, locale: AppLocale): SiteProjectKind {
   if (value === undefined || value === null || value === '') {
     return 'column'
   }
   if (typeof value !== 'string' || !siteProjectKinds.has(value as SiteProjectKind)) {
-    if (locale) {
-      throw new Error(locale === 'ko' ? '지원하지 않는 사이트 유형입니다.' : 'Unsupported siteProjectKind.')
-    }
-    return null as never
+    throw new Error(locale === 'ko' ? '지원하지 않는 사이트 유형입니다.' : 'Unsupported siteProjectKind.')
   }
 
   return value as SiteProjectKind

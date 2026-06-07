@@ -7,8 +7,11 @@ import {
   ARTWORK_MANIFEST_VERSION,
   MAX_FRAGMENTS_ARTWORK_COUNT,
   WORKSPACE_DIR,
+  normalizeArtworkTags,
+  type ArtworkAlbumUpdateInput,
   type ArtworkDeleteInput,
   type ArtworkImageInfo,
+  type ArtworkListResult,
   type ArtworkManifestFile,
   type ArtworkManifestItem,
   type ArtworkReorderInput,
@@ -20,6 +23,39 @@ import { encodeArtworkAsJpeg } from './artwork-image'
 
 function toPosixWorkspacePath(rel: string): string {
   return rel.replace(/\\/g, '/')
+}
+
+function manifestItemToInfo(item: ArtworkManifestItem, workspaceRoot: string): ArtworkImageInfo | null {
+  const abs = path.join(workspaceRoot, ...item.path.split('/'))
+  if (!existsSync(abs)) return null
+  return {
+    id: item.id,
+    path: item.path,
+    name: path.basename(item.path),
+    title: item.title,
+    ...(item.caption ? { caption: item.caption } : {}),
+    ...(item.year != null ? { year: item.year } : {}),
+    ...(item.medium ? { medium: item.medium } : {}),
+    ...(item.tags?.length ? { tags: [...item.tags] } : {}),
+    size: 0,
+    mimeType: 'image/jpeg',
+    modifiedAt: '',
+    addedAt: item.addedAt,
+    sort: item.sort
+  }
+}
+
+async function hydrateArtworkInfo(
+  workspaceRoot: string,
+  partial: ArtworkImageInfo
+): Promise<ArtworkImageInfo> {
+  const abs = path.join(workspaceRoot, ...partial.path.split('/'))
+  const st = await stat(abs)
+  return {
+    ...partial,
+    size: st.size,
+    modifiedAt: st.mtime.toISOString()
+  }
 }
 
 export async function readArtworkManifest(workspaceRoot: string): Promise<ArtworkManifestFile> {
@@ -44,28 +80,19 @@ export async function writeArtworkManifest(
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
 }
 
-export async function listArtworkImages(workspaceRoot: string): Promise<ArtworkImageInfo[]> {
+export async function listArtworkImages(workspaceRoot: string): Promise<ArtworkListResult> {
   const manifest = await readArtworkManifest(workspaceRoot)
   const sorted = [...manifest.items].sort((a, b) => a.sort - b.sort)
-  const out: ArtworkImageInfo[] = []
+  const items: ArtworkImageInfo[] = []
   for (const item of sorted) {
-    const abs = path.join(workspaceRoot, ...item.path.split('/'))
-    if (!existsSync(abs)) continue
-    const st = await stat(abs)
-    out.push({
-      id: item.id,
-      path: item.path,
-      name: path.basename(item.path),
-      title: item.title,
-      ...(item.caption ? { caption: item.caption } : {}),
-      size: st.size,
-      mimeType: 'image/jpeg',
-      modifiedAt: st.mtime.toISOString(),
-      addedAt: item.addedAt,
-      sort: item.sort
-    })
+    const partial = manifestItemToInfo(item, workspaceRoot)
+    if (!partial) continue
+    items.push(await hydrateArtworkInfo(workspaceRoot, partial))
   }
-  return out
+  return {
+    ...(manifest.album?.trim() ? { album: manifest.album.trim() } : {}),
+    items
+  }
 }
 
 export function resolveSafeArtworkPath(workspaceRoot: string, inputPath: string): string {
@@ -126,19 +153,22 @@ export async function saveArtworkImage(
   manifest.items.push(item)
   await writeArtworkManifest(workspaceRoot, manifest)
 
-  const st = await stat(absPath)
-  return {
-    id: item.id,
-    path: item.path,
-    name: path.basename(absPath),
-    title: item.title,
-    ...(item.caption ? { caption: item.caption } : {}),
-    size: st.size,
-    mimeType: 'image/jpeg',
-    modifiedAt: st.mtime.toISOString(),
-    addedAt: item.addedAt,
-    sort: item.sort
+  const partial = manifestItemToInfo(item, workspaceRoot)
+  if (!partial) throw new Error('Artwork file missing after save.')
+  return hydrateArtworkInfo(workspaceRoot, partial)
+}
+
+function applyYearUpdate(item: ArtworkManifestItem, year: number | null | undefined): void {
+  if (year === undefined) return
+  if (year === null || !Number.isFinite(year)) {
+    delete item.year
+    return
   }
+  const rounded = Math.round(year)
+  if (rounded < 1 || rounded > 9999) {
+    throw new Error('Year must be between 1 and 9999.')
+  }
+  item.year = rounded
 }
 
 export async function updateArtworkImage(
@@ -155,11 +185,33 @@ export async function updateArtworkImage(
     if (cap) item.caption = cap
     else delete item.caption
   }
+  if (input.year !== undefined) applyYearUpdate(item, input.year)
+  if (input.medium !== undefined) {
+    const medium = input.medium.trim()
+    if (medium) item.medium = medium
+    else delete item.medium
+  }
+  if (input.tags !== undefined) {
+    const tags = normalizeArtworkTags(input.tags)
+    if (tags.length) item.tags = tags
+    else delete item.tags
+  }
   await writeArtworkManifest(workspaceRoot, manifest)
-  const list = await listArtworkImages(workspaceRoot)
-  const found = list.find((a) => a.id === input.id)
-  if (!found) throw new Error('Artwork file missing.')
-  return found
+  const partial = manifestItemToInfo(item, workspaceRoot)
+  if (!partial) throw new Error('Artwork file missing.')
+  return hydrateArtworkInfo(workspaceRoot, partial)
+}
+
+export async function updateArtworkAlbum(
+  workspaceRoot: string,
+  input: ArtworkAlbumUpdateInput
+): Promise<ArtworkListResult> {
+  const manifest = await readArtworkManifest(workspaceRoot)
+  const album = input.album?.trim()
+  if (album) manifest.album = album
+  else delete manifest.album
+  await writeArtworkManifest(workspaceRoot, manifest)
+  return listArtworkImages(workspaceRoot)
 }
 
 export async function deleteArtworkImage(
@@ -191,5 +243,6 @@ export async function reorderArtworkImages(
     item.sort = sort
   })
   await writeArtworkManifest(workspaceRoot, manifest)
-  return listArtworkImages(workspaceRoot)
+  const result = await listArtworkImages(workspaceRoot)
+  return result.items
 }

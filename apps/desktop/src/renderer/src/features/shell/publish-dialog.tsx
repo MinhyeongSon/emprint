@@ -5,6 +5,8 @@ import { pick } from '@renderer/lib/i18n'
 import type { AppLocale, GitPublishResult, GitWorkingTreeSummary } from '@emprint/shared'
 import { Button } from '@renderer/components/ui/button'
 import { DeployStatusPanel } from './deploy-status-panel'
+import { anthologyHasDeploySearch, DeploySearchHint } from '@renderer/components/deploy-search-hint'
+import { useAppStore } from '@renderer/state/app-store'
 
 
 interface PublishDialogProps {
@@ -19,6 +21,12 @@ interface PublishDialogProps {
 type Phase = 'idle' | 'loading' | 'submitting' | 'done' | 'error'
 
 export function PublishDialog({ open, locale, refreshToken, onClose, onPublished }: PublishDialogProps) {
+  const workspaceConfig = useAppStore((state) => state.workspaceConfig)
+  const workspaceResult = useAppStore((state) => state.workspaceResult)
+  const siteKind =
+    workspaceConfig?.siteProjectKind ?? workspaceResult?.manifest.siteProjectKind ?? 'column'
+  const showDeploySearchHint = anthologyHasDeploySearch(siteKind)
+
   const [phase, setPhase] = useState<Phase>('idle')
   const [summary, setSummary] = useState<GitWorkingTreeSummary | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -180,6 +188,10 @@ export function PublishDialog({ open, locale, refreshToken, onClose, onPublished
               <DoneBanner locale={locale} result={result} />
               <DeployStatusPanel locale={locale} active={Boolean(result.pushed)} />
             </>
+          ) : null}
+
+          {phase !== 'done' && showDeploySearchHint ? (
+            <DeploySearchHint locale={locale} context="publish" />
           ) : null}
 
           {phase !== 'done' ? (

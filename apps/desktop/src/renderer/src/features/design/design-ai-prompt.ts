@@ -9,8 +9,92 @@ export interface DesignAiPromptInput {
 }
 
 
-function projectKindLabel(locale: AppLocale, _kind?: SiteProjectKind): string {
-  return pick(locale, 'column / editorial blog', '칼럼 · 글 중심 블로그')
+function projectKindLabel(locale: AppLocale, kind?: SiteProjectKind): string {
+  switch (kind) {
+    case 'memoir':
+      return pick(locale, 'memoir / portfolio sections', '회고록 · 섹션 포트폴리오')
+    case 'dictionary':
+      return pick(locale, 'dictionary / knowledge index', '사전 · 지식 인덱스')
+    case 'fragments':
+      return pick(locale, 'fragments / artwork gallery', '프래그먼트 · 작품 갤러리')
+    case 'book':
+      return pick(locale, 'book / single long-form story', '책 · 단일 장편 이야기')
+    case 'column':
+    default:
+      return pick(locale, 'column / editorial blog', '칼럼 · 글 중심 블로그')
+  }
+}
+
+function projectKindContext(locale: AppLocale, kind?: SiteProjectKind): string {
+  switch (kind) {
+    case 'book':
+      return [
+        pick(locale, '### Book anthology notes', '### Book 앤솔로지 참고'),
+        '',
+        pick(
+          locale,
+          '- **Story** lives at `story/story.md` (frontmatter + markdown). Page breaks use `---` on a line by itself when layout = **Pages**.',
+          '- **Story**는 `story/story.md`(frontmatter + markdown)입니다. 레이아웃이 **Pages**일 때 `---` 한 줄로 페이지를 나눕니다.'
+        ),
+        pick(
+          locale,
+          '- The Story editor has an **Insert page break** toolbar button (Pages layout only); prefer that over hand-typing `---`.',
+          '- Story 에디터에 **페이지 나누기** 툴바가 있습니다(Pages 레이아웃). `---`를 직접 입력하기보다 버튼 사용을 안내하세요.'
+        ),
+        pick(
+          locale,
+          '- Layout **Pages** vs **Scroll** is set in Design → Template (`config/theme.json` `layoutComposition`), not in the Story editor.',
+          '- **Pages** / **Scroll** 레이아웃은 Story가 아니라 Design → Template(`config/theme.json` `layoutComposition`)에서 바꿉니다.'
+        ),
+        pick(
+          locale,
+          '- Public site: `BookPages.astro` / `BookScroll.astro`, floating ThemeFab (no header). Do not add a post list or multi-chapter CMS.',
+          '- 공개 사이트: `BookPages.astro` / `BookScroll.astro`, 헤더 없이 ThemeFab. 글 목록·다중 챕터 CMS는 추가하지 마세요.'
+        )
+      ].join('\n')
+    case 'memoir':
+      return [
+        pick(locale, '### Memoir anthology notes', '### Memoir 앤솔로지 참고'),
+        '',
+        pick(
+          locale,
+          '- **Sections** are semantic JSON under `sections/*.json` (Hero, Project, Timeline, Gallery, …) — not markdown posts.',
+          '- **섹션**은 `sections/*.json` 시맨틱 JSON(Hero, Project, Timeline, Gallery 등)이며 markdown 글이 아닙니다.'
+        ),
+        pick(
+          locale,
+          '- Images reference `/assets/images/…` paths chosen in the section composer Assets picker.',
+          '- 이미지는 섹션 편집기 Assets 선택기로 고른 `/assets/images/…` 경로를 사용합니다.'
+        ),
+        pick(
+          locale,
+          '- Layout compositions: **timeline**, **grid**, **editorial** — set in Design → Template.',
+          '- 레이아웃: **timeline**, **grid**, **editorial** — Design → Template에서 설정합니다.'
+        )
+      ].join('\n')
+    case 'dictionary':
+      return [
+        pick(locale, '### Dictionary anthology notes', '### Dictionary 앤솔로지 참고'),
+        '',
+        pick(
+          locale,
+          '- Knowledge entries in `knowledge/`; hierarchical index in `config/index-registry.json`.',
+          '- 지식 항목은 `knowledge/`, 계층 인덱스는 `config/index-registry.json`입니다.'
+        )
+      ].join('\n')
+    case 'fragments':
+      return [
+        pick(locale, '### Fragments anthology notes', '### Fragments 앤솔로지 참고'),
+        '',
+        pick(
+          locale,
+          '- Artwork images (JPEG/PNG/WebP → stored as JPEG) in `artwork/` + `config/artwork-manifest.json` (title, caption, year, medium, tags, optional album); layouts **lpShelf** / **gallery**.',
+          '- 작품 이미지(JPEG·PNG·WebP → JPEG 저장)는 `artwork/` + `config/artwork-manifest.json`(제목, 캡션, 연도, 재료, 태그, 선택 앨범); 레이아웃 **lpShelf** / **gallery**.'
+        )
+      ].join('\n')
+    default:
+      return ''
+  }
 }
 
 /** Static context bundled into every generated prompt (bilingual sections). */
@@ -78,7 +162,7 @@ src/
    - Path (relative to anthology root, e.g. \`src/styles/global.css\`)
    - Either **complete new file content** in a fenced code block with the correct language tag, OR explicit before/after snippets if the change is tiny.
 3. Mention any **npm packages** only if truly required (default: no new deps).
-4. Note **preview**: run \`npm run dev\` in the anthology folder, or use Emprint Design → “Open site preview”.
+4. Note **preview**: run \`npm run dev\` in the anthology folder, or use Emprint Design → “Preview”.
 5. Do **not** delete or relocate \`posts/\`, \`drafts/\`, or \`assets/\` unless the user explicitly asks.
 
 ### Constraints
@@ -111,7 +195,7 @@ src/
 1. 짧은 계획(2–5불릿): 어떤 파일을 왜 수정하는지
 2. **변경하는 각 파일**마다: 경로 + 언어 태그가 맞는 **전체 파일** 코드 블록(작은 변경만 before/after)
 3. 꼭 필요할 때만 npm 패키지 언급
-4. 미리보기: 앤솔로지에서 \`npm run dev\` 또는 Emprint 디자인 → «사이트 미리보기»
+4. 미리보기: 앤솔로지에서 \`npm run dev\` 또는 Emprint 디자인 → «미리보기»
 5. 사용자 요청 없이 \`posts/\`, \`drafts/\`, \`assets/\` 삭제·이동 금지
 
 ### 제약
@@ -175,5 +259,7 @@ export function buildDesignAiPrompt(input: DesignAiPromptInput): string {
     )
   ].join('\n')
 
-  return [base, anthologySection, userSection, taskSection].filter(Boolean).join('\n\n')
+  const kindSection = workspaceConfig ? projectKindContext(locale, workspaceConfig.siteProjectKind) : ''
+
+  return [base, anthologySection, kindSection, userSection, taskSection].filter(Boolean).join('\n\n')
 }

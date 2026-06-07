@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, type CSSProperties, type ReactNode } from 'react'
 import {
   Bold,
   Braces,
@@ -9,6 +9,7 @@ import {
   List,
   ListOrdered,
   Redo2,
+  SeparatorHorizontal,
   TextQuote,
   Undo2
 } from 'lucide-react'
@@ -78,6 +79,13 @@ interface TipTapEditorProps {
    * embedded as image nodes. Reject (or resolve to an empty array) to skip insertion.
    */
   onImageFiles?(files: File[]): Promise<InsertedImage[]>
+  /** Extra toolbar controls rendered after the default formatting buttons. */
+  toolbarEnd?: ReactNode
+  /** When true, show a toolbar button that inserts a markdown page break (`---`). */
+  showPageBreak?: boolean
+  pageBreakTitle?: string
+  /** Label shown on decorated horizontal rules in the editor (Pages layout). */
+  pageBreakDecorLabel?: string
 }
 
 function collectImageFilesFromDataTransfer(dt: DataTransfer | null | undefined): File[] {
@@ -97,7 +105,17 @@ function collectImageFilesFromDataTransfer(dt: DataTransfer | null | undefined):
   return files
 }
 
-export function TipTapEditor({ value, onChange, placeholder, className, onImageFiles }: TipTapEditorProps) {
+export function TipTapEditor({
+  value,
+  onChange,
+  placeholder,
+  className,
+  onImageFiles,
+  toolbarEnd,
+  showPageBreak,
+  pageBreakTitle = 'Insert page break',
+  pageBreakDecorLabel = 'Page break'
+}: TipTapEditorProps) {
   const onImageFilesRef = useRef(onImageFiles)
   const editorRef = useRef<Editor | null>(null)
   const mountedRef = useRef(true)
@@ -329,6 +347,24 @@ export function TipTapEditor({ value, onChange, placeholder, className, onImageF
           <ToolbarButton onClick={() => editor.chain().focus().redo().run()} ariaLabel="Redo" title="Redo">
             <Redo2 className="h-3.5 w-3.5" strokeWidth={2.25} />
           </ToolbarButton>
+          {showPageBreak ? (
+            <>
+              <div className="mx-1 h-4 w-px bg-border/70" />
+              <ToolbarButton
+                onClick={() => editor.chain().focus().setHorizontalRule().run()}
+                ariaLabel={pageBreakTitle}
+                title={pageBreakTitle}
+              >
+                <SeparatorHorizontal className="h-3.5 w-3.5" strokeWidth={2.25} />
+              </ToolbarButton>
+            </>
+          ) : null}
+          {toolbarEnd ? (
+            <>
+              <div className="mx-1 h-4 w-px bg-border/70" />
+              {toolbarEnd}
+            </>
+          ) : null}
         </div>
       </div>
 
@@ -376,7 +412,15 @@ export function TipTapEditor({ value, onChange, placeholder, className, onImageF
         // `min-h-0` is required for `flex-1` overflow to actually scroll
         // inside the column. `overscroll-contain` keeps scroll momentum
         // inside the editor instead of bleeding into the page.
-        className="tiptap-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain rounded-md border border-border bg-surface px-5 py-4"
+        className={cn(
+          'tiptap-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain rounded-md border border-border bg-surface px-5 py-4',
+          showPageBreak && 'tiptap-page-break-hints'
+        )}
+        style={
+          showPageBreak
+            ? ({ '--page-break-label': `"${pageBreakDecorLabel}"` } as CSSProperties)
+            : undefined
+        }
         onClick={() => {
           // Clicking the padded gutter below content should still focus the
           // editor so the caret lands at the end — matches what users expect.

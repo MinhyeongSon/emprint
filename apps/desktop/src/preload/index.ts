@@ -66,14 +66,18 @@ const api: EmprintDesktopApi = {
     saveStructured: (input) => ipcRenderer.invoke(ipcChannels.sectionSaveStructured, input),
     create: (input) => ipcRenderer.invoke(ipcChannels.sectionCreate, input),
     delete: (input) => ipcRenderer.invoke(ipcChannels.sectionsDelete, input),
-    reorderRoots: (input) => ipcRenderer.invoke(ipcChannels.sectionsReorderRoots, input)
+    reorderRoots: (input) => ipcRenderer.invoke(ipcChannels.sectionsReorderRoots, input),
+    reorderChildren: (input) => ipcRenderer.invoke(ipcChannels.sectionsReorderChildren, input),
+    reparent: (input) => ipcRenderer.invoke(ipcChannels.sectionsReparent, input),
+    duplicate: (input) => ipcRenderer.invoke(ipcChannels.sectionsDuplicate, input)
   },
   posts: {
     list: (input) => ipcRenderer.invoke(ipcChannels.postsList, input),
     read: (input) => ipcRenderer.invoke(ipcChannels.postRead, input),
     save: (input) => ipcRenderer.invoke(ipcChannels.postSave, input),
     move: (input) => ipcRenderer.invoke(ipcChannels.postsMove, input),
-    delete: (input) => ipcRenderer.invoke(ipcChannels.postsDelete, input)
+    delete: (input) => ipcRenderer.invoke(ipcChannels.postsDelete, input),
+    search: (input) => ipcRenderer.invoke(ipcChannels.postsSearch, input)
   },
   knowledge: {
     list: (input) => ipcRenderer.invoke(ipcChannels.knowledgeList, input),
@@ -81,6 +85,7 @@ const api: EmprintDesktopApi = {
     save: (input) => ipcRenderer.invoke(ipcChannels.knowledgeSave, input),
     move: (input) => ipcRenderer.invoke(ipcChannels.knowledgeMove, input),
     delete: (input) => ipcRenderer.invoke(ipcChannels.knowledgeDelete, input),
+    search: (input) => ipcRenderer.invoke(ipcChannels.knowledgeSearch, input),
     indexTree: () => ipcRenderer.invoke(ipcChannels.knowledgeIndexTree)
   },
   index: {
@@ -90,6 +95,11 @@ const api: EmprintDesktopApi = {
     update: (input) => ipcRenderer.invoke(ipcChannels.indexUpdate, input),
     delete: (input) => ipcRenderer.invoke(ipcChannels.indexDelete, input),
     rename: (input) => ipcRenderer.invoke(ipcChannels.indexRename, input)
+  },
+  dictionary: {
+    contentsSnapshot: () => ipcRenderer.invoke(ipcChannels.dictionaryContentsSnapshot),
+    reparentIndex: (input) => ipcRenderer.invoke(ipcChannels.dictionaryReparentIndex, input),
+    reassignEntryIndex: (input) => ipcRenderer.invoke(ipcChannels.dictionaryReassignEntryIndex, input)
   },
   workspaceSrc: {
     listTree: () => ipcRenderer.invoke(ipcChannels.workspaceSrcListTree),
@@ -125,6 +135,7 @@ const api: EmprintDesktopApi = {
     list: () => ipcRenderer.invoke(ipcChannels.artworkList),
     save: (input) => ipcRenderer.invoke(ipcChannels.artworkSave, input),
     update: (input) => ipcRenderer.invoke(ipcChannels.artworkUpdate, input),
+    updateAlbum: (input) => ipcRenderer.invoke(ipcChannels.artworkUpdateAlbum, input),
     delete: (input) => ipcRenderer.invoke(ipcChannels.artworkDelete, input),
     reorder: (input) => ipcRenderer.invoke(ipcChannels.artworkReorder, input)
   },

@@ -419,7 +419,7 @@ export function CodeModePanel({ locale }: { locale: AppLocale }) {
 
   const loadTree = useCallback(async () => {
     if (!api?.listTree) {
-      setTreeError(pick(locale, 'Workspace source API unavailable.', '워크스페이스 소스 API를 사용할 수 없습니다.'))
+      setTreeError(pick(locale, 'Anthology site API unavailable.', '앤솔로지 사이트 API를 사용할 수 없습니다.'))
       setTreeLoading(false)
       return null
     }

@@ -19,8 +19,7 @@ export const MEMOIR_SIDEBAR_SECTIONS: SidebarSection[] = [
 ]
 
 export const DICTIONARY_SIDEBAR_SECTIONS: SidebarSection[] = [
-  'index',
-  'knowledge',
+  'contents',
   'drafts',
   'assets',
   'design',

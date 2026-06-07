@@ -23,12 +23,15 @@ import type {
   GitRecoverWorkspaceProgress,
   GitRecoverWorkspaceResult,
   GitWorkingTreeSummary,
+  DictionaryContentsSnapshot,
   IndexTreeNode,
   InitializeWorkspaceResult,
   KnowledgeSummary,
   MemoirSectionFile,
   MemoirSectionSummary,
   PostSummary,
+  PostSearchHit,
+  KnowledgeSearchHit,
   RuntimeDiagnostics,
   WorkspaceCatalogEntry,
   CatalogReconcileInput,
@@ -44,8 +47,10 @@ import type {
 } from './types'
 import type { IndexEntrySummary, IndexRegistryEntry } from './dictionary/index-registry'
 import type {
+  ArtworkAlbumUpdateInput,
   ArtworkDeleteInput,
   ArtworkImageInfo,
+  ArtworkListResult,
   ArtworkReorderInput,
   ArtworkSaveInput,
   ArtworkUpdateInput
@@ -87,11 +92,13 @@ export const ipcChannels = {
   postSave: 'post:save',
   postsMove: 'posts:move',
   postsDelete: 'posts:delete',
+  postsSearch: 'posts:search',
   knowledgeList: 'knowledge:list',
   knowledgeRead: 'knowledge:read',
   knowledgeSave: 'knowledge:save',
   knowledgeMove: 'knowledge:move',
   knowledgeDelete: 'knowledge:delete',
+  knowledgeSearch: 'knowledge:search',
   knowledgeIndexTree: 'knowledge:index-tree',
   indexList: 'index:list',
   indexTree: 'index:tree',
@@ -99,6 +106,9 @@ export const ipcChannels = {
   indexUpdate: 'index:update',
   indexDelete: 'index:delete',
   indexRename: 'index:rename',
+  dictionaryContentsSnapshot: 'dictionary:contents-snapshot',
+  dictionaryReparentIndex: 'dictionary:reparent-index',
+  dictionaryReassignEntryIndex: 'dictionary:reassign-entry-index',
   sectionsList: 'sections:list',
   sectionRead: 'section:read',
   sectionSave: 'section:save',
@@ -106,6 +116,9 @@ export const ipcChannels = {
   sectionCreate: 'section:create',
   sectionsDelete: 'sections:delete',
   sectionsReorderRoots: 'sections:reorder-roots',
+  sectionsReorderChildren: 'sections:reorder-children',
+  sectionsReparent: 'sections:reparent',
+  sectionsDuplicate: 'sections:duplicate',
   workspaceSrcListTree: 'workspace:src:list-tree',
   workspaceSrcRead: 'workspace:src:read',
   workspaceSrcSave: 'workspace:src:save',
@@ -118,6 +131,7 @@ export const ipcChannels = {
   artworkList: 'artwork:list',
   artworkSave: 'artwork:save',
   artworkUpdate: 'artwork:update',
+  artworkUpdateAlbum: 'artwork:update-album',
   artworkDelete: 'artwork:delete',
   artworkReorder: 'artwork:reorder',
   storyRead: 'story:read',
@@ -226,6 +240,9 @@ export interface EmprintDesktopApi {
     create(input: { section: MemoirSectionFile; parentId?: string }): Promise<{ path: string }>
     delete(input: { path: string }): Promise<{ path: string }>
     reorderRoots(input: { orderedIds: string[] }): Promise<void>
+    reorderChildren(input: { parentId: string; orderedChildIds: string[] }): Promise<void>
+    reparent(input: { childId: string; parentId: string | null }): Promise<void>
+    duplicate(input: { path: string; mode?: 'shallow' | 'deep' }): Promise<{ path: string }>
   }
   posts: {
     list(input: { section: 'posts' | 'drafts' }): Promise<PostSummary[]>
@@ -242,6 +259,11 @@ export interface EmprintDesktopApi {
      * against the workspace root; deleting outside those folders is refused.
      */
     delete(input: { path: string }): Promise<{ path: string }>
+    search(input: {
+      section: 'posts' | 'drafts'
+      query: string
+      tag?: string
+    }): Promise<PostSearchHit[]>
   }
   knowledge: {
     list(input: { section: 'knowledge' | 'drafts' }): Promise<KnowledgeSummary[]>
@@ -249,6 +271,12 @@ export interface EmprintDesktopApi {
     save(input: { path: string; content: string }): Promise<{ path: string }>
     move(input: { from: string; to: string }): Promise<{ path: string }>
     delete(input: { path: string }): Promise<{ path: string }>
+    search(input: {
+      section: 'knowledge' | 'drafts'
+      query: string
+      indexPrefix?: string
+      tag?: string
+    }): Promise<KnowledgeSearchHit[]>
     indexTree(): Promise<IndexTreeNode[]>
   }
   index: {
@@ -264,6 +292,11 @@ export interface EmprintDesktopApi {
     update(input: { path: string; label?: string; description?: string }): Promise<IndexRegistryEntry>
     delete(input: { path: string }): Promise<{ ok: true }>
     rename(input: { from: string; to: string }): Promise<{ ok: true }>
+  }
+  dictionary: {
+    contentsSnapshot(): Promise<DictionaryContentsSnapshot>
+    reparentIndex(input: { from: string; toParentPath: string }): Promise<{ ok: true }>
+    reassignEntryIndex(input: { path: string; index: string }): Promise<{ path: string }>
   }
   workspaceSrc: {
     listTree(): Promise<WorkspaceSrcTreeNode | null>
@@ -306,9 +339,10 @@ export interface EmprintDesktopApi {
   }
   /** Fragments anthology — JPEG artworks under `artwork/` (max 50). */
   artwork: {
-    list(): Promise<ArtworkImageInfo[]>
+    list(): Promise<ArtworkListResult>
     save(input: ArtworkSaveInput): Promise<ArtworkImageInfo>
     update(input: ArtworkUpdateInput): Promise<ArtworkImageInfo>
+    updateAlbum(input: ArtworkAlbumUpdateInput): Promise<ArtworkListResult>
     delete(input: ArtworkDeleteInput): Promise<void>
     reorder(input: ArtworkReorderInput): Promise<ArtworkImageInfo[]>
   }

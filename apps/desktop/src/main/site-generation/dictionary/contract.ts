@@ -1,4 +1,5 @@
 import { DICTIONARY_CLASS_PREFIX } from '@emprint/shared'
+import { componentClass as cc, utilityClass as uc } from '../shared/contract-helpers'
 
 /**
  * Dictionary anthology component contract — stable `ep-dictionary-*` class names.
@@ -6,15 +7,8 @@ import { DICTIONARY_CLASS_PREFIX } from '@emprint/shared'
  */
 export { DICTIONARY_CLASS_PREFIX as EP_DICTIONARY_PREFIX }
 
-function componentClass(component: string, part?: string): string {
-  return part
-    ? `${DICTIONARY_CLASS_PREFIX}-${component}-${part}`
-    : `${DICTIONARY_CLASS_PREFIX}-${component}`
-}
-
-function utilityClass(name: string): string {
-  return `${DICTIONARY_CLASS_PREFIX}-u-${name}`
-}
+const componentClass = (component: string, part?: string) => cc(DICTIONARY_CLASS_PREFIX, component, part)
+const utilityClass = (name: string) => uc(DICTIONARY_CLASS_PREFIX, name)
 
 export const EpDictionaryClasses = {
   Header: componentClass('Header'),
@@ -93,9 +87,32 @@ export const EpDictionaryClasses = {
   HomeWithIndexAside: componentClass('HomeWithIndex', 'aside'),
   HomeWithIndexMain: componentClass('HomeWithIndex', 'main'),
 
+  TopicGraph: componentClass('TopicGraph'),
+  TopicGraphGrid: componentClass('TopicGraph', 'grid'),
+  TopicGraphCard: componentClass('TopicGraph', 'card'),
+  TopicGraphCardTitle: componentClass('TopicGraph', 'card-title'),
+  TopicGraphSvg: componentClass('TopicGraph', 'svg'),
+  TopicGraphEdge: componentClass('TopicGraph', 'edge'),
+  TopicGraphEdgeIndex: componentClass('TopicGraph', 'edge-index'),
+  TopicGraphEdgeEntry: componentClass('TopicGraph', 'edge-entry'),
+  TopicGraphNode: componentClass('TopicGraph', 'node'),
+  TopicGraphNodeIndex: componentClass('TopicGraph', 'node-index'),
+  TopicGraphNodeEntry: componentClass('TopicGraph', 'node-entry'),
+  TopicGraphTooltip: componentClass('TopicGraph', 'tooltip'),
+  TopicGraphTooltipBg: componentClass('TopicGraph', 'tooltip-bg'),
+  TopicGraphTooltipText: componentClass('TopicGraph', 'tooltip-text'),
+  TopicGraphLabel: componentClass('TopicGraph', 'label'),
+
+
+  AtlasGrid: componentClass('AtlasGrid'),
+  AtlasTile: componentClass('AtlasTile'),
+  AtlasTileTitle: componentClass('AtlasTile', 'title'),
+  AtlasTileMeta: componentClass('AtlasTile', 'meta'),
+
   Container: utilityClass('Container'),
   Wide: utilityClass('Wide'),
   Muted: utilityClass('Muted'),
+  Search: componentClass('Search'),
   Eyebrow: utilityClass('Eyebrow'),
   Title: utilityClass('Title')
 } as const

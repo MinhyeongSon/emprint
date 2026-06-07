@@ -205,7 +205,7 @@ export function WorkspaceSyncFooter({
   const publishTooltip = blocked
     ? pick(locale, 'Save your changes before publishing', '발행 전에 먼저 저장해주세요')
     : showConflict
-      ? pick(locale, 'Restore the workspace before publishing', '발행 전에 워크스페이스를 복구하세요')
+      ? pick(locale, 'Restore the anthology before publishing', '발행 전에 앤솔로지를 복구하세요')
       : behindCount > 0
         ? pick(locale, 'Remote updates available — update or publish', '원격 업데이트 있음 — 가져오기 또는 발행')
         : pick(locale, 'Publish your changes', '변경사항 발행')
@@ -226,7 +226,7 @@ export function WorkspaceSyncFooter({
             <p>
               {pick(
                 locale,
-                'This folder is not on the main line Emprint uses. Save or discard local changes, then reopen the workspace.',
+                'This folder is not on the main line Emprint uses. Save or discard local changes, then reopen the anthology.',
                 'Emprint가 사용하는 main 브랜치가 아닙니다. 로컬 변경을 정리한 뒤 다시 열어주세요.'
               )}
             </p>
@@ -248,7 +248,7 @@ export function WorkspaceSyncFooter({
           <p className="text-[10px] leading-relaxed text-ink">
             {pick(
               locale,
-              'A conflict occurred between your live site and this workspace. Differences between the deployed page and Imprint can cause this. Work you had in progress may be lost.',
+              'A conflict occurred between your live site and this anthology. Differences between the deployed page and Imprint can cause this. Work you had in progress may be lost.',
               '배포된 웹페이지와 Imprint 사이의 차이로 충돌이 발생했습니다. 진행 중이던 작업 내용이 사라질 수 있습니다.'
             )}
           </p>

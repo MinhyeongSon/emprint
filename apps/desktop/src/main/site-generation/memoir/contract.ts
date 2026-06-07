@@ -1,15 +1,11 @@
 import { MEMOIR_CLASS_PREFIX } from '@emprint/shared'
+import { componentClass as cc, utilityClass as uc } from '../shared/contract-helpers'
 
 /** Memoir anthology component contract — stable `ep-memoir-*` class names. */
 export { MEMOIR_CLASS_PREFIX as EP_MEMOIR_PREFIX }
 
-function componentClass(component: string, part?: string): string {
-  return part ? `${MEMOIR_CLASS_PREFIX}-${component}-${part}` : `${MEMOIR_CLASS_PREFIX}-${component}`
-}
-
-function utilityClass(name: string): string {
-  return `${MEMOIR_CLASS_PREFIX}-u-${name}`
-}
+const componentClass = (component: string, part?: string) => cc(MEMOIR_CLASS_PREFIX, component, part)
+const utilityClass = (name: string) => uc(MEMOIR_CLASS_PREFIX, name)
 
 export const EpMemoirClasses = {
   Header: componentClass('Header'),
@@ -36,6 +32,8 @@ export const EpMemoirClasses = {
   Hero: componentClass('Hero'),
   HeroTitle: componentClass('Hero', 'title'),
   HeroSubtitle: componentClass('Hero', 'subtitle'),
+  HeroFigure: componentClass('Hero', 'figure'),
+  HeroImage: componentClass('Hero', 'image'),
 
   Introduction: componentClass('Introduction'),
   IntroductionTitle: componentClass('Introduction', 'title'),
@@ -46,6 +44,10 @@ export const EpMemoirClasses = {
   Project: componentClass('Project'),
   ProjectTitle: componentClass('Project', 'title'),
   ProjectBody: componentClass('Project', 'body'),
+  ProjectFigure: componentClass('Project', 'figure'),
+  ProjectImage: componentClass('Project', 'image'),
+  ProjectMeta: componentClass('Project', 'meta'),
+  ProjectLink: componentClass('Project', 'link'),
   ProjectStack: componentClass('Project', 'stack'),
   ProjectMasonry: componentClass('Project', 'masonry'),
 
@@ -56,6 +58,7 @@ export const EpMemoirClasses = {
   Contact: componentClass('Contact'),
   ContactTitle: componentClass('Contact', 'title'),
   ContactBody: componentClass('Contact', 'body'),
+  ContactLinks: componentClass('Contact', 'links'),
 
   Quote: componentClass('Quote'),
   QuoteBody: componentClass('Quote', 'body'),
@@ -73,6 +76,7 @@ export const EpMemoirClasses = {
   TimelineTitle: componentClass('Timeline', 'title'),
   TimelineList: componentClass('Timeline', 'list'),
   TimelineItem: componentClass('Timeline', 'item'),
+  TimelinePeriod: componentClass('Timeline', 'period'),
 
   Gallery: componentClass('Gallery'),
   GalleryTitle: componentClass('Gallery', 'title'),

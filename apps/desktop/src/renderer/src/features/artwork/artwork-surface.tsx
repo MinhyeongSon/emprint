@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { GripVertical, ImageOff, Loader2, Plus, RefreshCw, Save, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { GripVertical, ImageOff, Loader2, Plus, RefreshCw, Save, Tag, Trash2 } from 'lucide-react'
 import {
   MAX_FRAGMENTS_ARTWORK_COUNT,
+  parseArtworkTagsInput,
   type AppLocale,
   type ArtworkImageInfo
 } from '@emprint/shared'
+import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
 import { Input } from '@renderer/components/ui/input'
@@ -13,7 +15,7 @@ import { workspaceAssetPathToAssetUrl } from '@renderer/lib/asset-paths'
 import { useAppStore } from '@renderer/state/app-store'
 import { cn } from '@renderer/lib/cn'
 
-const ACCEPT = 'image/*'
+const ACCEPT = 'image/jpeg,image/png,image/webp,image/*'
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -21,10 +23,16 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
 }
 
+function tagsToDraft(tags: string[] | undefined): string {
+  return tags?.join(', ') ?? ''
+}
+
 export function ArtworkSurface({ locale }: { locale: AppLocale }) {
   const bumpWorkspaceGitRefresh = useAppStore((state) => state.bumpWorkspaceGitRefresh)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [items, setItems] = useState<ArtworkImageInfo[]>([])
+  const [album, setAlbum] = useState('')
+  const [editAlbum, setEditAlbum] = useState('')
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -33,10 +41,16 @@ export function ArtworkSurface({ locale }: { locale: AppLocale }) {
   const [dragId, setDragId] = useState<string | null>(null)
   const [dropTargetId, setDropTargetId] = useState<string | null>(null)
   const [reordering, setReordering] = useState(false)
+  const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null)
+  const [tagPickerOpen, setTagPickerOpen] = useState(false)
 
   const [editTitle, setEditTitle] = useState('')
   const [editCaption, setEditCaption] = useState('')
+  const [editYear, setEditYear] = useState('')
+  const [editMedium, setEditMedium] = useState('')
+  const [editTags, setEditTags] = useState('')
   const [savingMeta, setSavingMeta] = useState(false)
+  const [savingAlbum, setSavingAlbum] = useState(false)
 
   const load = useCallback(async () => {
     if (!window.emprint?.artwork?.list) {
@@ -48,7 +62,10 @@ export function ArtworkSurface({ locale }: { locale: AppLocale }) {
     setError(null)
     try {
       const result = await window.emprint.artwork.list()
-      setItems(result)
+      setItems(result.items)
+      const nextAlbum = result.album ?? ''
+      setAlbum(nextAlbum)
+      setEditAlbum(nextAlbum)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Failed to load artwork.')
     } finally {
@@ -66,17 +83,44 @@ export function ArtworkSurface({ locale }: { locale: AppLocale }) {
     if (!selectedItem) {
       setEditTitle('')
       setEditCaption('')
+      setEditYear('')
+      setEditMedium('')
+      setEditTags('')
       return
     }
     setEditTitle(selectedItem.title)
     setEditCaption(selectedItem.caption ?? '')
+    setEditYear(selectedItem.year != null ? String(selectedItem.year) : '')
+    setEditMedium(selectedItem.medium ?? '')
+    setEditTags(tagsToDraft(selectedItem.tags))
   }, [selectedItem])
 
+  const tagCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const item of items) {
+      for (const tag of item.tags ?? []) {
+        counts.set(tag, (counts.get(tag) ?? 0) + 1)
+      }
+    }
+    return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+  }, [items])
+
+  const filteredItems = useMemo(() => {
+    if (!selectedTagFilter) return items
+    return items.filter((item) => item.tags?.includes(selectedTagFilter))
+  }, [items, selectedTagFilter])
+
   const atLimit = items.length >= MAX_FRAGMENTS_ARTWORK_COUNT
+  const parsedEditYear = editYear.trim() ? Number(editYear.trim()) : null
+  const parsedEditTags = parseArtworkTagsInput(editTags)
   const metaDirty =
     selectedItem != null &&
     (editTitle.trim() !== selectedItem.title ||
-      editCaption.trim() !== (selectedItem.caption ?? ''))
+      editCaption.trim() !== (selectedItem.caption ?? '') ||
+      (parsedEditYear ?? undefined) !== (selectedItem.year ?? undefined) ||
+      editMedium.trim() !== (selectedItem.medium ?? '') ||
+      parsedEditTags.join('|') !== (selectedItem.tags ?? []).join('|'))
+  const albumDirty = editAlbum.trim() !== album.trim()
 
   const handlePickFiles = useCallback(() => {
     if (atLimit) return
@@ -145,10 +189,14 @@ export function ArtworkSurface({ locale }: { locale: AppLocale }) {
     setSavingMeta(true)
     setError(null)
     try {
+      const yearRaw = editYear.trim()
       await window.emprint.artwork.update({
         id: selectedItem.id,
         title: editTitle.trim() || selectedItem.title,
-        caption: editCaption.trim()
+        caption: editCaption.trim(),
+        year: yearRaw ? Number(yearRaw) : null,
+        medium: editMedium.trim(),
+        tags: parsedEditTags
       })
       bumpWorkspaceGitRefresh()
       await load()
@@ -157,7 +205,34 @@ export function ArtworkSurface({ locale }: { locale: AppLocale }) {
     } finally {
       setSavingMeta(false)
     }
-  }, [bumpWorkspaceGitRefresh, editCaption, editTitle, load, selectedItem])
+  }, [
+    bumpWorkspaceGitRefresh,
+    editCaption,
+    editMedium,
+    editTitle,
+    editYear,
+    load,
+    parsedEditTags,
+    selectedItem
+  ])
+
+  const handleSaveAlbum = useCallback(async () => {
+    if (!window.emprint?.artwork?.updateAlbum) return
+    setSavingAlbum(true)
+    setError(null)
+    try {
+      const result = await window.emprint.artwork.updateAlbum({ album: editAlbum.trim() })
+      setItems(result.items)
+      const nextAlbum = result.album ?? ''
+      setAlbum(nextAlbum)
+      setEditAlbum(nextAlbum)
+      bumpWorkspaceGitRefresh()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Save failed.')
+    } finally {
+      setSavingAlbum(false)
+    }
+  }, [bumpWorkspaceGitRefresh, editAlbum])
 
   const reorderItems = useCallback(
     async (sourceId: string, targetId: string) => {
@@ -201,8 +276,8 @@ export function ArtworkSurface({ locale }: { locale: AppLocale }) {
           <p className="mt-1 text-sm text-muted">
             {pick(
               locale,
-              `JPEG only · up to ${MAX_FRAGMENTS_ARTWORK_COUNT} pieces · drag to reorder · published on your site shelf.`,
-              `JPEG 변환 저장 · 최대 ${MAX_FRAGMENTS_ARTWORK_COUNT}점 · 드래그로 순서 변경 · 공개 사이트 선반에 표시됩니다.`
+              `JPEG, PNG, WebP → stored as JPEG · up to ${MAX_FRAGMENTS_ARTWORK_COUNT} pieces · drag to reorder · published on your site shelf.`,
+              `JPEG·PNG·WebP 업로드(저장은 JPEG) · 최대 ${MAX_FRAGMENTS_ARTWORK_COUNT}점 · 드래그로 순서 변경 · 공개 사이트 선반에 표시됩니다.`
             )}
           </p>
         </div>
@@ -213,10 +288,113 @@ export function ArtworkSurface({ locale }: { locale: AppLocale }) {
         </div>
       </div>
 
+      <Card className="mb-4 border-border bg-panel2/40 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <label className="text-[11px] uppercase tracking-wide text-muted" htmlFor="artwork-album">
+              {pick(locale, 'Album title (optional)', '앨범 제목 (선택)')}
+            </label>
+            <Input
+              id="artwork-album"
+              data-testid="artwork-edit-album"
+              value={editAlbum}
+              onChange={(e) => setEditAlbum(e.target.value)}
+              placeholder={pick(locale, 'e.g. Summer sketches 2024', '예: 2024 여름 스케치')}
+            />
+            <p className="text-xs text-muted">
+              {pick(
+                locale,
+                'Shown on your public gallery when set. One flat album for this anthology.',
+                '설정 시 공개 갤러리에 표시됩니다. 이 앤솔로지당 하나의 앨범 제목입니다.'
+              )}
+            </p>
+          </div>
+          <Button
+            type="button"
+            disabled={!albumDirty || savingAlbum}
+            onClick={() => void handleSaveAlbum()}
+          >
+            {savingAlbum ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Save className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            {pick(locale, 'Save album', '앨범 저장')}
+          </Button>
+        </div>
+      </Card>
+
       {error ? (
         <Card className="mb-4 border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           {error}
         </Card>
+      ) : null}
+
+      {tagCounts.length > 0 ? (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className={cn(
+              'px-2.5 py-1.5 text-xs',
+              tagPickerOpen || selectedTagFilter ? 'border-accent/40 bg-panel2' : undefined
+            )}
+            aria-expanded={tagPickerOpen}
+            data-testid="artwork-tag-picker-toggle"
+            onClick={() => setTagPickerOpen((open) => !open)}
+          >
+            <Tag className="mr-1.5 h-3.5 w-3.5" />
+            {pick(locale, 'Tags', '태그')}
+          </Button>
+          {!tagPickerOpen && selectedTagFilter ? (
+            <>
+              <Badge className="normal-case tracking-normal">{selectedTagFilter}</Badge>
+              <Button
+                type="button"
+                variant="ghost"
+                className="px-2.5 py-1.5 text-xs"
+                onClick={() => setSelectedTagFilter(null)}
+              >
+                {pick(locale, 'Clear filter', '필터 해제')}
+              </Button>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+
+      {tagPickerOpen && tagCounts.length > 0 ? (
+        <div
+          className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-panel2/40 p-3"
+          data-testid="artwork-tag-filter"
+        >
+          <button
+            type="button"
+            className={cn(
+              'rounded-full border px-2.5 py-1 text-xs transition',
+              selectedTagFilter === null
+                ? 'border-accent/50 bg-panel2 text-ink'
+                : 'border-border text-muted hover:border-border hover:bg-panel2/70 hover:text-ink'
+            )}
+            onClick={() => setSelectedTagFilter(null)}
+          >
+            {pick(locale, 'All', '전체')} ({items.length})
+          </button>
+          {tagCounts.map(([tag, count]) => (
+            <button
+              key={tag}
+              type="button"
+              className={cn(
+                'rounded-full border px-2.5 py-1 text-xs transition',
+                selectedTagFilter === tag
+                  ? 'border-accent/50 bg-panel2 text-ink'
+                  : 'border-border text-muted hover:border-border hover:bg-panel2/70 hover:text-ink'
+              )}
+              onClick={() => setSelectedTagFilter(tag)}
+            >
+              {tag} ({count})
+            </button>
+          ))}
+        </div>
       ) : null}
 
       <input
@@ -255,7 +433,7 @@ export function ArtworkSurface({ locale }: { locale: AppLocale }) {
           <span className="text-xs font-medium">{pick(locale, 'Add', '추가')}</span>
         </button>
 
-        {items.map((item) => {
+        {filteredItems.map((item) => {
           const url = workspaceAssetPathToAssetUrl(item.path)
           const isSelected = selected === item.id
           const isDropTarget = dropTargetId === item.id && dragId !== item.id
@@ -315,6 +493,11 @@ export function ArtworkSurface({ locale }: { locale: AppLocale }) {
                 />
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5 pointer-events-none">
                   <div className="truncate text-[11px] font-medium text-white">{item.title}</div>
+                  {item.year != null || item.medium ? (
+                    <div className="truncate text-[10px] text-white/80">
+                      {[item.year, item.medium].filter(Boolean).join(' · ')}
+                    </div>
+                  ) : null}
                 </div>
               </button>
             </div>
@@ -337,6 +520,12 @@ export function ArtworkSurface({ locale }: { locale: AppLocale }) {
         </div>
       ) : null}
 
+      {!loading && items.length > 0 && filteredItems.length === 0 ? (
+        <div className="mt-8 text-center text-sm text-muted">
+          {pick(locale, 'No artworks match this tag.', '이 태그에 맞는 작품이 없습니다.')}
+        </div>
+      ) : null}
+
       {selectedItem ? (
         <Card className="mt-8 border-border bg-panel p-4" data-testid="artwork-detail-panel">
           <div className="flex flex-col gap-4 sm:flex-row">
@@ -356,6 +545,49 @@ export function ArtworkSurface({ locale }: { locale: AppLocale }) {
                   onChange={(e) => setEditTitle(e.target.value)}
                   placeholder={pick(locale, 'Title', '제목')}
                 />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] uppercase tracking-wide text-muted">
+                    {pick(locale, 'Year', '연도')}
+                  </label>
+                  <Input
+                    data-testid="artwork-edit-year"
+                    value={editYear}
+                    onChange={(e) => setEditYear(e.target.value)}
+                    inputMode="numeric"
+                    placeholder={pick(locale, 'e.g. 2024', '예: 2024')}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[11px] uppercase tracking-wide text-muted">
+                    {pick(locale, 'Medium', '재료/기법')}
+                  </label>
+                  <Input
+                    data-testid="artwork-edit-medium"
+                    value={editMedium}
+                    onChange={(e) => setEditMedium(e.target.value)}
+                    placeholder={pick(locale, 'e.g. Oil on canvas', '예: 캔버스 유화')}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] uppercase tracking-wide text-muted">
+                  {pick(locale, 'Tags (in-app filter only)', '태그 (앱 필터 전용)')}
+                </label>
+                <Input
+                  data-testid="artwork-edit-tags"
+                  value={editTags}
+                  onChange={(e) => setEditTags(e.target.value)}
+                  placeholder={pick(locale, 'landscape, ink, study', '풍경, 먹, 스케치')}
+                />
+                <p className="text-xs text-muted">
+                  {pick(
+                    locale,
+                    'Comma-separated. Tags filter this grid only — not published as /tags/ pages.',
+                    '쉼표로 구분. 이 그리드 필터 전용이며 공개 /tags/ 페이지는 만들지 않습니다.'
+                  )}
+                </p>
               </div>
               <div className="space-y-1.5">
                 <label className="text-[11px] uppercase tracking-wide text-muted">

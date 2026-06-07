@@ -24,10 +24,10 @@ import { createColumnLayoutArtifacts } from './column/column-layout-artifacts'
 //   as `origin` and `base_path` outputs. We pass those into Astro at build
 //   time so generated asset URLs (`/_astro/…`) and internal links resolve
 //   under the GitHub Pages sub-path instead of 404'ing at the apex domain.
-//   `enablement: true` is a safety net: if our IPC-time pages enable call
-//   was blocked (org policy, token scope, etc.) this still configures the
-//   site on first push, since the workflow's `pages: write` permission is
-//   scoped to this repo.
+//   Do NOT pass `enablement: true` to `actions/configure-pages`: GITHUB_TOKEN
+//   cannot create Pages sites (GitHub returns "Resource not accessible by
+//   integration"). Emprint enables Pages via the REST API at anthology create
+//   time using the user's OAuth token (`tryEnableGitHubPagesViaActions`).
 
 const ghPagesWorkflowLines = [
   'name: Deploy Astro to GitHub Pages',
@@ -54,10 +54,8 @@ const ghPagesWorkflowLines = [
   '      - uses: actions/setup-node@v4',
   '        with:',
   "          node-version: '22'",
-  '      - id: pages',
-  '        uses: actions/configure-pages@v5',
-  '        with:',
-  '          enablement: true',
+      '      - id: pages',
+      '        uses: actions/configure-pages@v5',
   '      - run: npm install',
   '      - run: npm run build',
   '        env:',

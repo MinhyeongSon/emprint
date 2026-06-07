@@ -18,6 +18,7 @@ import { Input } from '@renderer/components/ui/input'
 import { GithubDeviceLoginForm } from '@renderer/features/github/github-device-login-form'
 import { Sidebar } from '@renderer/features/shell/sidebar'
 import { useAppStore } from '@renderer/state/app-store'
+import { getAnthologyUi } from '@renderer/lib/i18n'
 
 type WizardStep = 'git' | 'node' | 'github' | 'root'
 
@@ -55,6 +56,7 @@ function nodeInstallCommands(platform: string): string[] {
 
 export function WorkspaceWizard() {
   const locale = useAppStore((state) => state.locale)
+  const t = getAnthologyUi(locale)
   const completeWizard = useAppStore((state) => state.completeWizard)
   const githubConnected = useAppStore((state) => state.githubConnected)
   const githubLogin = useAppStore((state) => state.githubLogin)
@@ -528,12 +530,8 @@ export function WorkspaceWizard() {
 
             {currentStep === 'root' ? (
               <Card className="space-y-4">
-                <CardTitle>{locale === 'ko' ? '워크스페이스 루트 폴더' : 'Workspace root folder'}</CardTitle>
-                <CardDescription>
-                  {locale === 'ko'
-                    ? '워크스페이스(여러 레포)를 보관할 기본 루트 폴더를 선택합니다.'
-                    : 'Choose a root folder to store or organize workspaces.'}
-                </CardDescription>
+                <CardTitle>{t.anthologiesRootFolder}</CardTitle>
+                <CardDescription>{t.rootFolderDesc}</CardDescription>
                 <div className="flex items-center gap-3">
                   <Button
                     variant="outline"

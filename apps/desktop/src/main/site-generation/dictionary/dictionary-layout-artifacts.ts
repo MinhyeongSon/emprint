@@ -1,5 +1,7 @@
 import type { WorkspaceArtifact } from '@emprint/core'
+import { dictionaryThemeToTokensCss } from '@emprint/shared'
 import type { SiteGenerationContext } from '../site-project-generator'
+import { createContentConfigArtifact } from '../content-config-artifacts'
 import { EpDictionaryClasses } from './contract'
 import {
   createDictionaryGlobalCss,
@@ -7,8 +9,8 @@ import {
   createDefaultDictionaryTheme,
   loadComponentsCss
 } from './dictionary-styles'
-import { dictionaryThemeToTokensCss } from '@emprint/shared'
 import { createDictionaryPageArtifacts } from './dictionary-page-artifacts'
+import { createDictionaryPagefindScriptArtifact } from './dictionary-search-artifacts'
 import syncThemeScript from './sync-theme.mjs?raw'
 import { createLandingIntroArtifacts } from '../shared/landing-intro-artifacts'
 import { footerAstroContent, sitePublicLibArtifact } from '../shared/footer-artifacts'
@@ -33,8 +35,12 @@ const DICTIONARY_TEMPLATE_SYNC_PATHS = new Set([
   'src/components/IndexNav.astro',
   'src/components/KnowledgeCard.astro',
   'src/components/DictionaryKnowledgeFeed.astro',
+  'src/components/TopicGraph.astro',
+  'src/components/AtlasGrid.astro',
+  'src/lib/topic-graph.ts',
   'src/layouts/Layout.astro',
-  'src/layouts/PostLayout.astro'
+  'src/layouts/PostLayout.astro',
+  'scripts/build-pagefind.mjs'
 ])
 
 /** Astro shells updated when theme.json is saved (layout composition). */
@@ -46,10 +52,12 @@ export function getDictionaryLayoutTemplateSyncArtifacts(): WorkspaceArtifact[] 
 /** Components, pages, and index helpers — refreshed on preview/theme sync for existing workspaces. */
 export function getDictionarySiteTemplateArtifacts(locale: 'ko' | 'en' = 'en'): WorkspaceArtifact[] {
   return [
+    createContentConfigArtifact('dictionary'),
     { relativePath: 'src/lib/index-path.ts', content: indexPathLibSource() },
     { relativePath: 'src/lib/index-registry.ts', content: indexRegistryLibSource() },
+    { relativePath: 'src/lib/topic-graph.ts', content: topicGraphLibSource() },
     ...createDictionaryComponentArtifacts(locale),
-    ...createDictionaryPageArtifacts()
+    ...createDictionaryPageArtifacts(locale)
   ]
 }
 
@@ -98,9 +106,14 @@ export function formatDate(input?: Date): string {
       relativePath: 'src/lib/index-registry.ts',
       content: indexRegistryLibSource()
     },
+    {
+      relativePath: 'src/lib/topic-graph.ts',
+      content: topicGraphLibSource()
+    },
     ...createDictionaryComponentArtifacts(lang),
     ...createLandingIntroArtifacts('ep-dictionary'),
-    ...createDictionaryPageArtifacts()
+    createDictionaryPagefindScriptArtifact(),
+    ...createDictionaryPageArtifacts(lang)
   ]
 }
 
@@ -129,6 +142,14 @@ function createDictionaryComponentArtifacts(lang: 'ko' | 'en'): WorkspaceArtifac
     {
       relativePath: 'src/components/DictionaryKnowledgeFeed.astro',
       content: dictionaryKnowledgeFeedAstro()
+    },
+    {
+      relativePath: 'src/components/TopicGraph.astro',
+      content: topicGraphAstro()
+    },
+    {
+      relativePath: 'src/components/AtlasGrid.astro',
+      content: atlasGridAstro()
     },
     {
       relativePath: 'src/layouts/Layout.astro',
@@ -245,10 +266,12 @@ export function collectRegistryNavPaths(entries: IndexRegistryEntry[]): string[]
 }
 
 export function labelForIndexPath(path: string, entries: IndexRegistryEntry[]): string {
-  const hit = entries.find((e) => e.path === path)
+  const normalized = normalizeIndexPath(path)
+  if (!normalized) return path
+  const hit = entries.find((e) => normalizeIndexPath(e.path) === normalized)
   if (hit?.label) return hit.label
-  const parts = path.split('/')
-  return parts[parts.length - 1] ?? path
+  const parts = normalized.split('/')
+  return parts[parts.length - 1] ?? normalized
 }
 `
 }
@@ -394,13 +417,13 @@ import { SITE_TITLE, SITE_DESCRIPTION } from '../lib/site'
 import ThemeToggle from './ThemeToggle.astro'
 
 interface Props {
-  current?: 'home' | 'archive' | 'index' | 'tags'
+  current?: 'home' | 'archive' | 'index' | 'tags' | 'search'
 }
 
 const { current } = Astro.props
 ---
 
-<header class="${EpDictionaryClasses.Header}">
+<header class="${EpDictionaryClasses.Header}" data-pagefind-ignore>
   <div class="${EpDictionaryClasses.HeaderInner} ${EpDictionaryClasses.Wide}">
     <div>
       <a class="${EpDictionaryClasses.HeaderBrand}" href={\`\${import.meta.env.BASE_URL}\`}>{SITE_TITLE}</a>
@@ -420,6 +443,9 @@ const { current } = Astro.props
       </a>
       <a href={\`\${import.meta.env.BASE_URL}tags/\`} aria-current={current === 'tags' ? 'page' : undefined}>
         ${lang === 'ko' ? '태그' : 'Tags'}
+      </a>
+      <a href={\`\${import.meta.env.BASE_URL}search/\`} aria-current={current === 'search' ? 'page' : undefined}>
+        ${lang === 'ko' ? '검색' : 'Search'}
       </a>
       </nav>
     </div>
@@ -443,6 +469,7 @@ function postCardAstro(): string {
 import type { CollectionEntry } from 'astro:content'
 import { formatDate } from '../lib/site'
 import { indexPathToHref, normalizeIndexPath } from '../lib/index-path'
+import { labelForIndexPath, loadIndexRegistryEntries } from '../lib/index-registry'
 
 interface Props {
   post: CollectionEntry<'knowledge'>
@@ -455,6 +482,8 @@ const base = import.meta.env.BASE_URL
 const href = \`\${base}knowledge/\${encodeURIComponent(post.id)}/\`
 const indexPath = normalizeIndexPath(String(post.data.index ?? ''))
 const indexHref = indexPath ? indexPathToHref(base, indexPath) : null
+const registry = loadIndexRegistryEntries()
+const indexLabel = indexPath ? labelForIndexPath(indexPath, registry) : ''
 const cardClass =
   variant === 'featured'
     ? \`${EpDictionaryClasses.KnowledgeCard} ${EpDictionaryClasses.KnowledgeCardFeatured}\`
@@ -468,7 +497,7 @@ const showDesc = variant === 'featured' || variant === 'default'
 <li>
   {indexPath && indexHref ? (
     <a class="${EpDictionaryClasses.KnowledgeCardIndex}" href={indexHref}>
-      {indexPath}
+      {indexLabel}
     </a>
   ) : null}
   <a class={cardClass} href={href}>
@@ -497,23 +526,12 @@ const showDesc = variant === 'featured' || variant === 'default'
 function dictionaryKnowledgeFeedAstro(): string {
   return `---
 import type { CollectionEntry } from 'astro:content'
-import themeFile from '../../config/theme.json'
 import KnowledgeCard from './KnowledgeCard.astro'
-import IndexNav from './IndexNav.astro'
-import { formatDate, SITE_LANG } from '../lib/site'
-
-type Composition = 'reference' | 'alphabet' | 'compact'
 
 interface Props {
   posts: CollectionEntry<'knowledge'>[]
-  /** Full collection for alphabet sidebar (tags / trending). Defaults to posts. */
   catalog?: CollectionEntry<'knowledge'>[]
   mode?: 'home' | 'archive'
-}
-
-function resolveComposition(raw: unknown): Composition {
-  if (raw === 'alphabet' || raw === 'compact') return raw
-  return 'reference'
 }
 
 function postTime(post: CollectionEntry<'knowledge'>): number {
@@ -521,110 +539,15 @@ function postTime(post: CollectionEntry<'knowledge'>): number {
   return d ? d.getTime() : 0
 }
 
-function monthLabel(date: Date, lang: string): string {
-  return date.toLocaleDateString(lang === 'ko' ? 'ko-KR' : 'en-US', { month: 'long' })
-}
-
-const { posts, catalog = posts, mode = 'archive' } = Astro.props
-const composition = resolveComposition(themeFile.layoutComposition)
-const lang = SITE_LANG
-
+const { posts } = Astro.props
 const sorted = [...posts].sort((a, b) => postTime(b) - postTime(a))
-
-const tagCounts = new Map<string, number>()
-for (const post of catalog) {
-  for (const tag of post.data.tags) {
-    tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1)
-  }
-}
-const topTags = [...tagCounts.entries()]
-  .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-  .slice(0, 12)
-
-const trending = [...catalog].sort((a, b) => postTime(b) - postTime(a)).slice(0, 5)
-
-type CompactMonth = { key: string; label: string; posts: CollectionEntry<'knowledge'>[] }
-type CompactYear = { year: number; months: CompactMonth[] }
-
-const compactYears: CompactYear[] = []
-if (composition === 'compact') {
-  const byYear = new Map<number, Map<string, CompactMonth>>()
-  for (const post of sorted) {
-    const d = post.data.updatedAt ?? post.data.createdAt
-    if (!d) continue
-    const year = d.getFullYear()
-    const monthKey = \`\${year}-\${String(d.getMonth() + 1).padStart(2, '0')}\`
-    let yearMap = byYear.get(year)
-    if (!yearMap) {
-      yearMap = new Map()
-      byYear.set(year, yearMap)
-    }
-    let bucket = yearMap.get(monthKey)
-    if (!bucket) {
-      bucket = { key: monthKey, label: monthLabel(d, lang), posts: [] }
-      yearMap.set(monthKey, bucket)
-    }
-    bucket.posts.push(post)
-  }
-  for (const year of [...byYear.keys()].sort((a, b) => b - a)) {
-    const months = [...(byYear.get(year)?.values() ?? [])].sort((a, b) => b.key.localeCompare(a.key))
-    compactYears.push({ year, months })
-  }
-}
-
-const featured = sorted[0]
-const gridPosts = sorted.slice(1)
 ---
 
-{composition === 'reference' ? (
-  <ul class="${EpDictionaryClasses.PostList}">
-    {sorted.map((post) => (
-      <KnowledgeCard post={post} />
-    ))}
-  </ul>
-) : null}
-
-{composition === 'alphabet' ? (
-  <div class="${EpDictionaryClasses.PostFeed}">
-    <div class="${EpDictionaryClasses.PostFeedMain}">
-      {featured ? (
-        <div class="${EpDictionaryClasses.MagazineFeatured}">
-          <KnowledgeCard post={featured} variant="featured" />
-        </div>
-      ) : null}
-      {gridPosts.length > 0 ? (
-        <ul class="${EpDictionaryClasses.PostList} ${EpDictionaryClasses.PostListGrid}">
-          {gridPosts.map((post) => (
-            <KnowledgeCard post={post} />
-          ))}
-        </ul>
-      ) : null}
-    </div>
-    <aside class="${EpDictionaryClasses.PostFeedAside} ${EpDictionaryClasses.MagazineSidebar}" aria-label="Index">
-      <IndexNav entries={catalog} variant="sidebar" />
-    </aside>
-  </div>
-) : null}
-
-{composition === 'compact' ? (
-  <div class="${EpDictionaryClasses.Journal}">
-    {compactYears.map(({ year, months }) => (
-      <section class="${EpDictionaryClasses.JournalYear}">
-        <h2 class="${EpDictionaryClasses.JournalYearLabel}">{year}</h2>
-        {months.map((month) => (
-          <div class="${EpDictionaryClasses.JournalMonth}">
-            <h3 class="${EpDictionaryClasses.JournalMonthLabel}">{month.label}</h3>
-            <ul class="${EpDictionaryClasses.JournalEntries}">
-              {month.posts.map((post) => (
-                <KnowledgeCard post={post} variant="compact" />
-              ))}
-            </ul>
-          </div>
-        ))}
-      </section>
-    ))}
-  </div>
-) : null}
+<ul class="${EpDictionaryClasses.PostList}">
+  {sorted.map((post) => (
+    <KnowledgeCard post={post} />
+  ))}
+</ul>
 `
 }
 
@@ -640,10 +563,12 @@ import { SITE_LANG, SITE_TITLE, SITE_DESCRIPTION } from '../lib/site'
 interface Props {
   title?: string
   description?: string
-  current?: 'home' | 'archive' | 'index' | 'tags'
+  current?: 'home' | 'archive' | 'index' | 'tags' | 'search'
+  /** When true, main content may be indexed by Pagefind (knowledge detail pages). */
+  indexForSearch?: boolean
 }
 
-const { title, description, current } = Astro.props
+const { title, description, current, indexForSearch = false } = Astro.props
 const fullTitle = title ? \`\${title} · \${SITE_TITLE}\` : SITE_TITLE
 const meta = description ?? SITE_DESCRIPTION
 const defaultColorMode =
@@ -651,9 +576,9 @@ const defaultColorMode =
     ? themeFile.colorMode
     : 'system'
 const layoutComposition =
-  themeFile.layoutComposition === 'alphabet' ||
-  themeFile.layoutComposition === 'compact' ||
-  themeFile.layoutComposition === 'reference'
+  themeFile.layoutComposition === 'reference' ||
+  themeFile.layoutComposition === 'graph' ||
+  themeFile.layoutComposition === 'atlas'
     ? themeFile.layoutComposition
     : 'reference'
 ---
@@ -683,7 +608,7 @@ const layoutComposition =
     <LandingIntro />
     <div class="${EpDictionaryClasses.Site}">
       <Header current={current} />
-      <main>
+      <main {...(!indexForSearch ? { 'data-pagefind-ignore': true } : {})}>
         <slot />
       </main>
       <Footer />
@@ -697,7 +622,8 @@ function postLayoutAstro(): string {
   return `---
 import Layout from './Layout.astro'
 import { formatDate } from '../lib/site'
-import { indexPathToHref } from '../lib/index-path'
+import { indexPathToHref, normalizeIndexPath } from '../lib/index-path'
+import { labelForIndexPath, loadIndexRegistryEntries } from '../lib/index-registry'
 
 interface Props {
   title: string
@@ -711,14 +637,23 @@ interface Props {
 const { title, description, index = '', tags = [], createdAt, updatedAt } = Astro.props
 const date = updatedAt ?? createdAt
 const base = import.meta.env.BASE_URL
+const indexPath = normalizeIndexPath(index)
+const registry = loadIndexRegistryEntries()
+const indexLabel = indexPath ? labelForIndexPath(indexPath, registry) : ''
 ---
 
-<Layout title={title} description={description}>
-  <article class="${EpDictionaryClasses.Container}">
+<Layout title={title} description={description} indexForSearch>
+  <article
+    class="${EpDictionaryClasses.Container}"
+    data-pagefind-body
+    {...(tags.length > 0
+      ? { 'data-pagefind-meta': tags.map((t: string) => \`tag:\${t}\`).join(', ') }
+      : {})}
+  >
     <header class="${EpDictionaryClasses.PostHeader}">
-      {index ? (
+      {indexPath ? (
         <p class="${EpDictionaryClasses.PostHeaderIndex}">
-          <a href={indexPathToHref(base, index)}>{index}</a>
+          <a href={indexPathToHref(base, indexPath)}>{indexLabel}</a>
         </p>
       ) : null}
       <div class="${EpDictionaryClasses.PostHeaderMeta}">
@@ -733,8 +668,10 @@ const base = import.meta.env.BASE_URL
           </ul>
         ) : null}
       </div>
-      <h1 class="${EpDictionaryClasses.PostHeaderTitle}">{title}</h1>
-      {description ? <p class="${EpDictionaryClasses.PostHeaderDesc}">{description}</p> : null}
+      <h1 class="${EpDictionaryClasses.PostHeaderTitle}" data-pagefind-meta="title">{title}</h1>
+      {description ? (
+        <p class="${EpDictionaryClasses.PostHeaderDesc}" data-pagefind-meta="description">{description}</p>
+      ) : null}
     </header>
 
     <div class="${EpDictionaryClasses.Prose}">
@@ -742,5 +679,392 @@ const base = import.meta.env.BASE_URL
     </div>
   </article>
 </Layout>
+`
+}
+
+function topicGraphLibSource(): string {
+  return `/** Build-time topic graph layout for Dictionary graph composition. */
+
+import { indexPathPrefixes, normalizeIndexPath } from './index-path'
+import { loadIndexRegistryEntries, labelForIndexPath } from './index-registry'
+
+export type TopicGraphNodeKind = 'index' | 'entry'
+
+export interface TopicGraphNode {
+  id: string
+  label: string
+  kind: TopicGraphNodeKind
+  href?: string
+  x: number
+  y: number
+  r: number
+}
+
+export interface TopicGraphEdge {
+  from: string
+  to: string
+  kind: 'index' | 'entry'
+}
+
+export interface TopicGraphLayout {
+  width: number
+  height: number
+  nodes: TopicGraphNode[]
+  edges: TopicGraphEdge[]
+}
+
+interface TopicGraphTreeLayout {
+  nodes: TopicGraphNode[]
+  edges: TopicGraphEdge[]
+  width: number
+  height: number
+  rootY: number
+}
+
+interface TreeNode {
+  path: string
+  label: string
+  children: TreeNode[]
+  entries: Array<{ id: string; label: string; href: string }>
+}
+
+function buildTree(
+  paths: Set<string>,
+  entries: Array<{ id: string; title: string; href: string; index: string }>,
+  registry: ReturnType<typeof loadIndexRegistryEntries>
+): TreeNode[] {
+  const nodeMap = new Map<string, TreeNode>()
+  const ensure = (path: string): TreeNode => {
+    let node = nodeMap.get(path)
+    if (!node) {
+      node = { path, label: labelForIndexPath(path, registry), children: [], entries: [] }
+      nodeMap.set(path, node)
+    }
+    return node
+  }
+  for (const path of paths) {
+    if (!path) continue
+    for (const prefix of indexPathPrefixes(path)) ensure(prefix)
+  }
+  for (const entry of entries) {
+    const idx = normalizeIndexPath(entry.index)
+    if (!idx) continue
+    for (const prefix of indexPathPrefixes(idx)) ensure(prefix)
+    ensure(idx).entries.push({ id: entry.id, label: entry.title, href: entry.href })
+  }
+  const roots: TreeNode[] = []
+  for (const node of nodeMap.values()) {
+    const parts = node.path.split('/')
+    if (parts.length === 1) roots.push(node)
+    else {
+      const parent = parts.slice(0, -1).join('/')
+      ensure(parent).children.push(node)
+    }
+  }
+  roots.sort((a, b) => a.path.localeCompare(b.path))
+  for (const node of nodeMap.values()) {
+    node.children.sort((a, b) => a.path.localeCompare(b.path))
+  }
+  return roots
+}
+
+const INDEX_LEVEL_GAP = 108
+const ENTRY_LEVEL_GAP = 72
+const SIBLING_GAP = 54
+const NODE_R = 12
+const NODE_R_ROOT = 17
+const PAD = 52
+const ROOT_CLUSTER_GAP = 56
+
+function measureSubtreeWidth(node: TreeNode): number {
+  const entrySpan =
+    node.entries.length <= 1 ? NODE_R * 2 : (node.entries.length - 1) * SIBLING_GAP + NODE_R * 2
+  let childSpan = NODE_R * 2
+  if (node.children.length > 0) {
+    const parts = node.children.map(measureSubtreeWidth)
+    childSpan = parts.reduce((sum, width) => sum + width, 0) + (node.children.length - 1) * SIBLING_GAP
+  }
+  return Math.max(entrySpan, childSpan, NODE_R * 2)
+}
+
+function indexHref(baseUrl: string, path: string): string {
+  return \`\${baseUrl}index/\${path.split('/').map(encodeURIComponent).join('/')}/\`
+}
+
+function layoutTree(root: TreeNode, baseUrl: string): TopicGraphTreeLayout {
+  const nodes: TopicGraphNode[] = []
+  const edges: TopicGraphEdge[] = []
+
+  const walk = (node: TreeNode, x: number, y: number, depth: number, parentId?: string) => {
+    const id = \`index:\${node.path}\`
+    nodes.push({
+      id,
+      label: node.label,
+      kind: 'index',
+      href: indexHref(baseUrl, node.path),
+      x,
+      y,
+      r: depth === 0 ? NODE_R_ROOT : NODE_R
+    })
+    if (parentId) edges.push({ from: parentId, to: id, kind: 'index' })
+
+    if (node.entries.length > 0) {
+      const entryY = y + ENTRY_LEVEL_GAP
+      const span = node.entries.length <= 1 ? 0 : (node.entries.length - 1) * SIBLING_GAP
+      node.entries.forEach((entry, index) => {
+        const entryX = x - span / 2 + index * SIBLING_GAP
+        const entryId = \`entry:\${entry.id}\`
+        nodes.push({
+          id: entryId,
+          label: entry.label,
+          kind: 'entry',
+          href: entry.href,
+          x: entryX,
+          y: entryY,
+          r: NODE_R
+        })
+        edges.push({ from: id, to: entryId, kind: 'entry' })
+      })
+    }
+
+    if (node.children.length > 0) {
+      const childY = y - INDEX_LEVEL_GAP
+      const widths = node.children.map(measureSubtreeWidth)
+      const totalSpan = widths.reduce((sum, width) => sum + width, 0) + (node.children.length - 1) * SIBLING_GAP
+      let cursor = x - totalSpan / 2
+      node.children.forEach((child, index) => {
+        const width = widths[index] ?? NODE_R * 2
+        const childX = cursor + width / 2
+        walk(child, childX, childY, depth + 1, id)
+        cursor += width + SIBLING_GAP
+      })
+    }
+  }
+
+  walk(root, 0, 0, 0)
+
+  let minX = Infinity
+  let maxX = -Infinity
+  let minY = Infinity
+  let maxY = -Infinity
+  for (const node of nodes) {
+    minX = Math.min(minX, node.x - node.r)
+    maxX = Math.max(maxX, node.x + node.r)
+    minY = Math.min(minY, node.y - node.r)
+    maxY = Math.max(maxY, node.y + node.r)
+  }
+  const offsetX = PAD - minX
+  const offsetY = PAD - minY
+  for (const node of nodes) {
+    node.x += offsetX
+    node.y += offsetY
+  }
+
+  const rootId = \`index:\${root.path}\`
+  const rootNode = nodes.find((node) => node.id === rootId)
+
+  return {
+    nodes,
+    edges,
+    width: maxX - minX + PAD * 2,
+    height: maxY - minY + PAD * 2,
+    rootY: rootNode?.y ?? PAD
+  }
+}
+
+export function buildTopicGraph(
+  entries: Array<{ id: string; data: { title: string; index?: string } }>,
+  baseUrl: string
+): TopicGraphLayout {
+  const registry = loadIndexRegistryEntries()
+  const paths = new Set<string>()
+  for (const row of registry) paths.add(row.path)
+  const flatEntries = entries.map((entry) => ({
+    id: entry.id,
+    title: entry.data.title,
+    href: \`\${baseUrl}knowledge/\${entry.id}/\`,
+    index: normalizeIndexPath(String(entry.data.index ?? ''))
+  }))
+  for (const entry of flatEntries) {
+    if (!entry.index) continue
+    for (const prefix of indexPathPrefixes(entry.index)) paths.add(prefix)
+  }
+  const roots = buildTree(paths, flatEntries, registry)
+  if (roots.length === 0) {
+    return { width: 340, height: 280, nodes: [], edges: [] }
+  }
+
+  const trees = roots.map((root) => layoutTree(root, baseUrl))
+  const rootYTarget = Math.max(...trees.map((tree) => tree.rootY))
+  const nodes: TopicGraphNode[] = []
+  const edges: TopicGraphEdge[] = []
+  let offsetX = 0
+  let maxRight = 0
+  let maxBottom = 0
+
+  for (const tree of trees) {
+    const yShift = rootYTarget - tree.rootY
+    for (const node of tree.nodes) {
+      const placed = { ...node, x: node.x + offsetX, y: node.y + yShift }
+      nodes.push(placed)
+      maxRight = Math.max(maxRight, placed.x + placed.r)
+      maxBottom = Math.max(maxBottom, placed.y + placed.r)
+    }
+    edges.push(...tree.edges)
+    offsetX += tree.width + ROOT_CLUSTER_GAP
+  }
+
+  return {
+    width: Math.max(340, maxRight + PAD),
+    height: Math.max(280, maxBottom + PAD),
+    nodes,
+    edges
+  }
+}
+
+/** Edge endpoints on node circumferences (not center-to-center). */
+export function topicGraphEdgePoints(
+  from: Pick<TopicGraphNode, 'x' | 'y' | 'r'>,
+  to: Pick<TopicGraphNode, 'x' | 'y' | 'r'>
+): { x1: number; y1: number; x2: number; y2: number } {
+  const dx = to.x - from.x
+  const dy = to.y - from.y
+  const dist = Math.hypot(dx, dy)
+  if (dist <= from.r + to.r || dist === 0) {
+    return { x1: from.x, y1: from.y, x2: to.x, y2: to.y }
+  }
+  const ux = dx / dist
+  const uy = dy / dist
+  return {
+    x1: from.x + ux * from.r,
+    y1: from.y + uy * from.r,
+    x2: to.x - ux * to.r,
+    y2: to.y - uy * to.r
+  }
+}
+`
+}
+
+function topicGraphAstro(): string {
+  const C = EpDictionaryClasses
+  return `---
+import type { CollectionEntry } from 'astro:content'
+import { buildTopicGraph, topicGraphEdgePoints } from '../lib/topic-graph'
+
+interface Props {
+  entries: CollectionEntry<'knowledge'>[]
+}
+
+const { entries } = Astro.props
+const base = import.meta.env.BASE_URL
+const graph = buildTopicGraph(entries, base)
+---
+
+<section class="${C.TopicGraph}" aria-label="Topic graph">
+  <svg
+    class="${C.TopicGraphSvg}"
+    viewBox={\`0 0 \${graph.width} \${graph.height}\`}
+    role="img"
+    aria-label="Topic graph"
+  >
+    {graph.edges.map((edge) => {
+      const from = graph.nodes.find((n) => n.id === edge.from)
+      const to = graph.nodes.find((n) => n.id === edge.to)
+      if (!from || !to) return null
+      const pts = topicGraphEdgePoints(from, to)
+      return (
+        <line
+          class={
+            edge.kind === 'entry'
+              ? '${C.TopicGraphEdge} ${C.TopicGraphEdgeEntry}'
+              : '${C.TopicGraphEdge} ${C.TopicGraphEdgeIndex}'
+          }
+          x1={pts.x1}
+          y1={pts.y1}
+          x2={pts.x2}
+          y2={pts.y2}
+        />
+      )
+    })}
+    {graph.nodes.map((node) => {
+      const tip = node.label.length > 48 ? \`\${node.label.slice(0, 46)}…\` : node.label
+      const tipW = Math.min(176, Math.max(44, tip.length * 6.4 + 14))
+      const tipH = 20
+      const tipX = node.x - tipW / 2
+      const tipY = node.y - node.r - tipH - 8
+      return (
+        <g
+          class={
+            node.kind === 'index'
+              ? '${C.TopicGraphNode} ${C.TopicGraphNodeIndex}'
+              : '${C.TopicGraphNode} ${C.TopicGraphNodeEntry}'
+          }
+        >
+          <a href={node.href} aria-label={node.label}>
+            <circle cx={node.x} cy={node.y} r={node.r} />
+            <title>{node.label}</title>
+            <g class="${C.TopicGraphTooltip}">
+              <rect
+                class="${C.TopicGraphTooltipBg}"
+                x={tipX}
+                y={tipY}
+                width={tipW}
+                height={tipH}
+                rx={4}
+              />
+              <text
+                class="${C.TopicGraphTooltipText}"
+                x={node.x}
+                y={tipY + tipH - 6}
+                text-anchor="middle"
+              >
+                {tip}
+              </text>
+            </g>
+          </a>
+        </g>
+      )
+    })}
+  </svg>
+</section>
+`
+}
+
+function atlasGridAstro(): string {
+  const C = EpDictionaryClasses
+  return `---
+import type { CollectionEntry } from 'astro:content'
+import { indexPathToHref, indexPathPrefixes, normalizeIndexPath } from '../lib/index-path'
+import { labelForIndexPath, loadIndexRegistryEntries } from '../lib/index-registry'
+
+interface Props {
+  entries: CollectionEntry<'knowledge'>[]
+}
+
+const { entries } = Astro.props
+const registry = loadIndexRegistryEntries()
+const base = import.meta.env.BASE_URL
+const counts = new Map<string, number>()
+for (const row of registry) {
+  const root = row.path.split('/')[0]
+  if (root) counts.set(root, counts.get(root) ?? 0)
+}
+for (const entry of entries) {
+  const idx = normalizeIndexPath(String(entry.data.index ?? ''))
+  const root = indexPathPrefixes(idx)[0]
+  if (!root) continue
+  counts.set(root, (counts.get(root) ?? 0) + 1)
+}
+const topics = [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+---
+
+<section class="${C.AtlasGrid}" aria-label="Topic atlas">
+  {topics.map(([path, count]) => (
+    <a class="${C.AtlasTile}" href={indexPathToHref(base, path)}>
+      <h3 class="${C.AtlasTileTitle}">{labelForIndexPath(path, registry)}</h3>
+      <p class="${C.AtlasTileMeta}">{count} {count === 1 ? 'entry' : 'entries'}</p>
+    </a>
+  ))}
+</section>
 `
 }

@@ -14,12 +14,17 @@ import themeFile from '../../config/theme.json'
 import artworkManifest from '../../config/artwork-manifest.json'
 
 const items = [...artworkManifest.items].sort((a, b) => a.sort - b.sort)
+const album =
+  typeof artworkManifest.album === 'string' && artworkManifest.album.trim()
+    ? artworkManifest.album.trim()
+    : ''
 const composition = themeFile.layoutComposition ?? 'lpShelf'
 ---
 
 <Layout title="Gallery" current="home">
   <section class="${EP.Gallery}">
     <div class="${EP.GalleryInner}">
+      {album ? <p class="${EP.GalleryAlbum}">{album}</p> : null}
       {composition === 'gallery' ? (
         <GalleryMasonry items={items} />
       ) : (

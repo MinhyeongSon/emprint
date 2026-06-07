@@ -1,5 +1,8 @@
-import { useEffect, useMemo, useRef, type ReactNode } from 'react'
-import { List, ListOrdered, Redo2, Undo2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { ImagePlus, List, ListOrdered, Loader2, Redo2, Undo2 } from 'lucide-react'
+import type { AppLocale, AssetImageInfo } from '@emprint/shared'
+import { pick } from '@renderer/lib/i18n'
+import { workspaceAssetPathToAssetUrl } from '@renderer/lib/asset-paths'
 import { EditorContent, useEditor } from '@tiptap/react'
 import { BubbleMenu } from '@tiptap/react/menus'
 import type { Editor } from '@tiptap/core'
@@ -15,6 +18,8 @@ interface MemoirMarkdownEditorProps {
   onChange(nextMarkdown: string): void
   placeholder?: string
   className?: string
+  /** When set, show toolbar control to insert `![](/assets/…)` from Assets library. */
+  locale?: AppLocale
 }
 
 function ColorSwatch({
@@ -71,9 +76,33 @@ export function MemoirMarkdownEditor({
   value,
   onChange,
   placeholder,
-  className
+  className,
+  locale = 'en'
 }: MemoirMarkdownEditorProps) {
   const editorRef = useRef<Editor | null>(null)
+  const [assetOpen, setAssetOpen] = useState(false)
+  const [assetLoading, setAssetLoading] = useState(false)
+  const [assetImages, setAssetImages] = useState<AssetImageInfo[]>([])
+
+  const loadAssetImages = useCallback(async () => {
+    if (!window.emprint?.assets?.listImages) return
+    setAssetLoading(true)
+    try {
+      setAssetImages(await window.emprint.assets.listImages())
+    } finally {
+      setAssetLoading(false)
+    }
+  }, [])
+
+  const insertImageMarkdown = useCallback(
+    (path: string) => {
+      const snippet = `\n\n![${pick(locale, 'Image', '이미지')}](${path})\n\n`
+      const trimmed = value.trimEnd()
+      onChange(trimmed ? `${trimmed}${snippet}` : snippet.trim())
+      setAssetOpen(false)
+    },
+    [locale, onChange, value]
+  )
 
   const extensions = useMemo(
     () => [
@@ -194,7 +223,56 @@ export function MemoirMarkdownEditor({
         <ToolbarButton onClick={() => editor.chain().focus().redo().run()} ariaLabel="Redo" title="Redo">
           <Redo2 className="h-3.5 w-3.5" strokeWidth={2.25} />
         </ToolbarButton>
+        <div className="mx-1 h-4 w-px bg-border/70" />
+        <ToolbarButton
+          active={assetOpen}
+          onClick={() => {
+            const next = !assetOpen
+            setAssetOpen(next)
+            if (next) void loadAssetImages()
+          }}
+          ariaLabel={pick(locale, 'Insert image from Assets', 'Assets에서 이미지 삽입')}
+          title={pick(locale, 'Insert image from Assets', 'Assets에서 이미지 삽입')}
+        >
+          <ImagePlus className="h-3.5 w-3.5" strokeWidth={2.25} />
+        </ToolbarButton>
       </div>
+
+      {assetOpen ? (
+        <div className="max-h-36 overflow-auto rounded-md border border-border bg-panel p-2">
+          {assetLoading ? (
+            <div className="flex justify-center py-4 text-muted">
+              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden />
+            </div>
+          ) : assetImages.length === 0 ? (
+            <p className="py-3 text-center text-[11px] text-muted">
+              {pick(
+                locale,
+                'No images in Assets yet. Upload from the Assets sidebar.',
+                'Assets에 이미지가 없습니다. Assets 사이드바에서 업로드하세요.'
+              )}
+            </p>
+          ) : (
+            <ul className="grid grid-cols-4 gap-1.5">
+              {assetImages.map((img) => (
+                <li key={img.path}>
+                  <button
+                    type="button"
+                    className="block w-full overflow-hidden rounded border border-border transition hover:border-accent/50"
+                    onClick={() => insertImageMarkdown(img.path)}
+                  >
+                    <img
+                      src={workspaceAssetPathToAssetUrl(img.path)}
+                      alt={img.name}
+                      className="aspect-square w-full object-cover"
+                    />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : null}
 
       <BubbleMenu
         editor={editor}

@@ -87,6 +87,18 @@ html[data-ep-palette='emprint'] .ep-fragments-Shelf-preview-meta strong {
   padding: clamp(2rem, 6vw, 4rem) 0 5rem;
 }
 
+.ep-fragments-Gallery-album {
+  margin: 0 auto 1.75rem;
+  max-width: 42rem;
+  text-align: center;
+  font-family: var(--ep-fragments-font-serif);
+  font-size: clamp(1.15rem, 2.4vw, 1.55rem);
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: 0.02em;
+  color: var(--ep-fragments-color-ink);
+}
+
 .ep-fragments-Gallery-inner {
   max-width: var(--ep-fragments-layout-wide);
   margin-inline: auto;
@@ -340,6 +352,13 @@ html[data-ep-palette='emprint'] .ep-fragments-Shelf-preview-meta strong {
   line-height: 1.4;
 }
 
+.ep-fragments-Shelf-preview-meta-line {
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--ep-fragments-color-muted) 88%, var(--ep-fragments-color-ink));
+}
+
 .ep-fragments-Empty {
   text-align: center;
   color: var(--ep-fragments-color-muted);
@@ -418,7 +437,10 @@ html[data-ep-layout-composition='gallery'] .ep-fragments-Gallery {
   position: absolute;
   inset-inline: 0;
   bottom: 0;
-  padding: 0.45rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.55rem 0.55rem 0.45rem;
   font-size: 0.68rem;
   letter-spacing: 0.04em;
   text-align: left;
@@ -427,6 +449,20 @@ html[data-ep-layout-composition='gallery'] .ep-fragments-Gallery {
   opacity: 0;
   transition: opacity 180ms ease;
   pointer-events: none;
+}
+
+.ep-fragments-Masonry-item-caption-title {
+  font-family: var(--ep-fragments-font-serif);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.ep-fragments-Masonry-item-caption-meta {
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.88;
 }
 
 .ep-fragments-Masonry-item-btn:hover .ep-fragments-Masonry-item-caption,
@@ -499,11 +535,38 @@ html[data-ep-layout-composition='gallery'] .ep-fragments-Gallery {
   box-shadow: 0 24px 48px var(--ep-fragments-color-shelf-shadow);
 }
 
-.ep-fragments-Lightbox-caption {
-  color: color-mix(in srgb, var(--ep-fragments-color-bg) 92%, var(--ep-fragments-color-ink));
-  font-size: 0.9rem;
-  text-align: center;
+.ep-fragments-Lightbox-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
   max-width: 36rem;
+  text-align: center;
+}
+
+.ep-fragments-Lightbox-title {
+  margin: 0;
+  font-family: var(--ep-fragments-font-serif);
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: color-mix(in srgb, var(--ep-fragments-color-bg) 88%, var(--ep-fragments-color-ink));
+}
+
+.ep-fragments-Lightbox-meta {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--ep-fragments-color-bg) 70%, var(--ep-fragments-color-muted));
+}
+
+.ep-fragments-Lightbox-caption {
+  margin: 0;
+  color: color-mix(in srgb, var(--ep-fragments-color-bg) 92%, var(--ep-fragments-color-ink));
+  font-size: 0.92rem;
+  line-height: 1.55;
+  font-style: italic;
 }
 
 .ep-fragments-Lightbox-close {

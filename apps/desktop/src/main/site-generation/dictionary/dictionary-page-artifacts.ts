@@ -1,5 +1,6 @@
 import type { WorkspaceArtifact } from '@emprint/core'
 import { EpDictionaryClasses } from './contract'
+import { createDictionarySearchPageArtifact } from './dictionary-search-artifacts'
 
 const DICTIONARY_PAGE_SYNC_PATHS = new Set([
   'src/pages/index.astro',
@@ -7,14 +8,18 @@ const DICTIONARY_PAGE_SYNC_PATHS = new Set([
   'src/pages/knowledge/index.astro',
   'src/pages/knowledge/[...slug].astro',
   'src/pages/index/[...indexPath].astro',
-  'src/pages/tags/[tag].astro'
+  'src/pages/tags/[tag].astro',
+  'src/pages/search/index.astro',
+  'src/lib/topic-graph.ts',
+  'src/components/TopicGraph.astro',
+  'src/components/AtlasGrid.astro'
 ])
 
 export function getDictionaryPageTemplateSyncArtifacts(): WorkspaceArtifact[] {
   return createDictionaryPageArtifacts().filter((a) => DICTIONARY_PAGE_SYNC_PATHS.has(a.relativePath))
 }
 
-export function createDictionaryPageArtifacts(): WorkspaceArtifact[] {
+export function createDictionaryPageArtifacts(lang: 'ko' | 'en' = 'en'): WorkspaceArtifact[] {
   return [
     {
       relativePath: 'src/pages/index.astro',
@@ -24,6 +29,8 @@ import Layout from '../layouts/Layout.astro'
 import DictionaryKnowledgeFeed from '../components/DictionaryKnowledgeFeed.astro'
 import IndexNav from '../components/IndexNav.astro'
 import KnowledgeCard from '../components/KnowledgeCard.astro'
+import TopicGraph from '../components/TopicGraph.astro'
+import AtlasGrid from '../components/AtlasGrid.astro'
 import themeFile from '../../config/theme.json'
 
 const all = await getCollection('knowledge', ({ data }) => !data.draft)
@@ -33,47 +40,65 @@ const sorted = all.sort((a, b) => {
   return bd - ad
 })
 
+const rawComposition = themeFile.layoutComposition
 const composition =
-  themeFile.layoutComposition === 'alphabet' ? 'alphabet' : themeFile.layoutComposition === 'compact' ? 'compact' : 'reference'
-const recentLimit = composition === 'reference' ? 5 : composition === 'alphabet' ? 7 : 12
+  rawComposition === 'graph' || rawComposition === 'atlas' || rawComposition === 'reference'
+    ? rawComposition
+    : 'reference'
+const recentLimit = 5
 const recent = sorted.slice(0, recentLimit)
 const hasMore = sorted.length > recent.length
 ---
 
 <Layout current="home">
   <section class="${EpDictionaryClasses.Container}">
-    <div class="${EpDictionaryClasses.HomeWithIndex}">
-      <aside class="${EpDictionaryClasses.HomeWithIndexAside}">
-        <IndexNav entries={sorted} variant="sidebar" />
-      </aside>
-      <div class="${EpDictionaryClasses.HomeWithIndexMain}">
+    {composition === 'graph' ? (
+      <>
         <div class="${EpDictionaryClasses.SectionHead}">
-          <h2 class="${EpDictionaryClasses.SectionHeadTitle}">Topics</h2>
+          <h2 class="${EpDictionaryClasses.SectionHeadTitle}">Topic graph</h2>
+          <a class="${EpDictionaryClasses.SectionHeadLink}" href={\`\${import.meta.env.BASE_URL}index/\`}>Index →</a>
+        </div>
+        <TopicGraph entries={sorted} />
+      </>
+    ) : composition === 'atlas' ? (
+      <>
+        <div class="${EpDictionaryClasses.SectionHead}">
+          <h2 class="${EpDictionaryClasses.SectionHeadTitle}">Topic atlas</h2>
           <a class="${EpDictionaryClasses.SectionHeadLink}" href={\`\${import.meta.env.BASE_URL}index/\`}>Browse index →</a>
         </div>
-        <p class="${EpDictionaryClasses.Empty}" style="margin:0 0 1.25rem;text-align:left;">
-          Pick a topic from the index, or read recent entries below.
-        </p>
-        {composition !== 'reference' ? (
-          <IndexNav entries={sorted} variant="inline" />
-        ) : null}
-        <div class="${EpDictionaryClasses.SectionHead}">
-          <h2 class="${EpDictionaryClasses.SectionHeadTitle}">Recent</h2>
-          {hasMore ? (
-            <a class="${EpDictionaryClasses.SectionHeadLink}" href={\`\${import.meta.env.BASE_URL}knowledge/\`}>All entries →</a>
-          ) : null}
+        <AtlasGrid entries={sorted} />
+      </>
+    ) : (
+      <div class="${EpDictionaryClasses.HomeWithIndex}">
+        <aside class="${EpDictionaryClasses.HomeWithIndexAside}">
+          <IndexNav entries={sorted} variant="sidebar" />
+        </aside>
+        <div class="${EpDictionaryClasses.HomeWithIndexMain}">
+          <div class="${EpDictionaryClasses.SectionHead}">
+            <h2 class="${EpDictionaryClasses.SectionHeadTitle}">Topics</h2>
+            <a class="${EpDictionaryClasses.SectionHeadLink}" href={\`\${import.meta.env.BASE_URL}index/\`}>Browse index →</a>
+          </div>
+          <p class="${EpDictionaryClasses.Empty}" style="margin:0 0 1.25rem;text-align:left;">
+            Pick a topic from the index, or read recent entries below.
+          </p>
+          <div class="${EpDictionaryClasses.SectionHead}">
+            <h2 class="${EpDictionaryClasses.SectionHeadTitle}">Recent</h2>
+            {hasMore ? (
+              <a class="${EpDictionaryClasses.SectionHeadLink}" href={\`\${import.meta.env.BASE_URL}knowledge/\`}>All entries →</a>
+            ) : null}
+          </div>
+          {recent.length === 0 ? (
+            <div class="${EpDictionaryClasses.Empty}">No knowledge entries yet. Write something in Emprint and publish.</div>
+          ) : (
+            <ul class="${EpDictionaryClasses.PostList}">
+              {recent.map((entry) => (
+                <KnowledgeCard post={entry} />
+              ))}
+            </ul>
+          )}
         </div>
-        {recent.length === 0 ? (
-          <div class="${EpDictionaryClasses.Empty}">No knowledge entries yet. Write something in Emprint and publish.</div>
-        ) : (
-          <ul class="${EpDictionaryClasses.PostList}">
-            {recent.map((entry) => (
-              <KnowledgeCard post={entry} />
-            ))}
-          </ul>
-        )}
       </div>
-    </div>
+    )}
   </section>
 </Layout>
 `
@@ -85,38 +110,21 @@ import { getCollection } from 'astro:content'
 import Layout from '../../layouts/Layout.astro'
 import DictionaryKnowledgeFeed from '../../components/DictionaryKnowledgeFeed.astro'
 import IndexNav from '../../components/IndexNav.astro'
-import themeFile from '../../../config/theme.json'
 
 const posts = (await getCollection('knowledge', ({ data }) => !data.draft)).sort((a, b) => {
   const ad = (a.data.updatedAt ?? a.data.createdAt)?.getTime() ?? 0
   const bd = (b.data.updatedAt ?? b.data.createdAt)?.getTime() ?? 0
   return bd - ad
 })
-const composition =
-  themeFile.layoutComposition === 'alphabet' ? 'alphabet' : themeFile.layoutComposition === 'compact' ? 'compact' : 'reference'
 ---
 
 <Layout title="All entries" current="archive">
   <section class="${EpDictionaryClasses.Container}">
-    {composition !== 'compact' ? (
-      <div class="${EpDictionaryClasses.HomeWithIndex}">
-        <aside class="${EpDictionaryClasses.HomeWithIndexAside}">
-          <IndexNav entries={posts} variant="sidebar" />
-        </aside>
-        <div class="${EpDictionaryClasses.HomeWithIndexMain}">
-          <div class="${EpDictionaryClasses.SectionHead}">
-            <h2 class="${EpDictionaryClasses.SectionHeadTitle}">All entries</h2>
-            <span class="${EpDictionaryClasses.SectionHeadAside}">{posts.length}</span>
-          </div>
-          {posts.length === 0 ? (
-            <div class="${EpDictionaryClasses.Empty}">No knowledge entries yet.</div>
-          ) : (
-            <DictionaryKnowledgeFeed posts={posts} catalog={posts} mode="archive" />
-          )}
-        </div>
-      </div>
-    ) : (
-      <>
+    <div class="${EpDictionaryClasses.HomeWithIndex}">
+      <aside class="${EpDictionaryClasses.HomeWithIndexAside}">
+        <IndexNav entries={posts} variant="sidebar" />
+      </aside>
+      <div class="${EpDictionaryClasses.HomeWithIndexMain}">
         <div class="${EpDictionaryClasses.SectionHead}">
           <h2 class="${EpDictionaryClasses.SectionHeadTitle}">All entries</h2>
           <span class="${EpDictionaryClasses.SectionHeadAside}">{posts.length}</span>
@@ -126,8 +134,8 @@ const composition =
         ) : (
           <DictionaryKnowledgeFeed posts={posts} catalog={posts} mode="archive" />
         )}
-      </>
-    )}
+      </div>
+    </div>
   </section>
 </Layout>
 `
@@ -251,7 +259,7 @@ const base = import.meta.env.BASE_URL
       <span class="${EpDictionaryClasses.SectionHeadAside}">{topics.length}</span>
     </div>
     {topics.length === 0 ? (
-      <div class="${EpDictionaryClasses.Empty}">No index paths yet. Create topics in Emprint Index, or add an \`index\` field on entries.</div>
+      <div class="${EpDictionaryClasses.Empty}">No index paths yet. Create topics in Emprint Contents, or add an \`index\` field on entries.</div>
     ) : (
       <div class="${EpDictionaryClasses.HomeWithIndex}">
         <aside class="${EpDictionaryClasses.HomeWithIndexAside}">
@@ -286,7 +294,7 @@ import DictionaryKnowledgeFeed from '../../components/DictionaryKnowledgeFeed.as
 import IndexNav from '../../components/IndexNav.astro'
 import type { CollectionEntry } from 'astro:content'
 import { indexPathToHref, isIndexPrefix, normalizeIndexPath, indexPathPrefixes } from '../../lib/index-path'
-import { collectRegistryNavPaths, loadIndexRegistryEntries } from '../../lib/index-registry'
+import { collectRegistryNavPaths, labelForIndexPath, loadIndexRegistryEntries } from '../../lib/index-registry'
 
 export async function getStaticPaths() {
   const all = await getCollection('knowledge', ({ data }) => !data.draft)
@@ -334,10 +342,10 @@ if (!entries) {
     })
 }
 
-const label = routeIndexPath.split('/').pop() ?? routeIndexPath
+const label = labelForIndexPath(routeIndexPath, loadIndexRegistryEntries())
 ---
 
-<Layout title={routeIndexPath} current="index">
+<Layout title={label} current="index">
   <section class="${EpDictionaryClasses.Container}">
     <div class="${EpDictionaryClasses.HomeWithIndex}">
       <aside class="${EpDictionaryClasses.HomeWithIndexAside}">
@@ -409,6 +417,7 @@ const { tag, posts } = Astro.props
   </section>
 </Layout>
 `
-    }
+    },
+    createDictionarySearchPageArtifact(lang)
   ]
 }

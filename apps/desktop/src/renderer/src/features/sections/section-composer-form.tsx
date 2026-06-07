@@ -1,14 +1,19 @@
+import { useState } from 'react'
+import { GripVertical } from 'lucide-react'
 import { pick } from '@renderer/lib/i18n'
 import type { AppLocale, MemoirSectionFieldDef, MemoirSectionFile } from '@emprint/shared'
 import {
   isMemoirContainerSectionType,
   MEMOIR_SECTION_FIELD_DEFS,
-  memoirChildLeafTypesForContainer
+  memoirChildLeafTypesForContainer,
+  parseMemoirContactLinksEditor
 } from '@emprint/shared'
 import { MemoirMarkdownEditor } from '@renderer/components/editor/memoir-markdown-editor'
 import { Input } from '@renderer/components/ui/input'
 import { Textarea } from '@renderer/components/ui/textarea'
 import { cn } from '@renderer/lib/cn'
+import { SectionAssetPicker } from './section-asset-picker'
+import { SectionContactLinksEditor } from './section-contact-links-editor'
 
 
 function fieldLabel(locale: AppLocale, field: MemoirSectionFieldDef) {
@@ -36,6 +41,8 @@ export function SectionComposerForm({
   parentId,
   onChange
 }: SectionComposerFormProps) {
+  const [childDragId, setChildDragId] = useState<string | null>(null)
+  const [childDropId, setChildDropId] = useState<string | null>(null)
   const fields = MEMOIR_SECTION_FIELD_DEFS[section.type]
 
   const setProp = (key: string, value: string) => {
@@ -71,16 +78,6 @@ export function SectionComposerForm({
 
   const removeChild = (childId: string) => {
     onChange({ ...section, children: childIds.filter((id) => id !== childId) })
-  }
-
-  const moveChild = (index: number, direction: -1 | 1) => {
-    const next = index + direction
-    if (next < 0 || next >= childIds.length) return
-    const reordered = [...childIds]
-    const [item] = reordered.splice(index, 1)
-    if (!item) return
-    reordered.splice(next, 0, item)
-    onChange({ ...section, children: reordered })
   }
 
   return (
@@ -130,36 +127,76 @@ export function SectionComposerForm({
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">
           {pick(locale, 'Content', '콘텐츠')}
         </h2>
-        {fields.map((field) => (
-          <label key={field.key} className="block space-y-1.5">
-            <span className="text-xs font-medium text-ink">
-              {fieldLabel(locale, field)}
-              {field.required ? <span className="text-dangerInk"> *</span> : null}
-            </span>
-            {field.kind === 'markdown' ? (
-              <MemoirMarkdownEditor
+        {fields.map((field) => {
+          if (field.kind === 'asset') {
+            return (
+              <SectionAssetPicker
+                key={field.key}
+                locale={locale}
+                label={fieldLabel(locale, field)}
                 value={String(section.props[field.key] ?? '')}
-                {...(fieldPlaceholder(locale, field)
-                  ? { placeholder: fieldPlaceholder(locale, field) }
-                  : {})}
-                onChange={(next) => setProp(field.key, next)}
+                onChange={(path) => setProp(field.key, path)}
               />
-            ) : field.kind === 'textarea' ? (
-              <Textarea
-                rows={5}
-                value={String(section.props[field.key] ?? '')}
-                placeholder={fieldPlaceholder(locale, field)}
-                onChange={(e) => setProp(field.key, e.target.value)}
-              />
-            ) : (
-              <Input
-                value={String(section.props[field.key] ?? '')}
-                placeholder={fieldPlaceholder(locale, field)}
-                onChange={(e) => setProp(field.key, e.target.value)}
-              />
-            )}
-          </label>
-        ))}
+            )
+          }
+          if (field.kind === 'url') {
+            return (
+              <label key={field.key} className="block space-y-1.5">
+                <span className="text-xs font-medium text-ink">{fieldLabel(locale, field)}</span>
+                <Input
+                  type="url"
+                  value={String(section.props[field.key] ?? '')}
+                  placeholder={fieldPlaceholder(locale, field)}
+                  onChange={(e) => setProp(field.key, e.target.value)}
+                />
+              </label>
+            )
+          }
+          return (
+            <label key={field.key} className="block space-y-1.5">
+              <span className="text-xs font-medium text-ink">
+                {fieldLabel(locale, field)}
+                {field.required ? <span className="text-dangerInk"> *</span> : null}
+              </span>
+              {field.kind === 'markdown' ? (
+                <MemoirMarkdownEditor
+                  locale={locale}
+                  value={String(section.props[field.key] ?? '')}
+                  {...(fieldPlaceholder(locale, field)
+                    ? { placeholder: fieldPlaceholder(locale, field) }
+                    : {})}
+                  onChange={(next) => setProp(field.key, next)}
+                />
+              ) : field.kind === 'textarea' ? (
+                <Textarea
+                  rows={5}
+                  value={String(section.props[field.key] ?? '')}
+                  placeholder={fieldPlaceholder(locale, field)}
+                  onChange={(e) => setProp(field.key, e.target.value)}
+                />
+              ) : (
+                <Input
+                  value={String(section.props[field.key] ?? '')}
+                  placeholder={fieldPlaceholder(locale, field)}
+                  onChange={(e) => setProp(field.key, e.target.value)}
+                />
+              )}
+            </label>
+          )
+        })}
+
+        {section.type === 'Contact' ? (
+          <SectionContactLinksEditor
+            locale={locale}
+            links={parseMemoirContactLinksEditor(section.props)}
+            onChange={(links) =>
+              onChange({
+                ...section,
+                props: { ...section.props, links }
+              })
+            }
+          />
+        ) : null}
       </div>
 
       {isMemoirContainerSectionType(section.type) ? (
@@ -170,8 +207,8 @@ export function SectionComposerForm({
           <p className="text-xs text-muted">
             {pick(
               locale,
-              'Order here controls display inside this group. Only leaf sections of matching types can be added.',
-              '여기서 순서가 그룹 안 표시 순서를 정합니다. 허용된 유형의 리프 섹션만 추가할 수 있습니다.'
+              'Drag to reorder children. In the section list, hold Alt (⌥) while dropping onto this group to add a matching section.',
+              '드래그로 하위 순서를 바꿉니다. 섹션 목록에서 Alt(⌥)를 누른 채 이 그룹에 드롭하면 맞는 유형의 섹션을 추가할 수 있습니다.'
             )}
           </p>
           {childIds.length === 0 ? (
@@ -184,42 +221,68 @@ export function SectionComposerForm({
                   (typeof child?.props.title === 'string' && child.props.title) ||
                   (typeof child?.props.name === 'string' && child.props.name) ||
                   childId
+                const childPeriod =
+                  typeof child?.props.period === 'string' && child.props.period.trim()
+                    ? child.props.period.trim()
+                    : null
+                const isDropTarget = childDropId === childId && childDragId !== childId
+                const isDragging = childDragId === childId
                 return (
                   <li
                     key={childId}
-                    className="flex items-center gap-2 rounded-md border border-border bg-panel px-2 py-1.5"
+                    draggable
+                    onDragStart={(e) => {
+                      setChildDragId(childId)
+                      e.dataTransfer.effectAllowed = 'move'
+                      e.dataTransfer.setData('text/plain', childId)
+                    }}
+                    onDragEnd={() => {
+                      setChildDragId(null)
+                      setChildDropId(null)
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault()
+                      if (childDragId && childDragId !== childId) setChildDropId(childId)
+                    }}
+                    onDragLeave={() => {
+                      if (childDropId === childId) setChildDropId(null)
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      const source = childDragId ?? e.dataTransfer.getData('text/plain')
+                      setChildDragId(null)
+                      setChildDropId(null)
+                      if (!source || source === childId) return
+                      const from = childIds.indexOf(source)
+                      const to = childIds.indexOf(childId)
+                      if (from < 0 || to < 0) return
+                      const reordered = [...childIds]
+                      const [item] = reordered.splice(from, 1)
+                      if (!item) return
+                      reordered.splice(to, 0, item)
+                      onChange({ ...section, children: reordered })
+                    }}
+                    className={cn(
+                      'titlebar-nodrag flex items-center gap-2 rounded-md border border-border bg-panel px-2 py-1.5',
+                      isDropTarget && 'border-accent ring-2 ring-dashed ring-accent/40',
+                      isDragging && 'opacity-50'
+                    )}
                   >
+                    <GripVertical className="h-3.5 w-3.5 shrink-0 cursor-grab text-muted" aria-hidden />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm text-ink">{childTitle}</div>
                       <div className="font-mono text-[10px] text-muted">
                         {child?.type ?? '?'} · {childId}
+                        {childPeriod ? ` · ${childPeriod}` : ''}
                       </div>
                     </div>
-                    <div className="flex shrink-0 gap-1">
-                      <button
-                        type="button"
-                        className="rounded px-1.5 py-0.5 text-xs text-muted hover:bg-panel2 hover:text-ink"
-                        disabled={index === 0}
-                        onClick={() => moveChild(index, -1)}
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded px-1.5 py-0.5 text-xs text-muted hover:bg-panel2 hover:text-ink"
-                        disabled={index === childIds.length - 1}
-                        onClick={() => moveChild(index, 1)}
-                      >
-                        ↓
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded px-1.5 py-0.5 text-xs text-dangerInk hover:bg-dangerBg/50"
-                        onClick={() => removeChild(childId)}
-                      >
-                        {pick(locale, 'Remove', '제거')}
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      className="shrink-0 rounded px-1.5 py-0.5 text-xs text-dangerInk hover:bg-dangerBg/50"
+                      onClick={() => removeChild(childId)}
+                    >
+                      {pick(locale, 'Remove', '제거')}
+                    </button>
                   </li>
                 )
               })}

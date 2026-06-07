@@ -18,9 +18,22 @@ import {
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { pick } from '@renderer/lib/i18n'
-import type { AppLocale, IndexTreeNode, KnowledgeSummary } from '@emprint/shared'
-import { isIndexPrefix, normalizeIndexPath } from '@emprint/shared'
-import matter from 'gray-matter'
+import type { AppLocale, IndexTreeNode, KnowledgeSearchHit, KnowledgeSummary } from '@emprint/shared'
+import { allocateDatedMarkdownPath, isIndexPrefix, normalizeIndexPath } from '@emprint/shared'
+import {
+  buildKnowledgeMarkdown,
+  buildNewKnowledgeTemplate,
+  formatKnowledgeDate,
+  inferTitleFromPath,
+  knowledgeFrontmatterFromEditor,
+  matchesKnowledgeSearch,
+  normalizeTagArray,
+  parseKnowledge,
+  parseTagsDraft,
+  rebuildTagDraft,
+  snippetFromMarkdown,
+  splitCommittedTagsAndTail
+} from './knowledge-markdown'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
@@ -42,134 +55,6 @@ import {
 } from '@renderer/lib/asset-paths'
 
 type Section = 'knowledge' | 'drafts'
-
-function inferTitleFromPath(relativePath: string): string {
-  const name = relativePath.split('/').pop() ?? relativePath
-  return name.replace(/\.md$/i, '').replace(/^\d{4}-\d{2}-\d{2}-/, '').replace(/-/g, ' ') || ''
-}
-
-
-function formatDate(value: string): string {
-  if (!value) {
-    return ''
-  }
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
-  return date.toISOString().slice(0, 10)
-}
-
-function snippetFromMarkdown(content: string): string {
-  const withoutFrontmatter = content.replace(/^---[\s\S]*?---\s*/m, '')
-  const plain = withoutFrontmatter
-    .replace(/```[\s\S]*?```/g, '')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/#+\s*/g, '')
-    .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/\*([^*]+)\*/g, '$1')
-    .replace(/\[(.+?)\]\(.+?\)/g, '$1')
-    .replace(/\s+/g, ' ')
-    .trim()
-  return plain.slice(0, 180)
-}
-
-function parseKnowledge(content: string): { data: Record<string, unknown>; body: string } {
-  try {
-    const parsed = matter(content)
-    return { data: (parsed.data ?? {}) as Record<string, unknown>, body: parsed.content ?? '' }
-  } catch {
-    // If frontmatter is malformed, keep the document readable/editable.
-    return { data: {}, body: content }
-  }
-}
-
-/** js-yaml (used by gray-matter) cannot serialize `undefined` values. */
-function frontmatterForYaml(data: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = {}
-  for (const [key, value] of Object.entries(data)) {
-    if (value !== undefined) {
-      out[key] = value
-    }
-  }
-  return out
-}
-
-function buildKnowledgeMarkdown(input: { data: Record<string, unknown>; body: string }): string {
-  return matter.stringify(input.body ?? '', frontmatterForYaml(input.data ?? {}))
-}
-
-function knowledgeFrontmatterFromEditor(input: {
-  existing: Record<string, unknown>
-  title: string
-  tags: string[]
-  index: string
-  draft: boolean
-}): Record<string, unknown> {
-  const indexPath = normalizeIndexPath(input.index)
-  const nextData: Record<string, unknown> = {
-    ...input.existing,
-    title: input.title.trim() || input.existing.title,
-    tags: normalizeTagArray(input.tags),
-    draft: input.draft
-  }
-  if (indexPath) {
-    nextData.index = indexPath
-  } else {
-    delete nextData.index
-  }
-  return nextData
-}
-
-function normalizeTagArray(tags: string[]): string[] {
-  return Array.from(new Set(tags.map((t) => t.trim()).filter(Boolean)))
-}
-
-/**
- * Split the raw tag field into (a) tags the user has already finished with a
- * trailing comma — these render as chips — and (b) the fragment still being
- * typed after the last comma.
- */
-function splitCommittedTagsAndTail(draft: string): { committed: string[]; tail: string } {
-  const lastComma = draft.lastIndexOf(',')
-  if (lastComma === -1) {
-    return { committed: [], tail: draft }
-  }
-  const head = draft.slice(0, lastComma)
-  const tail = draft.slice(lastComma + 1)
-  const committed = normalizeTagArray(
-    head
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean)
-  )
-  return { committed, tail }
-}
-
-function rebuildTagDraft(committed: string[], tail: string): string {
-  if (committed.length === 0) return tail
-  return `${committed.join(', ')}, ${tail}`
-}
-
-function parseTagsDraft(value: string): string[] {
-  return normalizeTagArray(
-    value
-      .split(',')
-      .map((part) => part.trim())
-      .filter(Boolean)
-  )
-}
-
-function matchesKnowledgeSearch(item: KnowledgeSummary, query: string): boolean {
-  const q = query.trim().toLowerCase()
-  if (!q) return true
-  const indexPath = item.index ?? ''
-  const segments = indexPath ? indexPath.split('/') : []
-  const haystack = [item.title, item.description, item.path, indexPath, ...segments, ...item.tags]
-    .join(' ')
-    .toLowerCase()
-  return haystack.includes(q)
-}
 
 function flattenIndexPaths(nodes: IndexTreeNode[]): string[] {
   const out: string[] = []
@@ -211,11 +96,31 @@ async function moveKnowledgeBetweenSections(
   return moved.path
 }
 
-export function KnowledgeSurface({ locale, section }: { locale: AppLocale; section: Section }) {
+export function KnowledgeSurface({
+  locale,
+  section,
+  variant = 'standalone',
+  onDocumentBack,
+  onKnowledgeMutated
+}: {
+  locale: AppLocale
+  section: Section
+  variant?: 'standalone' | 'embedded'
+  onDocumentBack?: () => void
+  onKnowledgeMutated?: () => void | Promise<void>
+}) {
+  const isEmbedded = variant === 'embedded'
   const surface = useAppStore((state) => state.surface)
   const openDocument = useAppStore((state) => state.openDocument)
   const openEditor = useAppStore((state) => state.openEditor)
   const backToList = useAppStore((state) => state.backToList)
+  const handleDocumentBack = onDocumentBack ?? backToList
+
+  const notifyMutated = useCallback(async () => {
+    if (onKnowledgeMutated) {
+      await onKnowledgeMutated()
+    }
+  }, [onKnowledgeMutated])
   const setActiveSection = useAppStore((state) => state.setActiveSection)
   const activeDocumentPath = useAppStore((state) => state.activeDocumentPath)
   const setActiveDocumentTitle = useAppStore((state) => state.setActiveDocumentTitle)
@@ -256,6 +161,8 @@ export function KnowledgeSurface({ locale, section }: { locale: AppLocale; secti
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null)
   const [deletingPath, setDeletingPath] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchHits, setSearchHits] = useState<KnowledgeSearchHit[] | null>(null)
+  const [searchLoading, setSearchLoading] = useState(false)
   const [indexFilter, setIndexFilter] = useState<string | null>(null)
   const [indexTree, setIndexTree] = useState<IndexTreeNode[]>([])
   const [editorIndex, setEditorIndex] = useState('')
@@ -336,10 +243,44 @@ export function KnowledgeSurface({ locale, section }: { locale: AppLocale; secti
 
   useEffect(() => {
     setSearchQuery('')
+    setSearchHits(null)
     setIndexFilter(null)
     setSelectionMode(false)
     setSelectedPaths(new Set())
   }, [section])
+
+  const useDeepSearch = searchQuery.trim().length >= 2
+
+  useEffect(() => {
+    const query = searchQuery.trim()
+    if (query.length < 2) {
+      setSearchHits(null)
+      setSearchLoading(false)
+      return
+    }
+
+    let alive = true
+    setSearchLoading(true)
+    const timer = window.setTimeout(() => {
+      void window.emprint.knowledge
+        .search({ section, query })
+        .then((hits) => {
+          if (!alive) return
+          setSearchHits(hits)
+          setSearchLoading(false)
+        })
+        .catch(() => {
+          if (!alive) return
+          setSearchHits([])
+          setSearchLoading(false)
+        })
+    }, 300)
+
+    return () => {
+      alive = false
+      window.clearTimeout(timer)
+    }
+  }, [searchQuery, section, items])
 
   useEffect(() => {
     let alive = true
@@ -352,18 +293,38 @@ export function KnowledgeSurface({ locale, section }: { locale: AppLocale; secti
     }
   }, [items, section])
 
-  const filteredItems = useMemo(
-    () =>
-      items.filter((item) => {
-        if (indexFilter === '__none__') {
-          if (normalizeIndexPath(item.index ?? '')) return false
-        } else if (indexFilter && !isIndexPrefix(indexFilter, item.index ?? '')) {
-          return false
-        }
-        return matchesKnowledgeSearch(item, searchQuery)
-      }),
-    [items, searchQuery, indexFilter]
-  )
+  const filteredItems = useMemo(() => {
+    const pool = useDeepSearch
+      ? (searchHits ?? []).map((hit) => {
+          const summary = items.find((item) => item.path === hit.path)
+          return {
+            item:
+              summary ??
+              ({
+                path: hit.path,
+                title: hit.title,
+                description: hit.description,
+                index: hit.index,
+                tags: hit.tags,
+                draft: isDraftSection,
+                createdAt: '',
+                updatedAt: hit.updatedAt
+              } satisfies KnowledgeSummary),
+            snippet: hit.snippet
+          }
+        })
+      : items.map((item) => ({ item, snippet: undefined as string | undefined }))
+
+    return pool.filter(({ item }) => {
+      if (indexFilter === '__none__') {
+        if (normalizeIndexPath(item.index ?? '')) return false
+      } else if (indexFilter && !isIndexPrefix(indexFilter, item.index ?? '')) {
+        return false
+      }
+      if (useDeepSearch) return true
+      return matchesKnowledgeSearch(item, searchQuery)
+    })
+  }, [indexFilter, isDraftSection, items, searchHits, searchQuery, useDeepSearch])
 
   const [registryPaths, setRegistryPaths] = useState<string[]>([])
 
@@ -385,7 +346,7 @@ export function KnowledgeSurface({ locale, section }: { locale: AppLocale; secti
 
   const selectedCount = selectedPaths.size
   const allFilteredSelected =
-    filteredItems.length > 0 && filteredItems.every((item) => selectedPaths.has(item.path))
+    filteredItems.length > 0 && filteredItems.every(({ item }) => selectedPaths.has(item.path))
 
   const exitSelectionMode = useCallback(() => {
     setSelectionMode(false)
@@ -408,11 +369,11 @@ export function KnowledgeSurface({ locale, section }: { locale: AppLocale; secti
     setSelectedPaths((prev) => {
       const next = new Set(prev)
       if (allFilteredSelected) {
-        for (const item of filteredItems) {
+        for (const { item } of filteredItems) {
           next.delete(item.path)
         }
       } else {
-        for (const item of filteredItems) {
+        for (const { item } of filteredItems) {
           next.add(item.path)
         }
       }
@@ -544,7 +505,8 @@ export function KnowledgeSurface({ locale, section }: { locale: AppLocale; secti
       })
       setActiveDocumentDirty(false)
       bumpWorkspaceGitRefresh()
-      setActiveSection(targetSection)
+      await notifyMutated()
+      setActiveSection(targetSection === 'knowledge' ? 'contents' : 'drafts')
       openEditor(moved.path)
     } catch (caught) {
       const message =
@@ -564,6 +526,7 @@ export function KnowledgeSurface({ locale, section }: { locale: AppLocale; secti
     editorTags,
     editorTitle,
     bumpWorkspaceGitRefresh,
+    notifyMutated,
     isDraftSection,
     openEditor,
     setActiveDocumentDirty,
@@ -637,12 +600,13 @@ export function KnowledgeSurface({ locale, section }: { locale: AppLocale; secti
         setLoadedSnapshot(null)
         setActiveDocumentTitle(undefined)
         setActiveDocumentDirty(false)
-        backToList()
+        handleDocumentBack()
       }
 
       const refreshed = await window.emprint.knowledge.list({ section })
       if (refreshed) setItems(refreshed)
       bumpWorkspaceGitRefresh()
+      await notifyMutated()
       exitSelectionMode()
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : String(caught)
@@ -655,6 +619,8 @@ export function KnowledgeSurface({ locale, section }: { locale: AppLocale; secti
   }, [
     activeDocumentPath,
     backToList,
+    handleDocumentBack,
+    notifyMutated,
     pendingDelete,
     section,
     bumpWorkspaceGitRefresh,
@@ -692,7 +658,7 @@ export function KnowledgeSurface({ locale, section }: { locale: AppLocale; secti
         const fileName = activeDocumentPath.split('/').pop()
         if (fileName) {
           const newPath = `${targetSection}/${fileName}`
-          setActiveSection(targetSection)
+          setActiveSection(targetSection === 'knowledge' ? 'contents' : 'drafts')
           openEditor(newPath)
         }
       }
@@ -809,7 +775,10 @@ export function KnowledgeSurface({ locale, section }: { locale: AppLocale; secti
       <>
       <div
         key={`viewer:${transitionKey}`}
-        className="mx-auto w-full max-w-[980px] px-4 py-10 opacity-100 transition duration-300 ease-out lg:px-10"
+        className={cn(
+          'w-full opacity-100 transition duration-300 ease-out',
+          isEmbedded ? 'px-0 py-0' : 'mx-auto max-w-[980px] px-4 py-10 lg:px-10'
+        )}
       >
         <div className="mb-8 flex items-center justify-between gap-3">
           <Button
@@ -818,7 +787,7 @@ export function KnowledgeSurface({ locale, section }: { locale: AppLocale; secti
             className="h-8 w-8 shrink-0 p-0"
             aria-label={pick(locale, 'Back to list', '목록으로')}
             title={pick(locale, 'Back', '목록')}
-            onClick={backToList}
+            onClick={handleDocumentBack}
           >
             <ArrowLeft className="h-4 w-4" strokeWidth={2} />
           </Button>
@@ -865,7 +834,7 @@ export function KnowledgeSurface({ locale, section }: { locale: AppLocale; secti
                 files that live in `drafts/`. Posts in `posts/` are by
                 definition published, so the badge would be redundant. */}
             {isDraftSection ? <Badge>{locale === 'ko' ? '드래프트' : 'Draft'}</Badge> : null}
-            <div className="text-xs text-muted">{formatDate(activeSummary?.updatedAt ?? '')}</div>
+            <div className="text-xs text-muted">{formatKnowledgeDate(activeSummary?.updatedAt ?? '')}</div>
           </div>
           <h1 className="mt-3 text-[2.35rem] font-semibold tracking-[-0.035em] text-ink">
             {activeSummary?.title ?? ''}
@@ -908,7 +877,10 @@ export function KnowledgeSurface({ locale, section }: { locale: AppLocale; secti
       <>
       <div
         key={`editor:${transitionKey}`}
-        className="mx-auto w-full max-w-[1100px] px-4 py-8 opacity-100 transition duration-300 ease-out lg:px-10"
+        className={cn(
+          'w-full opacity-100 transition duration-300 ease-out',
+          isEmbedded ? 'px-0 py-0' : 'mx-auto max-w-[1100px] px-4 py-8 lg:px-10'
+        )}
       >
         <div className="mb-4 flex items-center justify-between gap-3">
           <Tooltip label={pick(locale, 'Back', '뒤로가기')}>
@@ -968,6 +940,7 @@ export function KnowledgeSurface({ locale, section }: { locale: AppLocale; secti
                     if (refreshed) setItems(refreshed)
                     const tree = await window.emprint.index.tree()
                     setIndexTree(tree)
+                    await notifyMutated()
                   } catch (caught) {
                     const message = caught instanceof Error ? caught.message : String(caught)
                     setSaveError(message)
@@ -1014,7 +987,7 @@ export function KnowledgeSurface({ locale, section }: { locale: AppLocale; secti
         <div className="rounded-lg border border-border bg-panel">
           <div className="flex items-center justify-between border-b border-border bg-panel2 px-4 py-3">
             <div className="truncate text-sm font-medium text-ink">{activeSummary?.title ?? activeDocumentPath}</div>
-            <div className="text-[11px] text-muted">{formatDate(activeSummary?.updatedAt ?? '')}</div>
+            <div className="text-[11px] text-muted">{formatKnowledgeDate(activeSummary?.updatedAt ?? '')}</div>
           </div>
           <div className="space-y-4 px-4 py-5">
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_340px]">
@@ -1192,6 +1165,10 @@ export function KnowledgeSurface({ locale, section }: { locale: AppLocale; secti
     )
   }
 
+  if (isEmbedded) {
+    return null
+  }
+
   return (
     <>
     <div
@@ -1240,18 +1217,11 @@ export function KnowledgeSurface({ locale, section }: { locale: AppLocale; secti
             title={locale === 'ko' ? '새 항목' : 'New'}
             disabled={selectionMode || saving || bulkBusy !== null}
             onClick={() => {
-            const path = `${section}/${new Date().toISOString().slice(0, 10)}-new.md`
-            // Folder is the source of truth: posts/ → draft:false, drafts/ → draft:true.
-            const template = [
-              '---',
-              'title: ',
-              'index: ',
-              'tags: []',
-              `draft: ${isDraftSection}`,
-              '---',
-              '',
-              ''
-            ].join('\n')
+            const path = allocateDatedMarkdownPath(
+              section,
+              items.map((item) => item.path)
+            )
+            const template = buildNewKnowledgeTemplate({ draft: isDraftSection })
             setSaving(true)
             setSaveError(null)
             void (async () => {
@@ -1292,12 +1262,15 @@ export function KnowledgeSurface({ locale, section }: { locale: AppLocale; secti
           placeholder={
             locale === 'ko'
               ? '제목, 설명, 인덱스, 태그, 경로로 검색…'
-              : 'Search title, description, index, tags, path…'
+              : 'Search title, description, index, tags, body…'
           }
           aria-label={pick(locale, 'Search knowledge', '지식 검색')}
           className="h-10 pl-9"
         />
       </div>
+      {searchLoading && useDeepSearch ? (
+        <p className="mb-3 text-[11px] text-muted">{pick(locale, 'Searching…', '검색 중…')}</p>
+      ) : null}
 
       {selectionMode ? (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-panel2/50 px-3 py-2.5">
@@ -1428,7 +1401,7 @@ export function KnowledgeSurface({ locale, section }: { locale: AppLocale; secti
             {pick(locale, 'No entries match your search.', '검색 결과가 없습니다.')}
           </Card>
         ) : (
-          filteredItems.map((item) => {
+          filteredItems.map(({ item, snippet }) => {
             const isSelected = selectedPaths.has(item.path)
             return (
               <div
@@ -1476,7 +1449,7 @@ export function KnowledgeSurface({ locale, section }: { locale: AppLocale; secti
                         {item.index ? (
                           <div className="mt-0.5 truncate font-mono text-[11px] text-muted">{item.index}</div>
                         ) : null}
-                        <div className="mt-1 text-xs text-muted">{formatDate(item.updatedAt)}</div>
+                        <div className="mt-1 text-xs text-muted">{formatKnowledgeDate(item.updatedAt)}</div>
                       </div>
                       {!selectionMode ? (
                         <button
@@ -1506,11 +1479,13 @@ export function KnowledgeSurface({ locale, section }: { locale: AppLocale; secti
                       ) : null}
                     </div>
                     <div className="mt-2 text-sm leading-6 text-muted">
-                      {item.description?.trim()
-                        ? item.description
-                        : activeDocumentPath === item.path
-                          ? snippetFromMarkdown(activeContent)
-                          : ''}
+                      {snippet?.trim()
+                        ? snippet
+                        : item.description?.trim()
+                          ? item.description
+                          : activeDocumentPath === item.path
+                            ? snippetFromMarkdown(activeContent)
+                            : ''}
                     </div>
                     {item.tags?.length ? (
                       <div className="mt-3 flex flex-wrap gap-2">

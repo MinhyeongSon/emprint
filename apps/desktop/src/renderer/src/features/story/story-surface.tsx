@@ -1,52 +1,53 @@
-import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, Loader2, Save } from 'lucide-react'
-import matter from 'gray-matter'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { AlertTriangle, ChevronDown, ChevronRight, ExternalLink, Loader2, Save } from 'lucide-react'
 import { BOOK_STORY_RELATIVE_PATH } from '@emprint/shared'
 import type { AppLocale } from '@emprint/shared'
 import { pick } from '@renderer/lib/i18n'
+import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
+import { Textarea } from '@renderer/components/ui/textarea'
 import { Tooltip } from '@renderer/components/ui/tooltip'
 import { TipTapEditor } from '@renderer/components/editor/tiptap-editor'
 import { useAppStore } from '@renderer/state/app-store'
+import { cn } from '@renderer/lib/cn'
 import {
   rewriteAssetUrlsForDisk,
   rewriteAssetUrlsForEditor
 } from '@renderer/lib/asset-paths'
-
-function frontmatterForYaml(data: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = {}
-  for (const [key, value] of Object.entries(data)) {
-    if (value !== undefined) out[key] = value
-  }
-  return out
-}
-
-function buildStoryMarkdown(input: { data: Record<string, unknown>; body: string }): string {
-  return matter.stringify(input.body ?? '', frontmatterForYaml(input.data ?? {}))
-}
-
-function parseStory(content: string): { data: Record<string, unknown>; body: string } {
-  try {
-    const parsed = matter(content)
-    return { data: (parsed.data ?? {}) as Record<string, unknown>, body: parsed.content ?? '' }
-  } catch {
-    return { data: {}, body: content }
-  }
-}
+import { useBookComposition } from './use-book-composition'
+import {
+  buildStoryMarkdown,
+  countStoryStats,
+  parseStory,
+  readStoryFrontmatter,
+  storyFrontmatterFromEditor,
+  type StoryFrontmatter
+} from './story-markdown'
 
 export function StorySurface({ locale }: { locale: AppLocale }) {
   const setActiveDocumentTitle = useAppStore((state) => state.setActiveDocumentTitle)
   const setActiveDocumentDirty = useAppStore((state) => state.setActiveDocumentDirty)
+  const setActiveSection = useAppStore((state) => state.setActiveSection)
   const bumpWorkspaceGitRefresh = useAppStore((state) => state.bumpWorkspaceGitRefresh)
+  const { composition } = useBookComposition()
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [metaOpen, setMetaOpen] = useState(false)
   const [editorBody, setEditorBody] = useState('')
   const [editorTitle, setEditorTitle] = useState('')
-  const [loadedTitle, setLoadedTitle] = useState('')
-  const [loadedBody, setLoadedBody] = useState('')
+  const [description, setDescription] = useState('')
+  const [subtitle, setSubtitle] = useState('')
+  const [author, setAuthor] = useState('')
+  const [loadedSnapshot, setLoadedSnapshot] = useState<StoryFrontmatter & { body: string }>({
+    title: '',
+    description: '',
+    subtitle: '',
+    author: '',
+    body: ''
+  })
 
   const loadStory = useCallback(async () => {
     setLoading(true)
@@ -54,13 +55,15 @@ export function StorySurface({ locale }: { locale: AppLocale }) {
     try {
       const result = await window.emprint.story.read()
       const parsed = parseStory(result.content)
-      const title = typeof parsed.data.title === 'string' ? parsed.data.title : ''
+      const fm = readStoryFrontmatter(parsed.data)
       const body = rewriteAssetUrlsForEditor(parsed.body)
-      setEditorTitle(title)
+      setEditorTitle(fm.title)
+      setDescription(fm.description)
+      setSubtitle(fm.subtitle)
+      setAuthor(fm.author)
       setEditorBody(body)
-      setLoadedTitle(title)
-      setLoadedBody(body)
-      setActiveDocumentTitle(title || pick(locale, 'Story', '이야기'))
+      setLoadedSnapshot({ ...fm, body })
+      setActiveDocumentTitle(fm.title || pick(locale, 'Story', '이야기'))
       setActiveDocumentDirty(false)
     } catch (caught) {
       setSaveError(caught instanceof Error ? caught.message : String(caught))
@@ -73,32 +76,53 @@ export function StorySurface({ locale }: { locale: AppLocale }) {
     void loadStory()
   }, [loadStory])
 
+  const stats = useMemo(() => countStoryStats(editorBody), [editorBody])
+
   useEffect(() => {
     const dirty =
-      editorTitle.trim() !== loadedTitle.trim() ||
-      editorBody !== loadedBody
+      editorTitle.trim() !== loadedSnapshot.title.trim() ||
+      description.trim() !== loadedSnapshot.description.trim() ||
+      subtitle.trim() !== loadedSnapshot.subtitle.trim() ||
+      author.trim() !== loadedSnapshot.author.trim() ||
+      editorBody !== loadedSnapshot.body
     setActiveDocumentDirty(dirty)
     setActiveDocumentTitle(editorTitle.trim() || pick(locale, 'Story', '이야기'))
-  }, [editorBody, editorTitle, loadedBody, loadedTitle, locale, setActiveDocumentDirty, setActiveDocumentTitle])
+  }, [
+    author,
+    description,
+    editorBody,
+    editorTitle,
+    loadedSnapshot,
+    locale,
+    setActiveDocumentDirty,
+    setActiveDocumentTitle,
+    subtitle
+  ])
 
   async function handleSave() {
     setSaving(true)
     setSaveError(null)
     try {
-      const existing = parseStory(
-        (await window.emprint.story.read()).content
-      )
-      const nextData: Record<string, unknown> = {
-        ...existing.data,
-        title: editorTitle.trim() || existing.data.title || pick(locale, 'Story', '이야기')
-      }
+      const existing = parseStory((await window.emprint.story.read()).content)
+      const trimmedTitle = editorTitle.trim() || pick(locale, 'Story', '이야기')
+      const nextData = storyFrontmatterFromEditor({
+        existing: existing.data,
+        title: editorTitle,
+        description,
+        subtitle,
+        author
+      })
       const bodyForDisk = rewriteAssetUrlsForDisk(editorBody)
       const nextMarkdown = buildStoryMarkdown({ data: nextData, body: bodyForDisk })
       await window.emprint.story.save({ content: nextMarkdown })
-      const trimmedTitle = editorTitle.trim() || pick(locale, 'Story', '이야기')
+      const snapshot: StoryFrontmatter = {
+        title: trimmedTitle,
+        description: description.trim(),
+        subtitle: subtitle.trim(),
+        author: author.trim()
+      }
       setEditorTitle(trimmedTitle)
-      setLoadedTitle(trimmedTitle)
-      setLoadedBody(editorBody)
+      setLoadedSnapshot({ ...snapshot, body: editorBody })
       setActiveDocumentDirty(false)
       bumpWorkspaceGitRefresh()
     } catch (caught) {
@@ -107,6 +131,11 @@ export function StorySurface({ locale }: { locale: AppLocale }) {
       setSaving(false)
     }
   }
+
+  const layoutLabel =
+    composition === 'scroll'
+      ? pick(locale, 'Scroll', 'Scroll')
+      : pick(locale, 'Pages', 'Pages')
 
   if (loading) {
     return (
@@ -118,6 +147,26 @@ export function StorySurface({ locale }: { locale: AppLocale }) {
 
   return (
     <div className="mx-auto w-full max-w-[1100px] px-4 py-8 lg:px-10">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <Badge className="normal-case tracking-normal text-[11px]">
+          {pick(locale, 'Layout', '레이아웃')}: {layoutLabel}
+        </Badge>
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 text-[11px] text-accent hover:underline"
+          onClick={() => setActiveSection('design')}
+        >
+          {pick(locale, 'Change in Design', 'Design에서 변경')}
+          <ExternalLink className="h-3 w-3" strokeWidth={2} aria-hidden />
+        </button>
+        {composition === 'pages' ? (
+          <span className="text-[11px] text-muted">
+            {pick(locale, 'Pages split on', 'Pages는')} <code className="font-mono">---</code>{' '}
+            {pick(locale, 'page breaks', '로 페이지를 나눕니다')}
+          </span>
+        ) : null}
+      </div>
+
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0 flex-1 space-y-1">
           <div className="text-[11px] uppercase tracking-[0.16em] text-muted">
@@ -130,7 +179,7 @@ export function StorySurface({ locale }: { locale: AppLocale }) {
             placeholder={pick(locale, 'Title', '제목')}
             aria-label={pick(locale, 'Title', '제목')}
           />
-          <p className="text-xs text-muted font-mono">{BOOK_STORY_RELATIVE_PATH}</p>
+          <p className="font-mono text-xs text-muted">{BOOK_STORY_RELATIVE_PATH}</p>
         </div>
         <Tooltip label={pick(locale, saving ? 'Saving…' : 'Save', saving ? '저장 중…' : '저장')}>
           <Button type="button" className="h-9 gap-2 px-4" disabled={saving} onClick={() => void handleSave()}>
@@ -142,6 +191,43 @@ export function StorySurface({ locale }: { locale: AppLocale }) {
             {pick(locale, 'Save', '저장')}
           </Button>
         </Tooltip>
+      </div>
+
+      <div className="mb-4 rounded-md border border-border bg-panel2/40">
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-ink"
+          onClick={() => setMetaOpen((v) => !v)}
+        >
+          {metaOpen ? (
+            <ChevronDown className="h-3.5 w-3.5 text-muted" aria-hidden />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5 text-muted" aria-hidden />
+          )}
+          {pick(locale, 'Story details', '이야기 정보')}
+        </button>
+        {metaOpen ? (
+          <div className="space-y-3 border-t border-border px-3 py-3">
+            <label className="block space-y-1">
+              <span className="text-xs text-muted">{pick(locale, 'Subtitle', '부제')}</span>
+              <Input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} className="h-8 text-sm" />
+            </label>
+            <label className="block space-y-1">
+              <span className="text-xs text-muted">{pick(locale, 'Description', '설명')}</span>
+              <Textarea
+                rows={3}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="text-sm"
+                placeholder={pick(locale, 'Short summary for readers and search', '독자·검색용 짧은 요약')}
+              />
+            </label>
+            <label className="block space-y-1">
+              <span className="text-xs text-muted">{pick(locale, 'Author', '저자')}</span>
+              <Input value={author} onChange={(e) => setAuthor(e.target.value)} className="h-8 text-sm" />
+            </label>
+          </div>
+        ) : null}
       </div>
 
       {saveError ? (
@@ -158,7 +244,15 @@ export function StorySurface({ locale }: { locale: AppLocale }) {
         value={editorBody}
         onChange={setEditorBody}
         placeholder={locale === 'ko' ? '이야기를 써 보세요…' : 'Write your story…'}
+        showPageBreak={composition === 'pages'}
+        pageBreakTitle={pick(locale, 'Insert page break', '페이지 나누기')}
+        pageBreakDecorLabel={pick(locale, 'Page break', '페이지 나누기')}
+        className="h-[calc(100vh-420px)] min-h-[320px]"
       />
+
+      <p className={cn('mt-3 text-right text-[11px] tabular-nums text-muted')}>
+        {pick(locale, `${stats.words} words · ${stats.characters} characters`, `${stats.words}단어 · ${stats.characters}자`)}
+      </p>
     </div>
   )
 }

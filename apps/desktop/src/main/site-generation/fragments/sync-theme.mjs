@@ -3,6 +3,7 @@
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import path from 'node:path'
+import { logError, logInfo } from '../shared/log.mjs'
 
 const root = process.cwd()
 const themePath = path.join(root, 'config', 'theme.json')
@@ -46,7 +47,7 @@ function emitStatic(prefix, selector, tokens) {
 const raw = readFileSync(themePath, 'utf8')
 const theme = JSON.parse(raw)
 if (!SUPPORTED.has(theme.anthology)) {
-  console.error('[emprint] sync-theme: unsupported anthology', theme.anthology)
+  logError('sync-theme: unsupported anthology', theme.anthology)
   process.exit(1)
 }
 const prefix = theme.classPrefix || 'ep-fragments'
@@ -62,4 +63,4 @@ if (theme.modes?.dark?.color) {
 }
 mkdirSync(outDir, { recursive: true })
 writeFileSync(outPath, `${blocks.join('\n\n')}\n`)
-console.log('[emprint] synced theme tokens → src/styles/tokens.css')
+logInfo('synced theme tokens → src/styles/tokens.css')

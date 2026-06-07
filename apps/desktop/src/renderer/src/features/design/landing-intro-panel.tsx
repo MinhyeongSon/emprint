@@ -87,7 +87,7 @@ export function LandingIntroPanel({ locale }: { locale: AppLocale }) {
   async function apply() {
     const api = window.emprint?.workspaceSrc
     if (!api?.read || !api?.save) {
-      setError(pick(locale, 'Workspace source API unavailable.', '워크스페이스 소스 API를 사용할 수 없습니다.'))
+      setError(pick(locale, 'Anthology site API unavailable.', '앤솔로지 사이트 API를 사용할 수 없습니다.'))
       return
     }
     setBusy(true)

@@ -12,9 +12,15 @@ import { glob } from 'astro/loaders'
 const knowledge = defineCollection({
   loader: glob({ pattern: '*.md', base: './knowledge' }),
   schema: z.object({
-    title: z.string(),
+    title: z.preprocess(
+      (val) => (typeof val === 'string' && val.trim() ? val.trim() : 'Untitled'),
+      z.string()
+    ),
     description: z.string().optional().default(''),
-    index: z.string().min(1),
+    index: z.preprocess(
+      (val) => (typeof val === 'string' ? val.trim() : ''),
+      z.string()
+    ),
     tags: z.array(z.string()).default([]),
     draft: z.boolean().default(false),
     createdAt: z.coerce.date().optional(),
@@ -61,7 +67,9 @@ const story = defineCollection({
   loader: glob({ pattern: '*.md', base: './story' }),
   schema: z.object({
     title: z.string(),
-    description: z.string().optional().default('')
+    description: z.string().optional().default(''),
+    subtitle: z.string().optional(),
+    author: z.string().optional()
   })
 })
 

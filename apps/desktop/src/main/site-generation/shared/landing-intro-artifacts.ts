@@ -19,12 +19,33 @@ const intro = resolveLandingIntroFromTheme(themeFile as Record<string, unknown>)
   <>
     <script is:inline define:vars={{ classPrefix, introShowOnce: intro.showOnce }}>
       (function () {
-        if (!introShowOnce) return
-        try {
-          if (localStorage.getItem(classPrefix + '-landing-intro-seen') === '1') {
-            document.documentElement.classList.add(classPrefix + '-intro-skip')
+        function navType() {
+          try {
+            var nav = performance.getEntriesByType('navigation')[0]
+            return nav && nav.type ? nav.type : 'navigate'
+          } catch (e) {
+            return 'navigate'
           }
-        } catch (e) {}
+        }
+        function shouldSkip() {
+          var persistKey = classPrefix + '-landing-intro-seen'
+          var sessionKey = classPrefix + '-landing-intro-session'
+          var isReload = navType() === 'reload'
+          if (introShowOnce) {
+            try {
+              if (localStorage.getItem(persistKey) === '1') return true
+            } catch (e) {}
+          }
+          if (!isReload) {
+            try {
+              if (sessionStorage.getItem(sessionKey) === '1') return true
+            } catch (e) {}
+          }
+          return false
+        }
+        if (shouldSkip()) {
+          document.documentElement.classList.add(classPrefix + '-intro-skip')
+        }
       })()
     </script>
     {intro.variant === 'script' ? (
@@ -35,6 +56,7 @@ const intro = resolveLandingIntroFromTheme(themeFile as Record<string, unknown>)
     ) : null}
     <div
       class={\`\${classPrefix}-LandingIntro\`}
+      data-pagefind-ignore
       data-variant={intro.variant}
       data-show-once={intro.showOnce ? 'true' : 'false'}
       data-typing-delay={intro.typingDelayMs}
@@ -63,7 +85,43 @@ const intro = resolveLandingIntroFromTheme(themeFile as Record<string, unknown>)
       }}
     >
       (function () {
-        var storageKey = classPrefix + '-landing-intro-seen'
+        var persistKey = classPrefix + '-landing-intro-seen'
+        var sessionKey = classPrefix + '-landing-intro-session'
+
+        function navType() {
+          try {
+            var nav = performance.getEntriesByType('navigation')[0]
+            return nav && nav.type ? nav.type : 'navigate'
+          } catch (e) {
+            return 'navigate'
+          }
+        }
+
+        function shouldSkipIntro() {
+          var isReload = navType() === 'reload'
+          if (introShowOnce) {
+            try {
+              if (localStorage.getItem(persistKey) === '1') return true
+            } catch (e) {}
+          }
+          if (!isReload) {
+            try {
+              if (sessionStorage.getItem(sessionKey) === '1') return true
+            } catch (e) {}
+          }
+          return false
+        }
+
+        function markIntroSeen() {
+          try {
+            sessionStorage.setItem(sessionKey, '1')
+          } catch (e) {}
+          if (introShowOnce) {
+            try {
+              localStorage.setItem(persistKey, '1')
+            } catch (e) {}
+          }
+        }
 
         function dismissOverlay(overlay) {
           if (!overlay) return
@@ -75,13 +133,9 @@ const intro = resolveLandingIntroFromTheme(themeFile as Record<string, unknown>)
           var overlay = document.querySelector('.' + classPrefix + '-LandingIntro')
           if (!overlay) return
 
-          if (introShowOnce) {
-            try {
-              if (localStorage.getItem(storageKey) === '1') {
-                dismissOverlay(overlay)
-                return
-              }
-            } catch (e) {}
+          if (shouldSkipIntro()) {
+            dismissOverlay(overlay)
+            return
           }
 
           var textEl = overlay.querySelector('.' + classPrefix + '-LandingIntro-text')
@@ -108,11 +162,7 @@ const intro = resolveLandingIntroFromTheme(themeFile as Record<string, unknown>)
             overlay.classList.add(classPrefix + '-LandingIntro--fade')
             window.setTimeout(function () {
               dismissOverlay(overlay)
-              if (introShowOnce) {
-                try {
-                  localStorage.setItem(storageKey, '1')
-                } catch (e) {}
-              }
+              markIntroSeen()
             }, fadeMs)
           }
 

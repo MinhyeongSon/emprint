@@ -1,17 +1,19 @@
 import type { WorkspaceArtifact } from '@emprint/core'
 import { EpColumnClasses } from './contract'
+import { createColumnSearchPageArtifact } from './column-search-artifacts'
 
 const COLUMN_PAGE_SYNC_PATHS = new Set([
   'src/pages/index.astro',
   'src/pages/posts/index.astro',
-  'src/pages/tags/[tag].astro'
+  'src/pages/tags/[tag].astro',
+  'src/pages/search/index.astro'
 ])
 
 export function getColumnPageTemplateSyncArtifacts(): WorkspaceArtifact[] {
   return createColumnPageArtifacts().filter((a) => COLUMN_PAGE_SYNC_PATHS.has(a.relativePath))
 }
 
-export function createColumnPageArtifacts(): WorkspaceArtifact[] {
+export function createColumnPageArtifacts(lang: 'ko' | 'en' = 'en'): WorkspaceArtifact[] {
   return [
     {
       relativePath: 'src/pages/index.astro',
@@ -190,6 +192,7 @@ const { tag, posts } = Astro.props
   </section>
 </Layout>
 `
-    }
+    },
+    createColumnSearchPageArtifact(lang)
   ]
 }

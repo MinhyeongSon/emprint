@@ -104,8 +104,8 @@ export function PostDeleteDialog({
                   <div className="mt-1 text-[12px] text-muted">
                     {pick(
                       locale,
-                      'Selected files will be removed from your workspace.',
-                      '선택한 파일이 워크스페이스에서 삭제됩니다.'
+                      'Selected files will be removed from this anthology.',
+                      '선택한 파일이 이 앤솔로지에서 삭제됩니다.'
                     )}
                   </div>
                 ) : (

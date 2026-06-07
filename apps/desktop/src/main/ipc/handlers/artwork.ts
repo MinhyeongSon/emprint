@@ -5,6 +5,7 @@ import {
   listArtworkImages,
   reorderArtworkImages,
   saveArtworkImage,
+  updateArtworkAlbum,
   updateArtworkImage
 } from '../../workspace/artwork-io'
 import { assertFragmentsWorkspace, ensureWorkspaceMounted } from '../state'
@@ -26,6 +27,12 @@ export function registerArtworkHandlers(): void {
     assertFragmentsWorkspace()
     const root = ensureWorkspaceMounted()
     return await updateArtworkImage(root, input)
+  })
+
+  ipcMain.handle(ipcChannels.artworkUpdateAlbum, async (_event, input) => {
+    assertFragmentsWorkspace()
+    const root = ensureWorkspaceMounted()
+    return await updateArtworkAlbum(root, input)
   })
 
   ipcMain.handle(ipcChannels.artworkDelete, async (_event, input) => {

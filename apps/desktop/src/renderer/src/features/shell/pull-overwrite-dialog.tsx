@@ -56,7 +56,7 @@ export function PullOverwriteDialog({
             <p className="text-sm leading-relaxed text-[#a34e00]">
               {pick(
                 locale,
-                'Unpublished edits and staged changes in this workspace may be lost.',
+                'Unpublished edits and staged changes in this anthology may be lost.',
                 '아직 발행하지 않은 글의 작업 내용과 스테이징된 변경이 사라질 수 있습니다.'
               )}
             </p>

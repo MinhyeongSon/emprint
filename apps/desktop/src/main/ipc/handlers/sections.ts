@@ -2,6 +2,16 @@ import path from 'node:path'
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { ipcMain } from 'electron'
 import { ipcChannels, parseMemoirSectionFile } from '@emprint/shared'
+import {
+  createMemoirSectionFile,
+  deleteMemoirSectionWithCleanup,
+  duplicateMemoirSection,
+  listMemoirSectionSummaries,
+  loadAllMemoirSectionFiles,
+  reorderMemoirContainerChildren,
+  reparentMemoirSection,
+  writeMemoirSectionFile
+} from '../../workspace/memoir-sections-io'
 import { assertMemoirWorkspace, ensureWorkspaceMounted } from '../state'
 import { resolveSafeSectionsPath, toPosixWorkspacePath } from '../core'
 
@@ -9,7 +19,6 @@ export function registerSectionsHandlers(): void {
   ipcMain.handle(ipcChannels.sectionsList, async () => {
     const root = ensureWorkspaceMounted()
     assertMemoirWorkspace()
-    const { listMemoirSectionSummaries } = await import('../../workspace/memoir-sections-io')
     return listMemoirSectionSummaries(root)
   })
 
@@ -42,7 +51,6 @@ export function registerSectionsHandlers(): void {
       const st = await stat(abs).catch(() => null)
       if (!st?.isFile()) throw new Error('File not found.')
       const previousPath = toPosixWorkspacePath(path.relative(root, abs))
-      const { writeMemoirSectionFile } = await import('../../workspace/memoir-sections-io')
       const result = await writeMemoirSectionFile(root, input.section, { previousPath })
       return { path: result.path }
     }
@@ -53,7 +61,6 @@ export function registerSectionsHandlers(): void {
     async (_event, input: { section: import('@emprint/shared').MemoirSectionFile; parentId?: string }) => {
       const root = ensureWorkspaceMounted()
       assertMemoirWorkspace()
-      const { createMemoirSectionFile } = await import('../../workspace/memoir-sections-io')
       const result = await createMemoirSectionFile(
         root,
         input.section,
@@ -70,14 +77,40 @@ export function registerSectionsHandlers(): void {
     const st = await stat(abs).catch(() => null)
     if (!st?.isFile()) throw new Error('File not found.')
     const relativePath = toPosixWorkspacePath(path.relative(root, abs))
-    const { deleteMemoirSectionWithCleanup } = await import('../../workspace/memoir-sections-io')
     return deleteMemoirSectionWithCleanup(root, relativePath)
   })
+
+  ipcMain.handle(
+    ipcChannels.sectionsReorderChildren,
+    async (_event, input: { parentId: string; orderedChildIds: string[] }) => {
+      const root = ensureWorkspaceMounted()
+      assertMemoirWorkspace()
+      await reorderMemoirContainerChildren(root, input.parentId, input.orderedChildIds)
+    }
+  )
+
+  ipcMain.handle(
+    ipcChannels.sectionsReparent,
+    async (_event, input: { childId: string; parentId: string | null }) => {
+      const root = ensureWorkspaceMounted()
+      assertMemoirWorkspace()
+      await reparentMemoirSection(root, input.childId, input.parentId)
+    }
+  )
+
+  ipcMain.handle(
+    ipcChannels.sectionsDuplicate,
+    async (_event, input: { path: string; mode?: 'shallow' | 'deep' }) => {
+      const root = ensureWorkspaceMounted()
+      assertMemoirWorkspace()
+      const result = await duplicateMemoirSection(root, input.path, input.mode ?? 'shallow')
+      return { path: result.path }
+    }
+  )
 
   ipcMain.handle(ipcChannels.sectionsReorderRoots, async (_event, input: { orderedIds: string[] }) => {
     const root = ensureWorkspaceMounted()
     assertMemoirWorkspace()
-    const { loadAllMemoirSectionFiles, writeMemoirSectionFile } = await import('../../workspace/memoir-sections-io')
     const { sections } = await loadAllMemoirSectionFiles(root)
     const childIds = new Set<string>()
     for (const section of sections) {

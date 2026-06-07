@@ -1,6 +1,7 @@
 import type { SiteProjectKind } from '@emprint/shared'
 import { astroSharedArtifacts } from './astro-stack'
 import { createContentConfigArtifact } from './content-config-artifacts'
+import { columnPackageJsonPatch } from './column/column-package-json-patch'
 import { createColumnLayoutArtifacts } from './column/column-layout-artifacts'
 import type { SiteGenerationContext, SiteProjectGenerator } from './site-project-generator'
 
@@ -19,7 +20,7 @@ export class ColumnSiteProjectGenerator implements SiteProjectGenerator {
 
   async generate(context: SiteGenerationContext) {
     return [
-      ...astroSharedArtifacts(context),
+      ...columnPackageJsonPatch(astroSharedArtifacts(context)),
       createContentConfigArtifact('column'),
       ...createColumnLayoutArtifacts(context)
     ]

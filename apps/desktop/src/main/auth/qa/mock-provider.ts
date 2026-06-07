@@ -5,7 +5,7 @@ import type {
   GitHubRepoCreateInput,
   GitHubRepoCreateResult
 } from '@emprint/shared'
-import { readGithubSession } from '../providers/github.js'
+import { readGithubSession } from '../providers/github/index.js'
 import type { AuthProvider, AuthProviderId, HostingProvider } from '../types.js'
 
 const MOCK_LOGIN = process.env.EMPRINT_QA_MOCK_LOGIN?.trim() || 'qa-mock-user'
@@ -71,7 +71,8 @@ export function mockGithubRepoCreate(input: GitHubRepoCreateInput): GitHubRepoCr
     htmlUrl: `https://github.com/${fullName}`,
     cloneUrl: `https://github.com/${fullName}.git`,
     sshUrl: `git@github.com:${fullName}.git`,
-    defaultBranch: 'main'
+    defaultBranch: 'main',
+    pagesAutoEnabled: true
   }
 }
 

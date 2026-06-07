@@ -5,8 +5,8 @@
  *
  * Usage:
  *   node packaging/scripts/render-package-managers.mjs \
- *     --version 0.2.10 \
- *     --tag v0.2.10 \
+ *     --version 0.3.0 \
+ *     --tag v0.3.0 \
  *     --assets-dir release-assets \
  *     --out-dir packaging
  */

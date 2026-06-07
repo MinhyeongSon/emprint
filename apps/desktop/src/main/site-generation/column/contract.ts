@@ -1,4 +1,5 @@
 import { COLUMN_CLASS_PREFIX } from '@emprint/shared'
+import { componentClass as cc, utilityClass as uc } from '../shared/contract-helpers'
 
 /**
  * Column anthology component contract — stable `ep-column-*` class names.
@@ -6,15 +7,8 @@ import { COLUMN_CLASS_PREFIX } from '@emprint/shared'
  */
 export { COLUMN_CLASS_PREFIX as EP_COLUMN_PREFIX }
 
-function componentClass(component: string, part?: string): string {
-  return part
-    ? `${COLUMN_CLASS_PREFIX}-${component}-${part}`
-    : `${COLUMN_CLASS_PREFIX}-${component}`
-}
-
-function utilityClass(name: string): string {
-  return `${COLUMN_CLASS_PREFIX}-u-${name}`
-}
+const componentClass = (component: string, part?: string) => cc(COLUMN_CLASS_PREFIX, component, part)
+const utilityClass = (name: string) => uc(COLUMN_CLASS_PREFIX, name)
 
 export const EpColumnClasses = {
   Header: componentClass('Header'),
@@ -78,6 +72,8 @@ export const EpColumnClasses = {
   SectionHeadLink: componentClass('SectionHead', 'link'),
 
   Empty: componentClass('Empty'),
+
+  Search: componentClass('Search'),
 
   Container: utilityClass('Container'),
   Wide: utilityClass('Wide'),

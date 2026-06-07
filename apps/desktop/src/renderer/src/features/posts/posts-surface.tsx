@@ -10,14 +10,14 @@ import {
   Search,
   Send,
   SquarePen,
+  Tags,
   Trash2,
   X
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { pick } from '@renderer/lib/i18n'
-import type { AppLocale, PostSummary } from '@emprint/shared'
-import matter from 'gray-matter'
+import type { AppLocale, PostSearchHit, PostSummary } from '@emprint/shared'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
@@ -26,7 +26,22 @@ import { Tooltip } from '@renderer/components/ui/tooltip'
 import { TipTapEditor, type InsertedImage } from '@renderer/components/editor/tiptap-editor'
 import { useAppStore } from '@renderer/state/app-store'
 import { cn } from '@renderer/lib/cn'
+import { DeploySearchHint } from '@renderer/components/deploy-search-hint'
 import { PostDeleteDialog } from './post-delete-dialog'
+import {
+  buildNewPostTemplate,
+  buildPostMarkdown,
+  formatPostDate,
+  inferTitleFromPath,
+  matchesPostSearch,
+  normalizeTagArray,
+  parsePost,
+  parseTagsDraft,
+  postFrontmatterFromEditor,
+  rebuildTagDraft,
+  snippetFromMarkdown,
+  splitCommittedTagsAndTail
+} from './posts-markdown'
 import {
   compressImage,
   isSupportedImageMime,
@@ -40,95 +55,13 @@ import {
 
 type Section = 'posts' | 'drafts'
 
-function inferTitleFromPath(relativePath: string): string {
-  const name = relativePath.split('/').pop() ?? relativePath
-  return name.replace(/\.md$/i, '').replace(/^\d{4}-\d{2}-\d{2}-/, '').replace(/-/g, ' ') || ''
-}
+type PostListRow = PostSummary & { snippet?: string }
 
-
-function formatDate(value: string): string {
-  if (!value) {
-    return ''
-  }
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
-  return date.toISOString().slice(0, 10)
-}
-
-function snippetFromMarkdown(content: string): string {
-  const withoutFrontmatter = content.replace(/^---[\s\S]*?---\s*/m, '')
-  const plain = withoutFrontmatter
-    .replace(/```[\s\S]*?```/g, '')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/#+\s*/g, '')
-    .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/\*([^*]+)\*/g, '$1')
-    .replace(/\[(.+?)\]\(.+?\)/g, '$1')
-    .replace(/\s+/g, ' ')
-    .trim()
-  return plain.slice(0, 180)
-}
-
-function parsePost(content: string): { data: Record<string, unknown>; body: string } {
-  try {
-    const parsed = matter(content)
-    return { data: (parsed.data ?? {}) as Record<string, unknown>, body: parsed.content ?? '' }
-  } catch {
-    // If frontmatter is malformed, keep the document readable/editable.
-    return { data: {}, body: content }
-  }
-}
-
-function buildPostMarkdown(input: { data: Record<string, unknown>; body: string }): string {
-  return matter.stringify(input.body ?? '', input.data ?? {})
-}
-
-function normalizeTagArray(tags: string[]): string[] {
-  return Array.from(new Set(tags.map((t) => t.trim()).filter(Boolean)))
-}
-
-/**
- * Split the raw tag field into (a) tags the user has already finished with a
- * trailing comma — these render as chips — and (b) the fragment still being
- * typed after the last comma.
- */
-function splitCommittedTagsAndTail(draft: string): { committed: string[]; tail: string } {
-  const lastComma = draft.lastIndexOf(',')
-  if (lastComma === -1) {
-    return { committed: [], tail: draft }
-  }
-  const head = draft.slice(0, lastComma)
-  const tail = draft.slice(lastComma + 1)
-  const committed = normalizeTagArray(
-    head
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean)
-  )
-  return { committed, tail }
-}
-
-function rebuildTagDraft(committed: string[], tail: string): string {
-  if (committed.length === 0) return tail
-  return `${committed.join(', ')}, ${tail}`
-}
-
-function parseTagsDraft(value: string): string[] {
-  return normalizeTagArray(
-    value
-      .split(',')
-      .map((part) => part.trim())
-      .filter(Boolean)
-  )
-}
-
-function matchesPostSearch(item: PostSummary, query: string): boolean {
-  const q = query.trim().toLowerCase()
-  if (!q) return true
-  const haystack = [item.title, item.description, item.path, ...item.tags].join(' ').toLowerCase()
-  return haystack.includes(q)
+function postToListRow(item: PostSummary, snippet?: string): PostListRow {
+  const row: PostListRow = { ...item }
+  const text = snippet ?? item.description?.trim()
+  if (text) row.snippet = text
+  return row
 }
 
 type PendingDelete =
@@ -149,10 +82,12 @@ async function movePostBetweenSections(
   if (path === targetPath) {
     return path
   }
-  const nextData: Record<string, unknown> = {
-    ...parsed.data,
+  const nextData = postFrontmatterFromEditor({
+    existing: parsed.data,
+    title: typeof parsed.data.title === 'string' ? parsed.data.title : '',
+    tags: Array.isArray(parsed.data.tags) ? parsed.data.tags.map(String) : [],
     draft: targetSection === 'drafts'
-  }
+  })
   const nextMarkdown = buildPostMarkdown({ data: nextData, body: parsed.body })
   await window.emprint.posts.save({ path, content: nextMarkdown })
   const moved = await window.emprint.posts.move({ from: path, to: targetPath })
@@ -203,6 +138,10 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null)
   const [deletingPath, setDeletingPath] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null)
+  const [tagPickerOpen, setTagPickerOpen] = useState(false)
+  const [searchHits, setSearchHits] = useState<PostSearchHit[] | null>(null)
+  const [searchLoading, setSearchLoading] = useState(false)
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(() => new Set())
   const [bulkBusy, setBulkBusy] = useState<'delete' | 'move' | null>(null)
@@ -280,14 +219,90 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
 
   useEffect(() => {
     setSearchQuery('')
+    setSelectedTagFilter(null)
+    setTagPickerOpen(false)
+    setSearchHits(null)
     setSelectionMode(false)
     setSelectedPaths(new Set())
   }, [section])
 
-  const filteredItems = useMemo(
-    () => items.filter((item) => matchesPostSearch(item, searchQuery)),
-    [items, searchQuery]
-  )
+  const tagCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const item of items) {
+      for (const tag of item.tags) {
+        counts.set(tag, (counts.get(tag) ?? 0) + 1)
+      }
+    }
+    return [...counts.entries()].sort(
+      (a, b) => b[1] - a[1] || a[0].localeCompare(b[0], undefined, { sensitivity: 'base' })
+    )
+  }, [items])
+
+  const useDeepSearch = searchQuery.trim().length >= 2
+
+  useEffect(() => {
+    const query = searchQuery.trim()
+    if (query.length < 2) {
+      setSearchHits(null)
+      setSearchLoading(false)
+      return
+    }
+
+    let alive = true
+    setSearchLoading(true)
+    const timer = window.setTimeout(() => {
+      void window.emprint.posts
+        .search({
+          section,
+          query,
+          ...(selectedTagFilter ? { tag: selectedTagFilter } : {})
+        })
+        .then((hits) => {
+          if (!alive) return
+          setSearchHits(hits)
+          setSearchLoading(false)
+        })
+        .catch(() => {
+          if (!alive) return
+          setSearchHits([])
+          setSearchLoading(false)
+        })
+    }, 300)
+
+    return () => {
+      alive = false
+      window.clearTimeout(timer)
+    }
+  }, [searchQuery, selectedTagFilter, section, items])
+
+  const filteredItems = useMemo((): PostListRow[] => {
+    if (useDeepSearch) {
+      const hits = searchHits ?? []
+      return hits.map((hit) => {
+        const summary = items.find((item) => item.path === hit.path)
+        return postToListRow(
+          summary ?? {
+            path: hit.path,
+            title: hit.title,
+            description: hit.description,
+            tags: hit.tags,
+            draft: isDraftSection,
+            createdAt: '',
+            updatedAt: hit.updatedAt
+          },
+          hit.snippet
+        )
+      })
+    }
+
+    let pool = items
+    if (selectedTagFilter) {
+      pool = pool.filter((item) => item.tags.includes(selectedTagFilter))
+    }
+    return pool
+      .filter((item) => matchesPostSearch(item, searchQuery))
+      .map((item) => postToListRow(item))
+  }, [useDeepSearch, searchHits, items, selectedTagFilter, searchQuery, isDraftSection])
 
   const selectedCount = selectedPaths.size
   const allFilteredSelected =
@@ -415,12 +430,12 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
       const targetPath = `${targetSection}/${fileName}`
 
       const existing = parsePost(activeContent)
-      const nextData: Record<string, unknown> = {
-        ...existing.data,
-        title: editorTitle.trim() || existing.data.title,
-        tags: normalizeTagArray(editorTags),
+      const nextData = postFrontmatterFromEditor({
+        existing: existing.data,
+        title: editorTitle,
+        tags: editorTags,
         draft: targetSection === 'drafts'
-      }
+      })
       const bodyForDisk = rewriteAssetUrlsForDisk(editorBody)
       const nextMarkdown = buildPostMarkdown({ data: nextData, body: bodyForDisk })
 
@@ -762,7 +777,7 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
                 files that live in `drafts/`. Posts in `posts/` are by
                 definition published, so the badge would be redundant. */}
             {isDraftSection ? <Badge>{locale === 'ko' ? '드래프트' : 'Draft'}</Badge> : null}
-            <div className="text-xs text-muted">{formatDate(activeSummary?.updatedAt ?? '')}</div>
+            <div className="text-xs text-muted">{formatPostDate(activeSummary?.updatedAt ?? '')}</div>
           </div>
           <h1 className="mt-3 text-[2.35rem] font-semibold tracking-[-0.035em] text-ink">
             {activeSummary?.title ?? ''}
@@ -828,12 +843,12 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
                 void (async () => {
                   try {
                     const existing = parsePost(activeContent)
-                    const nextData: Record<string, unknown> = {
-                      ...existing.data,
-                      title: editorTitle.trim() || existing.data.title,
-                      tags: normalizeTagArray(editorTags),
+                    const nextData = postFrontmatterFromEditor({
+                      existing: existing.data,
+                      title: editorTitle,
+                      tags: editorTags,
                       draft: isDraftSection
-                    }
+                    })
                     // Transform `emprint-asset://...` URLs back to root-relative paths
                     // so the markdown on disk is portable to static-site builds.
                     const bodyForDisk = rewriteAssetUrlsForDisk(editorBody)
@@ -902,7 +917,7 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
         <div className="rounded-lg border border-border bg-panel">
           <div className="flex items-center justify-between border-b border-border bg-panel2 px-4 py-3">
             <div className="truncate text-sm font-medium text-ink">{activeSummary?.title ?? activeDocumentPath}</div>
-            <div className="text-[11px] text-muted">{formatDate(activeSummary?.updatedAt ?? '')}</div>
+            <div className="text-[11px] text-muted">{formatPostDate(activeSummary?.updatedAt ?? '')}</div>
           </div>
           <div className="space-y-4 px-4 py-5">
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_340px]">
@@ -1112,16 +1127,7 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
             disabled={selectionMode || saving || bulkBusy !== null}
             onClick={() => {
             const path = `${section}/${new Date().toISOString().slice(0, 10)}-new.md`
-            // Folder is the source of truth: posts/ → draft:false, drafts/ → draft:true.
-            const template = [
-              '---',
-              'title: ',
-              'tags: []',
-              `draft: ${isDraftSection}`,
-              '---',
-              '',
-              ''
-            ].join('\n')
+            const template = buildNewPostTemplate({ draft: isDraftSection })
             setSaving(true)
             setSaveError(null)
             void (async () => {
@@ -1150,24 +1156,107 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
         </div>
       </div>
 
-      <div className="relative mb-4">
-        <Search
-          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
-          strokeWidth={2}
-          aria-hidden
-        />
-        <Input
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder={
-            locale === 'ko'
-              ? '제목, 설명, 태그, 경로로 검색…'
-              : 'Search title, description, tags, path…'
-          }
-          aria-label={pick(locale, 'Search posts', '글 검색')}
-          className="h-10 pl-9"
-        />
+      <div className="mb-3 flex items-start gap-2">
+        <div className="relative min-w-0 flex-1">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+            strokeWidth={2}
+            aria-hidden
+          />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={
+              locale === 'ko'
+                ? '제목, 태그, 본문 키워드 검색…'
+                : 'Search title, tags, body keywords…'
+            }
+            aria-label={pick(locale, 'Search posts', '글 검색')}
+            className="h-10 pl-9"
+          />
+          {searchLoading ? (
+            <Loader2
+              className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted"
+              strokeWidth={2}
+              aria-hidden
+            />
+          ) : null}
+        </div>
+        {tagCounts.length > 0 ? (
+          <Tooltip label={pick(locale, tagPickerOpen ? 'Hide tags' : 'Browse tags', tagPickerOpen ? '태그 숨기기' : '태그 보기')}>
+            <Button
+              type="button"
+              variant="outline"
+              className={cn(
+                'h-10 shrink-0 gap-1.5 px-3 text-[12px]',
+                tagPickerOpen || selectedTagFilter ? 'border-accent/40 bg-panel2' : undefined
+              )}
+              aria-expanded={tagPickerOpen}
+              aria-label={pick(locale, 'Browse tags', '태그 보기')}
+              onClick={() => setTagPickerOpen((open) => !open)}
+            >
+              <Tags className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+              <span>{pick(locale, 'Tags', '태그')}</span>
+            </Button>
+          </Tooltip>
+        ) : null}
       </div>
+
+      <DeploySearchHint
+        locale={locale}
+        context={isDraftSection ? 'authoring-drafts' : 'authoring'}
+        className="mb-3"
+      />
+
+      {!tagPickerOpen && selectedTagFilter ? (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="text-[11px] uppercase tracking-[0.14em] text-muted">
+            {pick(locale, 'Filtered by tag', '태그 필터')}
+          </span>
+          <Badge className="normal-case tracking-normal">{selectedTagFilter}</Badge>
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-7 px-2 text-[11px] text-muted"
+            onClick={() => setSelectedTagFilter(null)}
+          >
+            {pick(locale, 'Clear', '해제')}
+          </Button>
+        </div>
+      ) : null}
+
+      {tagPickerOpen && tagCounts.length > 0 ? (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-panel2/40 p-3">
+          <button
+            type="button"
+            onClick={() => setSelectedTagFilter(null)}
+            className={cn(
+              'rounded-full border px-2.5 py-1 text-[11px] transition',
+              selectedTagFilter === null
+                ? 'border-accent/50 bg-panel2 text-ink'
+                : 'border-border text-muted hover:border-border hover:bg-panel2/70 hover:text-ink'
+            )}
+          >
+            {pick(locale, 'All tags', '전체 태그')}
+          </button>
+          {tagCounts.map(([tag, count]) => (
+            <button
+              key={tag}
+              type="button"
+              onClick={() => setSelectedTagFilter((current) => (current === tag ? null : tag))}
+              className={cn(
+                'rounded-full border px-2.5 py-1 text-[11px] transition',
+                selectedTagFilter === tag
+                  ? 'border-accent/50 bg-panel2 text-ink'
+                  : 'border-border text-muted hover:border-border hover:bg-panel2/70 hover:text-ink'
+              )}
+            >
+              {tag}
+              <span className="ml-1 font-mono text-[10px] opacity-70">{count}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {selectionMode ? (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-panel2/50 px-3 py-2.5">
@@ -1261,6 +1350,11 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
           <Card className="px-4 py-10 text-center text-sm text-muted">
             {pick(locale, 'No posts match your search.', '검색 결과가 없습니다.')}
           </Card>
+        ) : useDeepSearch && searchLoading && searchHits === null ? (
+          <Card className="flex items-center justify-center gap-2 px-4 py-10 text-sm text-muted">
+            <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden />
+            {pick(locale, 'Searching…', '검색 중…')}
+          </Card>
         ) : (
           filteredItems.map((item) => {
             const isSelected = selectedPaths.has(item.path)
@@ -1307,7 +1401,7 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="truncate text-sm font-semibold text-ink">{item.title}</div>
-                        <div className="mt-1 text-xs text-muted">{formatDate(item.updatedAt)}</div>
+                        <div className="mt-1 text-xs text-muted">{formatPostDate(item.updatedAt)}</div>
                       </div>
                       {!selectionMode ? (
                         <button
@@ -1337,8 +1431,8 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
                       ) : null}
                     </div>
                     <div className="mt-2 text-sm leading-6 text-muted">
-                      {item.description?.trim()
-                        ? item.description
+                      {item.snippet?.trim()
+                        ? item.snippet
                         : activeDocumentPath === item.path
                           ? snippetFromMarkdown(activeContent)
                           : ''}
@@ -1346,7 +1440,19 @@ export function PostsSurface({ locale, section }: { locale: AppLocale; section: 
                     {item.tags?.length ? (
                       <div className="mt-3 flex flex-wrap gap-2">
                         {item.tags.slice(0, 6).map((tag) => (
-                          <Badge key={tag}>{tag}</Badge>
+                          <Badge
+                            key={tag}
+                            className={cn(
+                              'cursor-pointer transition',
+                              selectedTagFilter === tag ? 'ring-1 ring-accent/40' : 'hover:bg-panel2'
+                            )}
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              setSelectedTagFilter((current) => (current === tag ? null : tag))
+                            }}
+                          >
+                            {tag}
+                          </Badge>
                         ))}
                       </div>
                     ) : null}

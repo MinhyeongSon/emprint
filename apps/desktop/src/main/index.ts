@@ -6,6 +6,28 @@ import { registerAssetProtocolHandler, registerAssetProtocolPrivilege } from './
 
 let mainWindow: BrowserWindow | null = null
 
+/** Playwright/CDP teardown can close stdout before Electron finishes logging (harmless EPIPE). */
+function ignoreBrokenPipe(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'code' in err &&
+    (err as NodeJS.ErrnoException).code === 'EPIPE'
+  )
+}
+
+for (const stream of [process.stdout, process.stderr]) {
+  stream?.on?.('error', (err) => {
+    if (ignoreBrokenPipe(err)) return
+  })
+}
+
+if (process.env.EMPRINT_QA_MODE === '1') {
+  process.on('uncaughtException', (err) => {
+    if (ignoreBrokenPipe(err)) return
+  })
+}
+
 /** Isolated userData for emprint-qa (Electron 40+ rejects --user-data-dir on CLI). */
 const qaUserDataDir = process.env.EMPRINT_QA_USER_DATA?.trim()
 if (qaUserDataDir) {

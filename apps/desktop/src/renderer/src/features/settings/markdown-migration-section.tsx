@@ -153,8 +153,8 @@ export function MarkdownMigrationSection({ locale }: { locale: AppLocale }) {
       <p className="text-sm leading-relaxed text-muted">
         {pick(
           locale,
-          'Import markdown files from a folder. Map your YAML frontmatter keys to Emprint fields, then copy files into this workspace.',
-          '폴더 안의 마크다운을 가져옵니다. YAML frontmatter 키를 Emprint 필드에 매핑한 뒤 이 워크스페이스로 복사합니다.'
+          'Import markdown files from a folder. Map your YAML frontmatter keys to Emprint fields, then copy files into this anthology.',
+          '폴더 안의 마크다운을 가져옵니다. YAML frontmatter 키를 Emprint 필드에 매핑한 뒤 이 앤솔로지로 복사합니다.'
         )}
       </p>
 

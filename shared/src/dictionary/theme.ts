@@ -80,21 +80,21 @@ const REFERENCE_LAYOUT: DictionaryThemeLayoutTokens = {
   measure: '42rem',
   wide: '76rem'
 }
-const ALPHABET_LAYOUT: DictionaryThemeLayoutTokens = {
-  measure: '44rem',
-  wide: 'min(84rem, 96vw)'
+const GRAPH_LAYOUT: DictionaryThemeLayoutTokens = {
+  measure: '48rem',
+  wide: 'min(96rem, 98vw)'
 }
-const COMPACT_LAYOUT: DictionaryThemeLayoutTokens = {
-  measure: '40rem',
-  wide: 'min(72rem, 94vw)'
+const ATLAS_LAYOUT: DictionaryThemeLayoutTokens = {
+  measure: '44rem',
+  wide: 'min(88rem, 96vw)'
 }
 const RADIUS: DictionaryThemeRadiusTokens = { sm: '4px', md: '8px', pill: '999px' }
 const PAPER_INK_RADIUS: DictionaryThemeRadiusTokens = { sm: '0px', md: '2px', pill: '2px' }
 
 const COMPOSITION_LAYOUT: Record<DictionaryLayoutComposition, DictionaryThemeLayoutTokens> = {
   reference: REFERENCE_LAYOUT,
-  alphabet: ALPHABET_LAYOUT,
-  compact: COMPACT_LAYOUT
+  graph: GRAPH_LAYOUT,
+  atlas: ATLAS_LAYOUT
 }
 
 function dictionaryPresetBase(presetId: DictionaryThemePresetId): Omit<DictionaryThemeFile, 'layoutComposition'> {

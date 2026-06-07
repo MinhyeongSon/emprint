@@ -1,23 +1,18 @@
-import matter from 'gray-matter'
 import type { DocumentAdapter, DocumentNode } from './types'
+import { parseMarkdown, serializeMarkdown } from './markdown-frontmatter'
 
 /** Editor-agnostic markdown + YAML frontmatter adapter for Column posts. */
 export class MarkdownPostDocumentAdapter implements DocumentAdapter {
   load(source: string): DocumentNode {
-    const parsed = matter(source)
-    const data = parsed.data
-    const frontmatter =
-      data && typeof data === 'object' && !Array.isArray(data)
-        ? (data as Record<string, unknown>)
-        : {}
+    const parsed = parseMarkdown(source)
     return {
-      body: parsed.content,
-      frontmatter
+      body: parsed.body,
+      frontmatter: parsed.data
     }
   }
 
   save(doc: DocumentNode): string {
-    return matter.stringify(doc.body, doc.frontmatter)
+    return serializeMarkdown({ data: doc.frontmatter, body: doc.body })
   }
 
   exportMarkdown(doc: DocumentNode): string {

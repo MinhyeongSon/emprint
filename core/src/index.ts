@@ -21,3 +21,4 @@ export type { CommandDefinition, CommandPaletteEntry, CommandScope } from './com
 export { WorkspaceRuntime, workspaceRuntime } from './runtime/workspace-runtime'
 export type { DocumentAdapter, DocumentNode } from './documents/types'
 export { MarkdownPostDocumentAdapter, markdownPostDocument } from './documents/markdown-post-document'
+export { frontmatterForYaml, parseMarkdown, serializeMarkdown } from './documents/markdown-frontmatter'

@@ -9,6 +9,7 @@ import {
 } from './column-styles'
 import { columnThemeToTokensCss } from '@emprint/shared'
 import { createColumnPageArtifacts } from './column-page-artifacts'
+import { createColumnPagefindScriptArtifact } from './column-search-artifacts'
 import syncThemeScript from './sync-theme.mjs?raw'
 import { createLandingIntroArtifacts } from '../shared/landing-intro-artifacts'
 import { footerAstroContent, sitePublicLibArtifact } from '../shared/footer-artifacts'
@@ -30,7 +31,10 @@ export function createColumnThemeArtifacts(ctx: SiteGenerationContext): Workspac
 const COLUMN_TEMPLATE_SYNC_PATHS = new Set([
   'src/components/PostCard.astro',
   'src/components/ColumnPostFeed.astro',
-  'src/layouts/Layout.astro'
+  'src/components/Header.astro',
+  'src/layouts/Layout.astro',
+  'src/layouts/PostLayout.astro',
+  'scripts/build-pagefind.mjs'
 ])
 
 /** Astro shells updated when theme.json is saved (layout composition). */
@@ -78,7 +82,8 @@ export function formatDate(input?: Date): string {
     },
     ...createColumnComponentArtifacts(lang),
     ...createLandingIntroArtifacts('ep-column'),
-    ...createColumnPageArtifacts()
+    createColumnPagefindScriptArtifact(),
+    ...createColumnPageArtifacts(lang)
   ]
 }
 
@@ -197,13 +202,13 @@ import { SITE_TITLE, SITE_DESCRIPTION } from '../lib/site'
 import ThemeToggle from './ThemeToggle.astro'
 
 interface Props {
-  current?: 'home' | 'archive' | 'tags'
+  current?: 'home' | 'archive' | 'tags' | 'search'
 }
 
 const { current } = Astro.props
 ---
 
-<header class="${EpColumnClasses.Header}">
+<header class="${EpColumnClasses.Header}" data-pagefind-ignore>
   <div class="${EpColumnClasses.HeaderInner} ${EpColumnClasses.Wide}">
     <div>
       <a class="${EpColumnClasses.HeaderBrand}" href={\`\${import.meta.env.BASE_URL}\`}>{SITE_TITLE}</a>
@@ -220,6 +225,9 @@ const { current } = Astro.props
       </a>
       <a href={\`\${import.meta.env.BASE_URL}tags/\`} aria-current={current === 'tags' ? 'page' : undefined}>
         ${lang === 'ko' ? '태그' : 'Tags'}
+      </a>
+      <a href={\`\${import.meta.env.BASE_URL}search/\`} aria-current={current === 'search' ? 'page' : undefined}>
+        ${lang === 'ko' ? '검색' : 'Search'}
       </a>
       </nav>
     </div>
@@ -463,10 +471,12 @@ import { SITE_LANG, SITE_TITLE, SITE_DESCRIPTION } from '../lib/site'
 interface Props {
   title?: string
   description?: string
-  current?: 'home' | 'archive' | 'tags'
+  current?: 'home' | 'archive' | 'tags' | 'search'
+  /** When true, main content may be indexed by Pagefind (post pages). */
+  indexForSearch?: boolean
 }
 
-const { title, description, current } = Astro.props
+const { title, description, current, indexForSearch = false } = Astro.props
 const fullTitle = title ? \`\${title} · \${SITE_TITLE}\` : SITE_TITLE
 const meta = description ?? SITE_DESCRIPTION
 const defaultColorMode =
@@ -506,7 +516,7 @@ const layoutComposition =
     <LandingIntro />
     <div class="${EpColumnClasses.Site}">
       <Header current={current} />
-      <main>
+      <main {...(!indexForSearch ? { 'data-pagefind-ignore': true } : {})}>
         <slot />
       </main>
       <Footer />
@@ -533,8 +543,14 @@ const { title, description, tags = [], createdAt, updatedAt } = Astro.props
 const date = updatedAt ?? createdAt
 ---
 
-<Layout title={title} description={description}>
-  <article class="${EpColumnClasses.Container}">
+<Layout title={title} description={description} indexForSearch>
+  <article
+    class="${EpColumnClasses.Container}"
+    data-pagefind-body
+    {...(tags.length > 0
+      ? { 'data-pagefind-meta': tags.map((t: string) => \`tag:\${t}\`).join(', ') }
+      : {})}
+  >
     <header class="${EpColumnClasses.PostHeader}">
       <div class="${EpColumnClasses.PostHeaderMeta}">
         {date ? <span>{formatDate(date)}</span> : null}
@@ -548,8 +564,10 @@ const date = updatedAt ?? createdAt
           </ul>
         ) : null}
       </div>
-      <h1 class="${EpColumnClasses.PostHeaderTitle}">{title}</h1>
-      {description ? <p class="${EpColumnClasses.PostHeaderDesc}">{description}</p> : null}
+      <h1 class="${EpColumnClasses.PostHeaderTitle}" data-pagefind-meta="title">{title}</h1>
+      {description ? (
+        <p class="${EpColumnClasses.PostHeaderDesc}" data-pagefind-meta="description">{description}</p>
+      ) : null}
     </header>
 
     <div class="${EpColumnClasses.Prose}">

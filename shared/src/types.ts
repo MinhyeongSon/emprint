@@ -118,6 +118,32 @@ export interface PostSummary {
   updatedAt: string
 }
 
+import type { PostSearchMatchField } from './column/post-search'
+import type { KnowledgeSearchMatchField } from './dictionary/knowledge-search'
+
+/** Column Posts list search result (desktop IPC). */
+export interface PostSearchHit {
+  path: string
+  title: string
+  description: string
+  tags: string[]
+  updatedAt: string
+  snippet: string
+  matchedIn: PostSearchMatchField[]
+}
+
+/** Dictionary knowledge list search result (desktop IPC). */
+export interface KnowledgeSearchHit {
+  path: string
+  title: string
+  description: string
+  index: string
+  tags: string[]
+  updatedAt: string
+  snippet: string
+  matchedIn: KnowledgeSearchMatchField[]
+}
+
 /** Dictionary knowledge entry summary (markdown under knowledge/ or drafts/). */
 export interface KnowledgeSummary {
   path: string
@@ -132,6 +158,14 @@ export interface KnowledgeSummary {
 }
 
 export type { IndexTreeNode } from './dictionary/index-path'
+export type { IndexEntrySummary } from './dictionary/index-registry'
+
+/** Dictionary Contents surface — index tree + published knowledge in one payload. */
+export interface DictionaryContentsSnapshot {
+  indexTree: import('./dictionary/index-path').IndexTreeNode[]
+  indexEntries: import('./dictionary/index-registry').IndexEntrySummary[]
+  knowledge: KnowledgeSummary[]
+}
 
 export interface InitializeWorkspaceResult {
   workspaceRoot: string
@@ -465,6 +499,8 @@ export interface GitHubRepoCreateResult {
   cloneUrl: string
   sshUrl: string
   defaultBranch: string
+  /** True when Emprint auto-enabled Pages (GitHub Actions source) on the new repo. */
+  pagesAutoEnabled?: boolean
 }
 
 export interface GitInitialSyncResult {

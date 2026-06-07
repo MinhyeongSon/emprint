@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ImageOff, Loader2, RefreshCw, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ImageOff, Loader2, RefreshCw, Trash2, Upload } from 'lucide-react'
 import { pick } from '@renderer/lib/i18n'
 import type { AppLocale, AssetImageInfo, AssetPublishScope, AssetReference } from '@emprint/shared'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
 import { Tooltip } from '@renderer/components/ui/tooltip'
+import { uploadWorkspaceAssetFiles } from '@renderer/lib/asset-upload'
 import { workspaceAssetPathToAssetUrl } from '@renderer/lib/asset-paths'
 import { useAppStore } from '@renderer/state/app-store'
 import { cn } from '@renderer/lib/cn'
@@ -40,9 +41,15 @@ export function AssetsSurface({ locale }: { locale: AppLocale }) {
   const bumpWorkspaceGitRefresh = useAppStore((state) => state.bumpWorkspaceGitRefresh)
   const setActiveSection = useAppStore((state) => state.setActiveSection)
   const openEditor = useAppStore((state) => state.openEditor)
+  const siteProjectKind =
+    useAppStore((state) => state.workspaceConfig?.siteProjectKind) ??
+    useAppStore((state) => state.workspaceResult?.manifest.siteProjectKind) ??
+    'column'
 
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [images, setImages] = useState<AssetImageInfo[]>([])
   const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -97,6 +104,29 @@ export function AssetsSurface({ locale }: { locale: AppLocale }) {
     setPendingDelete(null)
   }, [])
 
+  const handleUploadFiles = useCallback(
+    async (fileList: FileList | null) => {
+      if (!fileList?.length) return
+      setUploading(true)
+      setError(null)
+      try {
+        const { saved, errors } = await uploadWorkspaceAssetFiles(Array.from(fileList))
+        if (errors.length > 0) {
+          setError(errors.join(' '))
+        }
+        if (saved.length > 0) {
+          bumpWorkspaceGitRefresh()
+          setSelected(saved[saved.length - 1]!.path)
+        }
+        await load()
+      } finally {
+        setUploading(false)
+        if (fileInputRef.current) fileInputRef.current.value = ''
+      }
+    },
+    [bumpWorkspaceGitRefresh, load]
+  )
+
   const confirmDelete = useCallback(async () => {
     const image = pendingDelete
     if (!image) return
@@ -118,14 +148,41 @@ export function AssetsSurface({ locale }: { locale: AppLocale }) {
     (ref: AssetReference) => {
       // Close any open delete dialog so the navigation isn't hidden behind it.
       setPendingDelete(null)
-      setActiveSection(ref.section)
+      const section =
+        ref.section === 'knowledge'
+          ? 'contents'
+          : ref.section === 'story'
+            ? 'story'
+            : ref.section
+      setActiveSection(section)
       openEditor(ref.postPath)
     },
     [openEditor, setActiveSection]
   )
 
+  const emptyHint =
+    siteProjectKind === 'memoir'
+      ? pick(
+          locale,
+          'No images yet. Upload here or from a section image field in Sections.',
+          '아직 이미지가 없습니다. 여기서 업로드하거나 Sections의 이미지 필드에서 추가하세요.'
+        )
+      : pick(
+          locale,
+          'No images yet. Upload here or drag an image into a post or draft.',
+          '아직 이미지가 없습니다. 여기서 업로드하거나 글·드래프트에 이미지를 드래그하세요.'
+        )
+
   return (
     <div className="mx-auto w-full max-w-[1180px] px-4 py-8 lg:px-10">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+        multiple
+        className="sr-only"
+        onChange={(e) => void handleUploadFiles(e.target.files)}
+      />
       <div className="mb-6 flex items-end justify-between gap-4">
         <div>
           <div className="text-[11px] uppercase tracking-[0.16em] text-muted">Assets</div>
@@ -151,21 +208,37 @@ export function AssetsSurface({ locale }: { locale: AppLocale }) {
             )}
           </div>
         </div>
-        <Button
-          variant="outline"
-          type="button"
-          className="h-8 w-8 shrink-0 p-0"
-          aria-label={pick(locale, 'Refresh', '새로고침')}
-          title={pick(locale, 'Refresh', '새로고침')}
-          onClick={() => void load()}
-          disabled={loading}
-        >
-          {loading ? (
-            <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden />
-          ) : (
-            <RefreshCw className="h-4 w-4" strokeWidth={2} />
-          )}
-        </Button>
+        <div className="flex shrink-0 gap-2">
+          <Button
+            variant="outline"
+            type="button"
+            className="h-8 gap-1.5 px-3 text-xs"
+            disabled={uploading}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {uploading ? (
+              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden />
+            ) : (
+              <Upload className="h-4 w-4" strokeWidth={2} aria-hidden />
+            )}
+            {pick(locale, 'Upload', '업로드')}
+          </Button>
+          <Button
+            variant="outline"
+            type="button"
+            className="h-8 w-8 shrink-0 p-0"
+            aria-label={pick(locale, 'Refresh', '새로고침')}
+            title={pick(locale, 'Refresh', '새로고침')}
+            onClick={() => void load()}
+            disabled={loading}
+          >
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden />
+            ) : (
+              <RefreshCw className="h-4 w-4" strokeWidth={2} />
+            )}
+          </Button>
+        </div>
       </div>
 
       {error ? (
@@ -181,13 +254,21 @@ export function AssetsSurface({ locale }: { locale: AppLocale }) {
           ) : images.length === 0 ? (
             <Card className="flex flex-col items-center gap-3 px-4 py-14 text-center text-sm text-muted">
               <ImageOff className="h-5 w-5" strokeWidth={2} aria-hidden />
-              <div>
-                {pick(
-                  locale,
-                  'No images yet. Drag and drop an image into a post or draft to add it here.',
-                  '아직 이미지가 없습니다. 글 작성 화면에 이미지를 드래그&드롭으로 넣으면 여기에 추가됩니다.'
+              <div>{emptyHint}</div>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-8 gap-1.5 text-xs"
+                disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {uploading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} aria-hidden />
+                ) : (
+                  <Upload className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
                 )}
-              </div>
+                {pick(locale, 'Upload image', '이미지 업로드')}
+              </Button>
             </Card>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">

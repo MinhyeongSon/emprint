@@ -846,3 +846,173 @@ html[data-ep-layout-composition='alphabet'] .ep-dictionary-IndexNav--inline .ep-
   color: var(--ep-dictionary-color-accent);
   border-bottom: none;
 }
+
+/* --- Layout composition: graph --- */
+
+html[data-ep-layout-composition='graph'] .ep-dictionary-u-Container,
+html[data-ep-layout-composition='graph'] .ep-dictionary-u-Wide {
+  max-width: var(--ep-dictionary-layout-wide);
+}
+
+.ep-dictionary-TopicGraph {
+  margin: 0 auto;
+  padding: 1rem 0 2rem;
+}
+
+.ep-dictionary-TopicGraph-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 16rem;
+  background: var(--ep-dictionary-color-surface);
+  border: 1px solid var(--ep-dictionary-color-rule);
+  border-radius: var(--ep-dictionary-radius-md);
+}
+
+.ep-dictionary-TopicGraph-edge {
+  fill: none;
+}
+
+.ep-dictionary-TopicGraph-edge-index {
+  stroke: var(--ep-dictionary-color-accent);
+  stroke-width: 1.35;
+  stroke-opacity: 0.55;
+}
+
+.ep-dictionary-TopicGraph-edge-entry {
+  stroke: var(--ep-dictionary-color-muted);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+  stroke-opacity: 0.8;
+}
+
+.ep-dictionary-TopicGraph-node-index circle {
+  fill: var(--ep-dictionary-color-accent-soft);
+  stroke: var(--ep-dictionary-color-accent);
+  stroke-width: 1.5;
+}
+
+.ep-dictionary-TopicGraph-node-entry circle {
+  fill: var(--ep-dictionary-color-bg);
+  stroke: var(--ep-dictionary-color-muted);
+  stroke-width: 1.2;
+}
+
+.ep-dictionary-TopicGraph-node a {
+  border-bottom: none;
+}
+
+.ep-dictionary-TopicGraph-node a circle {
+  transition: stroke-width 0.12s ease, filter 0.12s ease;
+}
+
+.ep-dictionary-TopicGraph-node:hover a circle,
+.ep-dictionary-TopicGraph-node:focus-within a circle {
+  stroke-width: 2;
+  filter: brightness(1.04);
+}
+
+.ep-dictionary-TopicGraph-tooltip {
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  pointer-events: none;
+}
+
+.ep-dictionary-TopicGraph-node:hover .ep-dictionary-TopicGraph-tooltip,
+.ep-dictionary-TopicGraph-node:focus-within .ep-dictionary-TopicGraph-tooltip {
+  opacity: 1;
+}
+
+.ep-dictionary-TopicGraph-tooltip-bg {
+  fill: var(--ep-dictionary-color-ink);
+  fill-opacity: 0.94;
+}
+
+.ep-dictionary-TopicGraph-tooltip-text {
+  font-family: var(--ep-dictionary-font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  fill: var(--ep-dictionary-color-bg);
+}
+
+/* --- ep-dictionary-Search (Pagefind UI) --- */
+
+.ep-dictionary-Search .pagefind-ui {
+  --pagefind-ui-scale: 0.95;
+  --pagefind-ui-font: var(--ep-dictionary-font-sans);
+  --pagefind-ui-primary: var(--ep-dictionary-color-accent);
+  --pagefind-ui-text: var(--ep-dictionary-color-ink);
+  --pagefind-ui-background: var(--ep-dictionary-color-surface);
+  --pagefind-ui-border: var(--ep-dictionary-color-rule);
+  --pagefind-ui-tag: var(--ep-dictionary-color-accent-soft);
+  --pagefind-ui-border-width: 1px;
+  --pagefind-ui-border-radius: 0.5rem;
+  --pagefind-ui-image-border-radius: 0.375rem;
+}
+
+html[data-ep-color-mode='dark'] .ep-dictionary-Search .pagefind-ui {
+  --pagefind-ui-text: var(--ep-dictionary-color-ink);
+  --pagefind-ui-background: var(--ep-dictionary-color-surface);
+  --pagefind-ui-border: var(--ep-dictionary-color-rule);
+  --pagefind-ui-tag: var(--ep-dictionary-color-accent-soft);
+}
+
+.ep-dictionary-Search .pagefind-ui__form input {
+  font-family: var(--ep-dictionary-font-sans);
+}
+
+.ep-dictionary-Search .pagefind-ui__result-title {
+  font-family: var(--ep-dictionary-font-serif);
+}
+
+/* --- Layout composition: atlas --- */
+
+html[data-ep-layout-composition='atlas'] .ep-dictionary-u-Container,
+html[data-ep-layout-composition='atlas'] .ep-dictionary-u-Wide {
+  max-width: var(--ep-dictionary-layout-wide);
+}
+
+.ep-dictionary-AtlasGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 1rem;
+  padding: 1rem 0 2rem;
+}
+
+.ep-dictionary-AtlasTile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-height: 8rem;
+  padding: 1.1rem 1.15rem;
+  border: 1px solid var(--ep-dictionary-color-rule);
+  border-radius: var(--ep-dictionary-radius-md);
+  background: linear-gradient(
+    145deg,
+    var(--ep-dictionary-color-surface) 0%,
+    var(--ep-dictionary-color-bg) 100%
+  );
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.ep-dictionary-AtlasTile:hover {
+  border-color: var(--ep-dictionary-color-accent);
+  transform: translateY(-2px);
+  border-bottom: none;
+}
+
+.ep-dictionary-AtlasTile-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--ep-dictionary-color-ink);
+}
+
+.ep-dictionary-AtlasTile-meta {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--ep-dictionary-color-muted);
+}

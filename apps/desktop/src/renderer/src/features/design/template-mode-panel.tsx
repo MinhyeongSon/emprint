@@ -60,9 +60,8 @@ import {
   type FragmentsThemePresetId
 } from '@emprint/shared'
 import { Button } from '@renderer/components/ui/button'
-import { Card } from '@renderer/components/ui/card'
-import { cn } from '@renderer/lib/cn'
 import { LandingIntroPanel } from './landing-intro-panel'
+import { TemplateCompositionCard, TemplatePaletteCard } from './template-composition-card'
 import { THEME_JSON_PATH } from './design-workspace-paths'
 import { useAppStore } from '@renderer/state/app-store'
 import { pick } from '@renderer/lib/i18n'
@@ -235,7 +234,7 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
     if (!columnDirty) return
     const api = window.emprint?.workspaceSrc
     if (!api?.save) {
-      setError(pick(locale, 'Workspace source API unavailable.', '워크스페이스 소스 API를 사용할 수 없습니다.'))
+      setError(pick(locale, 'Anthology site API unavailable.', '앤솔로지 사이트 API를 사용할 수 없습니다.'))
       return
     }
     setBusy(true)
@@ -271,7 +270,7 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
     if (!dictionaryDirty) return
     const api = window.emprint?.workspaceSrc
     if (!api?.save) {
-      setError(pick(locale, 'Workspace source API unavailable.', '워크스페이스 소스 API를 사용할 수 없습니다.'))
+      setError(pick(locale, 'Anthology site API unavailable.', '앤솔로지 사이트 API를 사용할 수 없습니다.'))
       return
     }
     setBusy(true)
@@ -307,7 +306,7 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
     if (!bookDirty) return
     const api = window.emprint?.workspaceSrc
     if (!api?.save) {
-      setError(pick(locale, 'Workspace API unavailable.', '워크스페이스 API를 사용할 수 없습니다.'))
+      setError(pick(locale, 'Anthology API unavailable.', '앤솔로지 API를 사용할 수 없습니다.'))
       return
     }
     setBusy(true)
@@ -343,7 +342,7 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
     if (!fragmentsDirty) return
     const api = window.emprint?.workspaceSrc
     if (!api?.save) {
-      setError(pick(locale, 'Workspace API unavailable.', '워크스페이스 API를 사용할 수 없습니다.'))
+      setError(pick(locale, 'Anthology API unavailable.', '앤솔로지 API를 사용할 수 없습니다.'))
       return
     }
     setBusy(true)
@@ -382,7 +381,7 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
     if (!memoirDirty) return
     const api = window.emprint?.workspaceSrc
     if (!api?.save) {
-      setError(pick(locale, 'Workspace source API unavailable.', '워크스페이스 소스 API를 사용할 수 없습니다.'))
+      setError(pick(locale, 'Anthology site API unavailable.', '앤솔로지 사이트 API를 사용할 수 없습니다.'))
       return
     }
     setBusy(true)
@@ -416,37 +415,6 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <div className="text-[11px] uppercase tracking-[0.16em] text-muted">
-          {pick(locale, 'Template', '템플릿')}
-        </div>
-        <p className="mt-1 text-sm text-muted">
-          {siteKind === 'book'
-            ? pick(
-                locale,
-                'Choose Pages (page-turn) or Scroll (continuous), then a color palette.',
-                'Pages(넘기기) 또는 Scroll(스크롤) 레이아웃과 색감을 고릅니다.'
-              )
-            : siteKind === 'fragments'
-            ? pick(
-                locale,
-                'Choose a public layout (LP Shelf or Gallery masonry), then a color palette.',
-                '공개 레이아웃(LP 선반 또는 갤러리 메이슨리)과 색감을 고릅니다.'
-              )
-            : siteKind === 'memoir'
-              ? pick(
-                  locale,
-                  'Choose how sections are composed on the page, then pick a color palette. Both are stored in config/theme.json.',
-                  '페이지에서 섹션을 어떻게 배치할지(레이아웃 컴포지션)와 색감(팔레트)을 고릅니다. 둘 다 config/theme.json에 저장됩니다.'
-                )
-              : pick(
-                  locale,
-                  'Choose how posts are laid out on the homepage and archive, then pick a color palette. Both are stored in config/theme.json.',
-                  '홈·아카이브에서 글 목록을 어떻게 배치할지(레이아웃 컴포지션)와 색감(팔레트)을 고릅니다. 둘 다 config/theme.json에 저장됩니다.'
-                )}
-        </p>
-      </div>
-
       {error ? (
         <div className="rounded-md border border-danger/50 bg-dangerBg px-3 py-2 text-xs text-dangerInk">{error}</div>
       ) : null}
@@ -458,34 +426,16 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
               {pick(locale, 'Pages', 'Pages')}
             </h2>
             <div className="grid gap-3 sm:grid-cols-2">
-              {BOOK_LAYOUT_COMPOSITIONS.map((item) => {
-                const selected = draftBookComposition === item.id
-                return (
-                  <Card
-                    key={item.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setDraftBookComposition(item.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        setDraftBookComposition(item.id)
-                      }
-                    }}
-                    className={cn(
-                      'cursor-pointer space-y-2 border p-4 transition outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
-                      selected ? 'border-accent/50 bg-panel2/60' : 'border-border bg-panel hover:border-accent/30'
-                    )}
-                  >
-                    <div className="text-sm font-semibold text-ink">
-                      {locale === 'ko' ? item.labelKo : item.labelEn}
-                    </div>
-                    <p className="text-xs leading-relaxed text-muted">
-                      {locale === 'ko' ? item.descriptionKo : item.descriptionEn}
-                    </p>
-                  </Card>
-                )
-              })}
+              {BOOK_LAYOUT_COMPOSITIONS.map((item) => (
+                <TemplateCompositionCard
+                  key={item.id}
+                  selected={draftBookComposition === item.id}
+                  siteKind="book"
+                  compositionId={item.id}
+                  title={locale === 'ko' ? item.labelKo : item.labelEn}
+                  onSelect={() => setDraftBookComposition(item.id)}
+                />
+              ))}
             </div>
           </section>
           <section className="space-y-3">
@@ -493,34 +443,15 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
               {pick(locale, 'Color palette', '색감')}
             </h2>
             <div className="grid gap-3 sm:grid-cols-2">
-              {COLOR_PALETTES.map((item) => {
-                const selected = draftBookPreset === item.id
-                return (
-                  <Card
-                    key={item.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setDraftBookPreset(item.id as BookThemePresetId)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        setDraftBookPreset(item.id as BookThemePresetId)
-                      }
-                    }}
-                    className={cn(
-                      'cursor-pointer space-y-2 border p-4 transition outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
-                      selected ? 'border-accent/50 bg-panel2/60' : 'border-border bg-panel hover:border-accent/30'
-                    )}
-                  >
-                    <div className="text-sm font-semibold text-ink">
-                      {locale === 'ko' ? item.labelKo : item.labelEn}
-                    </div>
-                    <p className="text-xs leading-relaxed text-muted">
-                      {locale === 'ko' ? item.hintKo : item.hintEn}
-                    </p>
-                  </Card>
-                )
-              })}
+              {COLOR_PALETTES.map((item) => (
+                <TemplatePaletteCard
+                  key={item.id}
+                  selected={draftBookPreset === item.id}
+                  paletteId={item.id}
+                  title={locale === 'ko' ? item.labelKo : item.labelEn}
+                  onSelect={() => setDraftBookPreset(item.id as BookThemePresetId)}
+                />
+              ))}
             </div>
           </section>
           <Button
@@ -543,34 +474,16 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
               {pick(locale, 'Layout', '레이아웃')}
             </h2>
             <div className="grid gap-3 sm:grid-cols-2">
-              {FRAGMENTS_LAYOUT_COMPOSITIONS.map((item) => {
-                const selected = draftFragmentsComposition === item.id
-                return (
-                  <Card
-                    key={item.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setDraftFragmentsComposition(item.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        setDraftFragmentsComposition(item.id)
-                      }
-                    }}
-                    className={cn(
-                      'cursor-pointer space-y-2 border p-4 transition outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
-                      selected ? 'border-accent/50 bg-panel2/60' : 'border-border bg-panel hover:border-accent/30'
-                    )}
-                  >
-                    <div className="text-sm font-semibold text-ink">
-                      {locale === 'ko' ? item.labelKo : item.labelEn}
-                    </div>
-                    <p className="text-xs leading-relaxed text-muted">
-                      {locale === 'ko' ? item.descriptionKo : item.descriptionEn}
-                    </p>
-                  </Card>
-                )
-              })}
+              {FRAGMENTS_LAYOUT_COMPOSITIONS.map((item) => (
+                <TemplateCompositionCard
+                  key={item.id}
+                  selected={draftFragmentsComposition === item.id}
+                  siteKind="fragments"
+                  compositionId={item.id}
+                  title={locale === 'ko' ? item.labelKo : item.labelEn}
+                  onSelect={() => setDraftFragmentsComposition(item.id)}
+                />
+              ))}
             </div>
           </section>
           <section className="space-y-3">
@@ -578,34 +491,15 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
               {pick(locale, 'Color palette', '색감')}
             </h2>
             <div className="grid gap-3 sm:grid-cols-2">
-              {COLOR_PALETTES.map((item) => {
-                const selected = draftFragmentsPreset === item.id
-                return (
-                  <Card
-                    key={item.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setDraftFragmentsPreset(item.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        setDraftFragmentsPreset(item.id)
-                      }
-                    }}
-                    className={cn(
-                      'cursor-pointer space-y-2 border p-4 transition outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
-                      selected ? 'border-accent/50 bg-panel2/60' : 'border-border bg-panel hover:border-accent/30'
-                    )}
-                  >
-                    <div className="text-sm font-semibold text-ink">
-                      {locale === 'ko' ? item.labelKo : item.labelEn}
-                    </div>
-                    <p className="text-xs leading-relaxed text-muted">
-                      {locale === 'ko' ? item.hintKo : item.hintEn}
-                    </p>
-                  </Card>
-                )
-              })}
+              {COLOR_PALETTES.map((item) => (
+                <TemplatePaletteCard
+                  key={item.id}
+                  selected={draftFragmentsPreset === item.id}
+                  paletteId={item.id}
+                  title={locale === 'ko' ? item.labelKo : item.labelEn}
+                  onSelect={() => setDraftFragmentsPreset(item.id)}
+                />
+              ))}
             </div>
           </section>
           <Button
@@ -628,34 +522,16 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
               {pick(locale, 'Layout composition', '레이아웃 컴포지션')}
             </h2>
             <div className="grid gap-3 sm:grid-cols-3">
-              {LAYOUT_COMPOSITIONS.map((item) => {
-                const selected = draftComposition === item.id
-                return (
-                  <Card
-                    key={item.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setDraftComposition(item.id as LayoutCompositionId)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        setDraftComposition(item.id as LayoutCompositionId)
-                      }
-                    }}
-                    className={cn(
-                      'cursor-pointer space-y-2 border p-4 transition outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
-                      selected ? 'border-accent/50 bg-panel2/60' : 'border-border bg-panel hover:border-accent/30'
-                    )}
-                  >
-                    <div className="text-sm font-semibold text-ink">
-                      {locale === 'ko' ? item.labelKo : item.labelEn}
-                    </div>
-                    <p className="text-xs leading-relaxed text-muted">
-                      {locale === 'ko' ? item.hintKo : item.hintEn}
-                    </p>
-                  </Card>
-                )
-              })}
+              {LAYOUT_COMPOSITIONS.map((item) => (
+                <TemplateCompositionCard
+                  key={item.id}
+                  selected={draftComposition === item.id}
+                  siteKind="memoir"
+                  compositionId={item.id}
+                  title={locale === 'ko' ? item.labelKo : item.labelEn}
+                  onSelect={() => setDraftComposition(item.id as LayoutCompositionId)}
+                />
+              ))}
             </div>
           </section>
 
@@ -664,34 +540,15 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
               {pick(locale, 'Color palette', '색감')}
             </h2>
             <div className="grid gap-3 sm:grid-cols-2">
-              {COLOR_PALETTES.map((item) => {
-                const selected = draftPalette === item.id
-                return (
-                  <Card
-                    key={item.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setDraftPalette(item.id as ColorPaletteId)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        setDraftPalette(item.id as ColorPaletteId)
-                      }
-                    }}
-                    className={cn(
-                      'cursor-pointer space-y-2 border p-4 transition outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
-                      selected ? 'border-accent/50 bg-panel2/60' : 'border-border bg-panel hover:border-accent/30'
-                    )}
-                  >
-                    <div className="text-sm font-semibold text-ink">
-                      {locale === 'ko' ? item.labelKo : item.labelEn}
-                    </div>
-                    <p className="text-xs leading-relaxed text-muted">
-                      {locale === 'ko' ? item.hintKo : item.hintEn}
-                    </p>
-                  </Card>
-                )
-              })}
+              {COLOR_PALETTES.map((item) => (
+                <TemplatePaletteCard
+                  key={item.id}
+                  selected={draftPalette === item.id}
+                  paletteId={item.id}
+                  title={locale === 'ko' ? item.labelKo : item.labelEn}
+                  onSelect={() => setDraftPalette(item.id as ColorPaletteId)}
+                />
+              ))}
             </div>
           </section>
           <Button
@@ -709,75 +566,26 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
         </>
       ) : siteKind === 'dictionary' ? (
         <>
-          <section className="space-y-3">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">
-              {pick(locale, 'Layout composition', '레이아웃 컴포지션')}
-            </h2>
-            <div className="grid gap-3 sm:grid-cols-3">
-              {DICTIONARY_LAYOUT_COMPOSITIONS.map((item) => {
-                const selected = draftDictionaryComposition === item.id
-                return (
-                  <Card
-                    key={item.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setDraftDictionaryComposition(item.id as DictionaryLayoutCompositionId)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        setDraftDictionaryComposition(item.id as DictionaryLayoutCompositionId)
-                      }
-                    }}
-                    className={cn(
-                      'cursor-pointer space-y-2 border p-4 transition outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
-                      selected ? 'border-accent/50 bg-panel2/60' : 'border-border bg-panel hover:border-accent/30'
-                    )}
-                  >
-                    <div className="text-sm font-semibold text-ink">
-                      {locale === 'ko' ? item.labelKo : item.labelEn}
-                    </div>
-                    <p className="text-xs leading-relaxed text-muted">
-                      {locale === 'ko' ? item.hintKo : item.hintEn}
-                    </p>
-                  </Card>
-                )
-              })}
-            </div>
-          </section>
+          <DictionaryCompositionSections
+            locale={locale}
+            selected={draftDictionaryComposition}
+            onSelect={setDraftDictionaryComposition}
+          />
 
           <section className="space-y-3">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">
               {pick(locale, 'Color palette', '색감')}
             </h2>
             <div className="grid gap-3 sm:grid-cols-2">
-              {COLOR_PALETTES.map((item) => {
-                const selected = draftDictionaryPreset === item.id
-                return (
-                  <Card
-                    key={item.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setDraftDictionaryPreset(item.id as DictionaryThemePresetId)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        setDraftDictionaryPreset(item.id as DictionaryThemePresetId)
-                      }
-                    }}
-                    className={cn(
-                      'cursor-pointer space-y-2 border p-4 transition outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
-                      selected ? 'border-accent/50 bg-panel2/60' : 'border-border bg-panel hover:border-accent/30'
-                    )}
-                  >
-                    <div className="text-sm font-semibold text-ink">
-                      {locale === 'ko' ? item.labelKo : item.labelEn}
-                    </div>
-                    <p className="text-xs leading-relaxed text-muted">
-                      {locale === 'ko' ? item.hintKo : item.hintEn}
-                    </p>
-                  </Card>
-                )
-              })}
+              {COLOR_PALETTES.map((item) => (
+                <TemplatePaletteCard
+                  key={item.id}
+                  selected={draftDictionaryPreset === item.id}
+                  paletteId={item.id}
+                  title={locale === 'ko' ? item.labelKo : item.labelEn}
+                  onSelect={() => setDraftDictionaryPreset(item.id as DictionaryThemePresetId)}
+                />
+              ))}
             </div>
           </section>
           <Button
@@ -800,34 +608,16 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
               {pick(locale, 'Layout composition', '레이아웃 컴포지션')}
             </h2>
             <div className="grid gap-3 sm:grid-cols-3">
-              {COLUMN_LAYOUT_COMPOSITIONS.map((item) => {
-                const selected = draftColumnComposition === item.id
-                return (
-                  <Card
-                    key={item.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setDraftColumnComposition(item.id as ColumnLayoutCompositionId)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        setDraftColumnComposition(item.id as ColumnLayoutCompositionId)
-                      }
-                    }}
-                    className={cn(
-                      'cursor-pointer space-y-2 border p-4 transition outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
-                      selected ? 'border-accent/50 bg-panel2/60' : 'border-border bg-panel hover:border-accent/30'
-                    )}
-                  >
-                    <div className="text-sm font-semibold text-ink">
-                      {locale === 'ko' ? item.labelKo : item.labelEn}
-                    </div>
-                    <p className="text-xs leading-relaxed text-muted">
-                      {locale === 'ko' ? item.hintKo : item.hintEn}
-                    </p>
-                  </Card>
-                )
-              })}
+              {COLUMN_LAYOUT_COMPOSITIONS.map((item) => (
+                <TemplateCompositionCard
+                  key={item.id}
+                  selected={draftColumnComposition === item.id}
+                  siteKind="column"
+                  compositionId={item.id}
+                  title={locale === 'ko' ? item.labelKo : item.labelEn}
+                  onSelect={() => setDraftColumnComposition(item.id as ColumnLayoutCompositionId)}
+                />
+              ))}
             </div>
           </section>
 
@@ -836,34 +626,15 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
               {pick(locale, 'Color palette', '색감')}
             </h2>
             <div className="grid gap-3 sm:grid-cols-2">
-              {COLOR_PALETTES.map((item) => {
-                const selected = draftColumnPreset === item.id
-                return (
-                  <Card
-                    key={item.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setDraftColumnPreset(item.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        setDraftColumnPreset(item.id)
-                      }
-                    }}
-                    className={cn(
-                      'cursor-pointer space-y-2 border p-4 transition outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
-                      selected ? 'border-accent/50 bg-panel2/60' : 'border-border bg-panel hover:border-accent/30'
-                    )}
-                  >
-                    <div className="text-sm font-semibold text-ink">
-                      {locale === 'ko' ? item.labelKo : item.labelEn}
-                    </div>
-                    <p className="text-xs leading-relaxed text-muted">
-                      {locale === 'ko' ? item.hintKo : item.hintEn}
-                    </p>
-                  </Card>
-                )
-              })}
+              {COLOR_PALETTES.map((item) => (
+                <TemplatePaletteCard
+                  key={item.id}
+                  selected={draftColumnPreset === item.id}
+                  paletteId={item.id}
+                  title={locale === 'ko' ? item.labelKo : item.labelEn}
+                  onSelect={() => setDraftColumnPreset(item.id)}
+                />
+              ))}
             </div>
           </section>
           <Button
@@ -883,5 +654,35 @@ export function TemplateModePanel({ locale }: { locale: AppLocale }) {
 
       {siteKind !== 'book' ? <LandingIntroPanel locale={locale} /> : null}
     </div>
+  )
+}
+
+function DictionaryCompositionSections({
+  locale,
+  selected,
+  onSelect
+}: {
+  locale: AppLocale
+  selected: DictionaryLayoutComposition
+  onSelect(id: DictionaryLayoutCompositionId): void
+}) {
+  return (
+    <section className="space-y-3">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">
+        {pick(locale, 'Layout', '레이아웃')}
+      </h2>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {DICTIONARY_LAYOUT_COMPOSITIONS.map((item) => (
+          <TemplateCompositionCard
+            key={item.id}
+            selected={selected === item.id}
+            siteKind="dictionary"
+            compositionId={item.id}
+            title={locale === 'ko' ? item.labelKo : item.labelEn}
+            onSelect={() => onSelect(item.id)}
+          />
+        ))}
+      </div>
+    </section>
   )
 }

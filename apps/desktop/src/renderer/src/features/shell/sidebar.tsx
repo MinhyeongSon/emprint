@@ -1,6 +1,6 @@
 import type { AppLocale } from '@emprint/shared'
 import { cn } from '@renderer/lib/cn'
-import { getLocaleMessages, getSectionLabel } from '@renderer/lib/i18n'
+import { getAnthologyUi, getLocaleMessages, getSectionLabel } from '@renderer/lib/i18n'
 import type { SiteProjectKind } from '@emprint/shared'
 import type { SidebarSection } from '@renderer/state/app-store'
 import type { ReactNode } from 'react'
@@ -50,13 +50,12 @@ const memoirSections: Array<{ id: SidebarSection; shortcut: string }> = [
 ]
 
 const dictionarySections: Array<{ id: SidebarSection; shortcut: string }> = [
-  { id: 'index', shortcut: '1' },
-  { id: 'knowledge', shortcut: '2' },
-  { id: 'drafts', shortcut: '3' },
-  { id: 'assets', shortcut: '4' },
-  { id: 'design', shortcut: '5' },
-  { id: 'imprint', shortcut: '6' },
-  { id: 'settings', shortcut: '7' }
+  { id: 'contents', shortcut: '1' },
+  { id: 'drafts', shortcut: '2' },
+  { id: 'assets', shortcut: '3' },
+  { id: 'design', shortcut: '4' },
+  { id: 'imprint', shortcut: '5' },
+  { id: 'settings', shortcut: '6' }
 ]
 
 const fragmentsSections: Array<{ id: SidebarSection; shortcut: string }> = [
@@ -88,6 +87,7 @@ export function Sidebar({
   footer
 }: SidebarProps) {
   const m = getLocaleMessages(locale)
+  const t = getAnthologyUi(locale)
   const visibleSections =
     siteProjectKind === 'memoir'
       ? memoirSections
@@ -118,7 +118,9 @@ export function Sidebar({
         <div className="space-y-4">
           {workspaceRootDir ? (
             <div className="space-y-2 rounded-md border border-border bg-surface px-3 py-2.5">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-muted">Root</div>
+              <div className="text-[10px] uppercase tracking-[0.18em] text-muted">
+                {mode === 'hub' ? t.anthologiesRoot : m.shell.workspaceRoot}
+              </div>
               <div
                 className="truncate font-mono text-[11px] text-ink"
                 title={workspaceRootDir}

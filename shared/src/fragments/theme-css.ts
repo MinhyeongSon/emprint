@@ -58,15 +58,15 @@ function fragmentsAsAnthologyTheme(theme: FragmentsThemeFile): AnthologyThemeFil
     contractVersion: 1,
     anthology: 'fragments',
     classPrefix: theme.classPrefix,
-    colorMode: theme.colorMode,
+    ...(theme.colorMode !== undefined ? { colorMode: theme.colorMode } : {}),
     tokens: {
       color: lightColor,
       font: theme.tokens.font,
       layout: theme.tokens.layout,
       radius: theme.tokens.radius
     },
-    modes,
-    landingIntro: theme.landingIntro
+    ...(modes !== undefined ? { modes } : {}),
+    ...(theme.landingIntro !== undefined ? { landingIntro: theme.landingIntro } : {})
   }
 }
 

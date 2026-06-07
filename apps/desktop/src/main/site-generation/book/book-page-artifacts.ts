@@ -30,14 +30,30 @@ if (story) {
 }
 ---
 
-<Layout title={story?.data.title ?? 'Story'} current="home">
+<Layout
+  title={story?.data.title ?? 'Story'}
+  description={typeof story?.data.description === 'string' ? story.data.description : undefined}
+  current="home"
+>
   <div class="${EP.StoryInner}">
     {!story ? (
       <p class="${EP.Empty}">{emptyMsg}</p>
     ) : composition === 'scroll' ? (
-      <BookScroll title={story.data.title} raw={storyRaw} />
+      <BookScroll
+        title={story.data.title}
+        subtitle={typeof story.data.subtitle === 'string' ? story.data.subtitle : undefined}
+        description={typeof story.data.description === 'string' ? story.data.description : undefined}
+        author={typeof story.data.author === 'string' ? story.data.author : undefined}
+        raw={storyRaw}
+      />
     ) : (
-      <BookPages title={story.data.title} raw={storyRaw} />
+      <BookPages
+        title={story.data.title}
+        subtitle={typeof story.data.subtitle === 'string' ? story.data.subtitle : undefined}
+        description={typeof story.data.description === 'string' ? story.data.description : undefined}
+        author={typeof story.data.author === 'string' ? story.data.author : undefined}
+        raw={storyRaw}
+      />
     )}
   </div>
 </Layout>

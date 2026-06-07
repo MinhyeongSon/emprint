@@ -19,7 +19,7 @@ export function HubRecoveryOverlay({ locale }: HubRecoveryOverlayProps) {
       <div className="w-full max-w-md space-y-4 rounded-lg border border-border bg-surface p-6 shadow-lg">
         <div className="space-y-1 text-center">
           <div className="text-sm font-semibold text-ink">
-            {pick(locale, 'Restoring workspace', '워크스페이스 복구 중')}
+            {pick(locale, 'Restoring anthology', '앤솔로지 복구 중')}
           </div>
           <p className="text-xs text-muted">{hubRecovery.title}</p>
         </div>

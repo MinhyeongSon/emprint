@@ -34,6 +34,7 @@ import {
   MemoirLayoutPreview
 } from '@renderer/features/hub/workspace-format-previews'
 import { cn } from '@renderer/lib/cn'
+import { getAnthologyUi } from '@renderer/lib/i18n'
 
 function formatDate(value: string): string {
   const date = new Date(value)
@@ -43,6 +44,7 @@ function formatDate(value: string): string {
 
 export function WorkspaceHub() {
   const locale = useAppStore((state) => state.locale)
+  const t = getAnthologyUi(locale)
   const workspaces = useAppStore((state) => state.workspaces)
   const setWorkspaces = useAppStore((state) => state.setWorkspaces)
   const enterWorkspace = useAppStore((state) => state.enterWorkspace)
@@ -100,7 +102,7 @@ export function WorkspaceHub() {
     void loadCatalog()
       .catch((caught) => {
         if (!alive) return
-        setError(caught instanceof Error ? caught.message : locale === 'ko' ? '앤솔로지 목록을 불러오지 못했습니다.' : 'Failed to load anthologies.')
+        setError(caught instanceof Error ? caught.message : t.loadCatalogFailed)
       })
       .finally(() => {
         if (!alive) return
@@ -141,7 +143,7 @@ export function WorkspaceHub() {
     try {
       const api = window.emprint?.workspace
       if (!api?.open) {
-        throw new Error(locale === 'ko' ? '워크스페이스 API를 불러오지 못했습니다.' : 'Workspace API unavailable.')
+        throw new Error(t.apiUnavailable)
       }
       const result = await api.open({ localDirectory })
       // Minimal config for now; hub will eventually own full config.
@@ -153,6 +155,7 @@ export function WorkspaceHub() {
             locale,
             workspaceType: result.manifest.workspaceType,
             siteProjectKind: result.manifest.siteProjectKind ?? 'column',
+            publicationSlug: result.manifest.publicationSlug ?? result.manifest.name,
             templateId: result.manifest.templateId,
             title: result.manifest.title,
             description: result.manifest.description,
@@ -168,7 +171,7 @@ export function WorkspaceHub() {
         }
       )
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : locale === 'ko' ? '앤솔로지를 열지 못했습니다.' : 'Failed to open anthology.')
+      setError(caught instanceof Error ? caught.message : t.openFailed)
     }
   }
 
@@ -176,7 +179,7 @@ export function WorkspaceHub() {
     setError(null)
     setSuggestedRepoName(null)
     if (!workspaceRootDir?.trim()) {
-      setError(locale === 'ko' ? '먼저 워크스페이스 루트 폴더를 선택해 주세요.' : 'Please select a workspace root folder first.')
+      setError(t.selectRootFirst)
       return
     }
 
@@ -193,11 +196,7 @@ export function WorkspaceHub() {
 
     const publicationSlug = slugifyPublicationSlug(createPublicationSlug)
     if (!isValidPublicationSlug(publicationSlug)) {
-      setError(
-        locale === 'ko'
-          ? '발행 슬러그는 글자·숫자와 하이픈만 사용할 수 있습니다.'
-          : 'Publication slug may only use letters, numbers, and hyphens.'
-      )
+      setError(t.slugInvalid)
       return
     }
 
@@ -225,6 +224,12 @@ export function WorkspaceHub() {
           ...(createDescription.trim() ? { description: createDescription.trim() } : {})
         })
         remoteUrl = created.cloneUrl
+        if (created.pagesAutoEnabled === false) {
+          console.warn(
+            `[emprint] GitHub Pages was not auto-enabled for ${created.fullName}. ` +
+              'Open the repo Settings → Pages and set the build source to GitHub Actions, then re-run the deploy workflow.'
+          )
+        }
       }
 
       const config: WorkspaceConfig = {
@@ -283,13 +288,13 @@ export function WorkspaceHub() {
         setError(
           locale === 'ko'
             ? '같은 이름의 GitHub 레포가 이미 있습니다. 발행 슬러그를 바꿔 주세요.'
-            : 'A GitHub repository with this name already exists. Please choose a different publication slug.'
+            : 'A GitHub repository with this name already exists. Please choose a different anthology slug.'
         )
       } else if (message.includes('Select an empty directory') || message.includes('비어 있는 디렉터리')) {
         setError(
           locale === 'ko'
             ? `앤솔로지는 비어 있는 폴더에만 만들 수 있습니다. "${localDirectory}"에 이미 파일이 있습니다. 그 폴더를 삭제하거나 비운 뒤 다시 시도하거나, 발행 슬러그를 바꿔 주세요.`
-            : `New anthologies need an empty folder. "${localDirectory}" already has files. Delete or empty that folder and try again, or change the publication slug.`
+            : `New anthologies need an empty folder. "${localDirectory}" already has files. Delete or empty that folder and try again, or change the anthology slug.`
         )
       } else {
         setError(message || (locale === 'ko' ? '앤솔로지 생성에 실패했습니다.' : 'Failed to create anthology.'))
@@ -361,9 +366,7 @@ export function WorkspaceHub() {
           <div className="mb-5 flex items-end justify-between gap-4">
             <div>
               <div className="text-[11px] uppercase tracking-[0.16em] text-muted">{locale === 'ko' ? '목록' : 'List'}</div>
-              <div className="mt-2 text-[22px] font-semibold tracking-[-0.03em] text-ink">
-                {locale === 'ko' ? '앤솔로지' : 'Anthologies'}
-              </div>
+              <div className="mt-2 text-[22px] font-semibold tracking-[-0.03em] text-ink">{t.hubTitle}</div>
             </div>
           </div>
 
@@ -401,7 +404,7 @@ export function WorkspaceHub() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <div className="text-[11px] uppercase tracking-[0.16em] text-muted">
-                    {locale === 'ko' ? '새 앤솔로지' : 'New anthology'}
+                    {t.newAnthology}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -423,28 +426,28 @@ export function WorkspaceHub() {
 
               <div className="w-full space-y-2">
                 <div className="text-[11px] uppercase tracking-[0.16em] text-muted">
-                  {locale === 'ko' ? '사이트 형식' : 'Site format'}
+                  {t.type}
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   {(
                     [
                       {
                         kind: 'column' as const,
                         title: 'Column',
-                        subtitle: locale === 'ko' ? '블로그 · 글 타임라인' : 'Blog · post timeline',
+                        subtitle: locale === 'ko' ? '시간 · 글 타임라인' : 'Time · post timeline',
                         body:
                           locale === 'ko'
-                            ? 'posts/와 drafts/에서 Markdown 글을 쓰고 발행합니다.'
-                            : 'Write Markdown posts under posts/ and drafts/.'
+                            ? '날짜·태그·검색 중심의 글 피드. 계층형 주제 트리는 쓰지 않습니다.'
+                            : 'A dated post feed with tags and search — not a topic hierarchy.'
                       },
                       {
                         kind: 'dictionary' as const,
                         title: 'Dictionary',
-                        subtitle: locale === 'ko' ? '지식 베이스 · 계층 인덱스' : 'Knowledge base · hierarchical index',
+                        subtitle: locale === 'ko' ? '주제 · 계층 인덱스' : 'Topic · hierarchical index',
                         body:
                           locale === 'ko'
-                            ? 'knowledge/와 drafts/에서 Markdown 항목을 쓰고 index 필드로 분류합니다.'
-                            : 'Write Markdown entries under knowledge/ and drafts/ with an index path.'
+                            ? '목차 트리와 지식 항목을 한 화면에서 편집. Graph·Atlas 공개 템플릿 지원.'
+                            : 'Edit topic tree and entries together. Graph and Atlas public templates.'
                       },
                       {
                         kind: 'memoir' as const,
@@ -515,28 +518,37 @@ export function WorkspaceHub() {
                       </button>
                     )
                   })}
+                  <div
+                    role="presentation"
+                    aria-disabled="true"
+                    className="titlebar-nodrag relative flex min-h-[12.5rem] w-full min-w-0 flex-col gap-2 rounded-xl border border-dashed border-border/80 bg-panel/50 p-4 opacity-70"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold tracking-tight text-muted">{t.blankTypeTitle}</div>
+                      <div className="mt-0.5 text-xs text-muted">{t.blankTypeSubtitle}</div>
+                    </div>
+                    <div className="relative flex min-h-[5.5rem] flex-1 items-center justify-center rounded-lg border border-border/60 bg-panel2/40">
+                      <span className="text-sm font-semibold uppercase tracking-[0.2em] text-muted">{t.soon}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <div className="grid gap-3 lg:grid-cols-2">
                 <div className="space-y-1.5">
                   <div className="text-[11px] uppercase tracking-[0.16em] text-muted">
-                    {locale === 'ko' ? '발행 제목' : 'Publication title'}
+                    {t.title}
                   </div>
                   <Input
                     value={createTitle}
                     onChange={(e) => setCreateTitle(e.target.value)}
                     placeholder={locale === 'ko' ? '예: 나의 글쓰기' : 'e.g. My writing'}
                   />
-                  <div className="text-[11px] text-muted">
-                    {locale === 'ko'
-                      ? '사이트와 허브에 표시되는 이름입니다. 폴더 이름과는 별도입니다.'
-                      : 'Shown on your site and in the Hub. Separate from the folder slug.'}
-                  </div>
+                  <div className="text-[11px] text-muted">{t.titleHelp}</div>
                 </div>
                 <div className="space-y-1.5">
                   <div className="text-[11px] uppercase tracking-[0.16em] text-muted">
-                    {locale === 'ko' ? '발행 슬러그' : 'Publication slug'}
+                    {t.slug}
                   </div>
                   <Input
                     value={createPublicationSlug}
@@ -547,11 +559,7 @@ export function WorkspaceHub() {
                     placeholder={locale === 'ko' ? '예: my-writing' : 'e.g. my-writing'}
                     className="font-mono text-[12px]"
                   />
-                  <div className="text-[11px] text-muted">
-                    {locale === 'ko'
-                      ? '로컬 폴더와 GitHub 저장소 이름에 사용됩니다. 형식(Column 등)과 무관합니다.'
-                      : 'Used for the local folder and GitHub repo name. Independent of format (Column, etc.).'}
-                  </div>
+                  <div className="text-[11px] text-muted">{t.slugHelp}</div>
                 </div>
               </div>
 
@@ -573,7 +581,7 @@ export function WorkspaceHub() {
                 <Textarea
                   value={createDescription}
                   onChange={(e) => setCreateDescription(e.target.value)}
-                  placeholder={locale === 'ko' ? '한 줄로 이 앤솔로지를 설명해 주세요.' : 'Describe this anthology in one line.'}
+                  placeholder={t.describeAnthology}
                 />
               </div>
 
